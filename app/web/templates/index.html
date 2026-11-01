@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Stock quote</h1>
+<form action="/" method="get" hx-get="/quote" hx-target="#result" hx-indicator="#loading" class="quote-form">
+  <label for="ticker">Ticker</label>
+  <input id="ticker" name="ticker" value="{{ ticker }}" placeholder="e.g. AAPL" maxlength="12"
+         autocomplete="off" autocapitalize="characters" required autofocus>
+  <button type="submit">Get quote</button>
+  <span id="loading" class="htmx-indicator">Fetching…</span>
+</form>
+<div id="result">{% include "_quote_result.html" %}</div>
+{% endblock %}
