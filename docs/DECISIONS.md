@@ -2,6 +2,19 @@
 
 > One entry per meaningful choice, newest at the top. This stops future sessions from quietly undoing past decisions.
 
+## 2026-11-01 — Phase 1 build choices (small ones, recorded so they aren't undone by accident)
+- **Decision:**
+  - **HTMX is saved in the repo** (`app/web/static/htmx.min.js`, version 2.0.4, checked against the npm registry's published fingerprint), not loaded from a website.
+  - **Settings come from `pydantic-settings`**, which reads `.env`. It's a small library from the same people as FastAPI's validation library.
+  - **`instruments` and `quotes` have no `user_id`.** A stock price is a shared fact about the market, not something a user owns. Watchlists, trades and reports will have `user_id`.
+  - **Quotes come from Yahoo's last 5 daily price bars.** The latest close (today's price during market hours) is the price; the one before it is the previous close used for the day change.
+  - **"Not found" vs. "Yahoo is down":** yfinance is told to raise errors instead of hiding them. If it says "no such ticker" for a ticker we've stored before, we treat it as a source problem and show the stored price as stale.
+  - **Migrations are run by you (`uv run alembic upgrade head`), not automatically.** If you forget, the app stops at startup with a message telling you the command.
+  - **`tzdata` is installed on Windows only**, so US Eastern times display correctly there too. Mac and Linux already have this data.
+- **Why:** These are the simplest choices that work offline, keep tests off the network, and follow the "one failing source never breaks a page" rule.
+- **Alternatives considered:** loading HTMX from a CDN (needs internet, could change under us); Yahoo's `info` call for quotes (slower and rate-limited more often); creating tables automatically at startup (hides migration mistakes).
+- **Revisit if:** Phase 2 needs intraday fields Yahoo's daily bars don't give (day range, volume and market cap may need `fast_info`).
+
 ## 2026-11-01 — X/Twitter: no scraping; pluggable, capped, decided later (OPEN)
 - **Decision:** Don't scrape X. Build X as an optional source plug-in in Phase 8. It will use either X's official pay-per-use API or a low-cost third-party read API, look only at trusted accounts plus `$TICKER` searches, and have a hard spending cap (about $5/month) and an on/off switch. The specific provider is chosen at that phase.
 - **Why:** Scraping breaks X's terms at any volume. The free tools need a logged-in account that can be banned, and they break often. Prices and options change quickly, so it's better to decide when we build it.

@@ -1,0 +1,11 @@
+{
+  "_note": "Hand-made sample in the exact shape yfinance's Ticker.history(period='5d', interval='1d') returns. Prices are invented, not real market data.",
+  "currency": "USD",
+  "rows": [
+    {"Date": "2026-10-26T00:00:00-04:00", "Open": 253.40, "High": 256.10, "Low": 252.80, "Close": 255.10, "Volume": 41250300, "Dividends": 0.0, "Stock Splits": 0.0},
+    {"Date": "2026-10-27T00:00:00-04:00", "Open": 255.50, "High": 258.00, "Low": 254.90, "Close": 257.32, "Volume": 38710200, "Dividends": 0.0, "Stock Splits": 0.0},
+    {"Date": "2026-10-28T00:00:00-04:00", "Open": 257.00, "High": 257.90, "Low": 253.75, "Close": 254.87, "Volume": 45102900, "Dividends": 0.0, "Stock Splits": 0.0},
+    {"Date": "2026-10-29T00:00:00-04:00", "Open": 255.20, "High": 258.60, "Low": 255.00, "Close": 258.04, "Volume": 39876500, "Dividends": 0.0, "Stock Splits": 0.0},
+    {"Date": "2026-10-30T00:00:00-04:00", "Open": 258.30, "High": 260.15, "Low": 257.60, "Close": 259.58, "Volume": 36540100, "Dividends": 0.0, "Stock Splits": 0.0}
+  ]
+}

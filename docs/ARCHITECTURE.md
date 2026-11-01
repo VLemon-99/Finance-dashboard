@@ -1,7 +1,7 @@
 # Architecture
 
 > The bird's-eye view. Keep this short and current — it's what a fresh agent or reviewer reads to understand the whole system.
-> Status: **planned**. No application code exists yet; this describes the target design.
+> Status: **Phase 1 built** (quote page, `users`/`instruments`/`quotes` tables, Yahoo adapter, CI). Everything else below is the target design.
 
 ## Overview
 A single Python web app runs on my computer and opens in the browser. Pages are built on
@@ -45,7 +45,7 @@ morning report. Each outside service sits behind a small "adapter", so one can b
 | Report pipeline | Collect → dedupe → trusted-list filter → summarize → weighted sentiment → compose → store | `app/services/reports.py` |
 | Calendar data | Earnings from market data provider; macro release dates from FRED; FOMC dates from the Fed's published schedule | `app/providers/fred.py`, `config/fomc_dates.yaml` |
 | Scheduler | Runs the weekday 7:30am ET report while the app is running | `app/scheduler.py` |
-| Database | All stored data; one file locally, Postgres-compatible design | `data/app.db` (git-ignored), `app/db/` |
+| Database | All stored data; one file locally, Postgres-compatible design. Tables are created by Alembic migrations (`uv run alembic upgrade head`), never automatically at startup | `data/app.db` (git-ignored), `app/db/models.py`, `app/db/migrations/` |
 | Configuration | Trusted sources, sentiment weights, limits, thresholds | `config/*.yaml`, `.env` for secrets |
 
 ## Data model (main tables)
@@ -80,6 +80,12 @@ Every user-owned table has a `user_id` column from day one (one default user for
 5. The AI adapter writes the report sections from the item summaries and numbers. Every claim must cite item IDs, and claims without a citation are dropped.
 6. The report (markdown + JSON) is saved. Any source that failed is listed in the report.
 
+**Single-ticker quote page** (Phase 1, `/`)
+1. I type a ticker. `services/quotes.py` checks it looks like a US ticker (`BRK.B` → `BRK-B`); anything else is rejected before any outside call.
+2. The `MarketData` provider (Yahoo) returns the latest daily close and the one before it. The quote is saved in `quotes` (one row per instrument, overwritten) and shown with the day change and fetch time in US Eastern.
+3. If the source fails, the stored row is shown marked "stale" with a note. If the source says "no such ticker" and we have never stored it, the page says "not found" and saves nothing. If we *have* stored it before, it's treated as a source problem (stale), because yfinance sometimes reports "no data" when Yahoo is struggling.
+4. With JavaScript on, HTMX swaps just the result box (`/quote`); without it, the form reloads the page (`/?ticker=`).
+
 **Rules that apply everywhere**
 - Each provider/source has its own cache, rate limit and timeout. A failure in one never breaks a page or a report (F1.6, F4.11).
 - Only public content goes to the AI. Portfolio and watchlist data are never sent (F4.13).
@@ -97,16 +103,18 @@ Every user-owned table has a `user_id` column from day one (one default user for
 ## Folder map
 ```
 app/
-  main.py          starts the web app (FastAPI) and the scheduler
-  web/             routes and templates/ (HTML pages + HTMX partials)
+  main.py          create_app(): builds the web app (tests pass in a temp DB + fake data source); later starts the scheduler
+  config.py        settings from environment / .env
+  timeutils.py     UTC storage ↔ US Eastern display
+  web/             routes, templates/ (HTML pages + HTMX partials), static/ (CSS, vendored htmx.min.js)
   services/        business rules (watchlists, portfolio, options_math, reports, calendar, macro)
   providers/       market data + calendar data adapters (yahoo, fred)
   sources/         research content plug-ins (news_rss, edgar, youtube, blogs, x, reddit)
   ai/              LLM interface + Gemini adapter, prompt templates
-  db/              database models and migrations (Alembic)
+  db/              models.py, session.py, migrations/ (Alembic; alembic.ini is in the project root)
   scheduler.py     timed jobs
 config/            sources.yaml (trusted list), settings.yaml (limits, weights, thresholds), fomc_dates.yaml
 data/              app.db and caches (git-ignored)
-tests/             automated tests (unit tests for math; recorded sample responses for providers)
+tests/             automated tests; fixtures/ holds sample provider responses; conftest.py has the fake data source
 docs/              spec, architecture, decisions, prompts
 ```

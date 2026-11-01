@@ -1,0 +1,21 @@
+{% if input_error %}
+<p class="note error" role="alert">{{ input_error }}</p>
+{% elif quote %}
+  {% if quote.status in ("not_found", "error") %}
+  <p class="note error" role="alert">{{ quote.note }}</p>
+  {% else %}
+  <section class="quote-card{% if quote.status == 'stale' %} stale{% endif %}" data-status="{{ quote.status }}">
+    <h2>{{ quote.symbol }}{% if quote.status == 'stale' %} <span class="badge">stale</span>{% endif %}</h2>
+    <p class="price">{{ "{:,.2f}".format(quote.last_price) }}{% if quote.currency %} <span class="currency">{{ quote.currency }}</span>{% endif %}</p>
+    {% if quote.change is not none %}
+    <p class="change {{ 'up' if quote.change > 0 else ('down' if quote.change < 0 else 'flat') }}">
+      {{ "{:+,.2f}".format(quote.change) }} ({{ "{:+.2f}".format(quote.change_pct) }}%) today
+    </p>
+    {% else %}
+    <p class="change flat">Day change not available</p>
+    {% endif %}
+    <p class="fetched">Fetched {{ quote.fetched_at | eastern }}</p>
+    {% if quote.note %}<p class="note warning" role="status">{{ quote.note }}</p>{% endif %}
+  </section>
+  {% endif %}
+{% endif %}
