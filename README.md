@@ -1,19 +1,31 @@
-# Starter template — how to use
+# Finance Dashboard
 
-1. Create a new **private** GitHub repo and copy all of these files into it (including the hidden `.gitignore` and `.env.example`).
-   - Tip: put this set in its own repo once and mark it as a **template repository** in GitHub's settings. Every new project is then one click: "Use this template".
-2. Open the repo in Claude Code, turn on plan mode, and paste prompt **#1 (Kickoff)** from `docs/PROMPTS.md` with your rough idea.
-3. Answer its questions, review the docs it fills in, then start building with prompt **#2**.
-4. End each task with prompt **#4 (Handoff)**, then start a fresh session.
+A personal research dashboard for stocks and options. It gathers news, SEC filings, blogs,
+YouTube, X and Reddit for the tickers you follow and digests them into a short daily report.
+It also tracks stocks, option contracts (greeks, IV, days to expiration) and a virtual
+portfolio, including the annualized return on short options, and shows a calendar of
+market-moving events. It is not linked to any brokerage and never places trades.
 
+**Status:** planning complete; no application code yet. See `PLAN.md` for the current phase.
+
+## Documents
 | File | Purpose |
 |---|---|
-| `CLAUDE.md` | Rules Claude Code reads automatically every session |
-| `docs/SPEC.md` | What to build, with testable acceptance criteria |
-| `docs/ARCHITECTURE.md` | The bird's-eye view of the system |
-| `docs/DECISIONS.md` | Why things are the way they are |
-| `PLAN.md` | Progress, next steps, handoff notes |
-| `docs/PROMPTS.md` | Copy-paste prompts for kickoff, bugs, reviews, handoffs |
-| `.gitignore` / `.env.example` | Keep secrets out of git |
+| [`docs/SPEC.md`](docs/SPEC.md) | What the app must do, with testable acceptance criteria and an out-of-scope list |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the pieces fit together |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Why things are the way they are (tech stack, data sources, AI) |
+| [`PLAN.md`](PLAN.md) | Phases, progress, next steps, handoff notes |
+| [`CLAUDE.md`](CLAUDE.md) | Rules, stack and commands Claude Code reads every session |
+| [`docs/PROMPTS.md`](docs/PROMPTS.md) | Copy-paste prompts for work sessions, bugs, reviews and handoffs |
 
-Replace this README with a real one once the project takes shape.
+## Running it (from Phase 1 onward)
+```bash
+uv sync
+```
+```bash
+cp .env.example .env
+```
+```bash
+uv run uvicorn app.main:app --reload
+```
+Then open http://localhost:8000.
