@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Watchlists · Finance Dashboard{% endblock %}
+{% block content %}
+<h1>Watchlists</h1>
+{% if error %}<p class="note error" role="alert">{{ error }}</p>{% endif %}
+{% if watchlists %}
+<ul class="list-cards">
+  {% for w in watchlists %}
+  <li><a href="/watchlists/{{ w.id }}">{{ w.name }}</a>
+      <span class="muted">{{ w.item_count }} stock{{ "" if w.item_count == 1 else "s" }}</span></li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No watchlists yet. Create your first one below.</p>
+{% endif %}
+<form method="post" action="/watchlists" class="inline-form">
+  <label for="name">New list name</label>
+  <input id="name" name="name" value="{{ name }}" maxlength="60" required placeholder="e.g. Tech">
+  <button type="submit">Create list</button>
+</form>
+<p class="muted small">{{ watchlists | length }} of {{ limits.max_watchlists }} lists used.</p>
+{% endblock %}

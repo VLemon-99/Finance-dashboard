@@ -185,6 +185,11 @@ def watchlist_rows(
     return [WatchlistRow(item_id=item_id, quote=quotes[symbol]) for item_id, symbol in items]
 
 
+def watchlist_symbols(session: Session, user_id: int, watchlist_id: int) -> set[str]:
+    watchlist = get_watchlist(session, user_id, watchlist_id)
+    return {symbol for _, symbol in _items(session, watchlist.id)}
+
+
 def _items(session: Session, watchlist_id: int) -> list[tuple[int, str]]:
     """(item id, ticker) pairs in the order they were added."""
     statement = (

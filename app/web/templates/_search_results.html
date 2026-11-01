@@ -1,0 +1,18 @@
+{% if search.note %}<p class="note warning" role="status">{{ search.note }}</p>{% endif %}
+{% if search.results %}
+<ul class="search-results">
+  {% for r in search.results %}
+  <li>
+    <span><strong>{{ r.symbol }}</strong> {{ r.name }} <span class="muted small">{{ r.exchange }} · {{ "ETF" if r.kind == "etf" else "Stock" }}</span></span>
+    {% if r.symbol in in_list %}
+    <span class="muted small">In this list</span>
+    {% else %}
+    <form method="post" action="/watchlists/{{ watchlist.id }}/items">
+      <input type="hidden" name="ticker" value="{{ r.symbol }}">
+      <button type="submit" aria-label="Add {{ r.symbol }}">Add</button>
+    </form>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}

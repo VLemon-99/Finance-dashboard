@@ -13,7 +13,8 @@ from app.db.session import database_is_set_up, make_engine
 from app.providers.market_data import MarketData
 from app.providers.yahoo import YahooMarketData
 from app.services.users import ensure_default_user
-from app.web.routes import router
+from app.services.watchlists import WatchlistNotFound
+from app.web.routes import router, watchlist_not_found
 
 STATIC_DIR = Path(__file__).parent / "web" / "static"
 
@@ -34,7 +35,7 @@ def create_app(
         if not database_is_set_up(engine):
             raise RuntimeError("The database isn't set up yet. Run: uv run alembic upgrade head")
         with Session(engine) as session:
-            ensure_default_user(session, settings.default_user_email)
+            app.state.user_id = ensure_default_user(session, settings.default_user_email).id
         yield
 
     app = FastAPI(title="Finance Dashboard", lifespan=lifespan)
@@ -43,6 +44,7 @@ def create_app(
     app.state.config = app_config
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     app.include_router(router)
+    app.add_exception_handler(WatchlistNotFound, watchlist_not_found)
     return app
 
 
