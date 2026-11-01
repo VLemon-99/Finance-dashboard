@@ -70,7 +70,7 @@ Acceptance criteria:
 - [ ] F3.4 For short options the app shows **annualized return = premium ÷ capital at risk × 365 ÷ DTE**, twice: using DTE at entry ("locked-in") and DTE remaining today ("remaining").
 - [ ] F3.5 Capital at risk:
   - cash-secured put = strike × 100 × contracts − premium received
-  - covered call = underlying price at the time of sale × 100 × contracts (the call counts as covered only if the portfolio holds ≥ 100 shares per contract)
+  - covered call = underlying price at the time of sale × 100 × contracts, not my cost basis (confirmed by owner 2026-11-01). The call counts as covered only if the portfolio holds ≥ 100 shares per contract.
   - credit spread = (difference between strikes − net credit) × 100 × contracts
 - [ ] F3.6 Test cases (premium per share × 100 × contracts = premium received):
   - CSP: strike 100, premium 2.00, 1 contract, 30 DTE → capital 9,800, annualized **24.83%**
@@ -140,7 +140,7 @@ Acceptance criteria (initial):
 
 ## Constraints
 - Runs on my own computer first (Mac or Windows, opened in a web browser), and is built so it can move to the cloud later.
-- Ongoing cost: market data must be free to start (Yahoo Finance via an unofficial library). AI summaries should fit in Gemini's free tier, with paid use only if needed. At most about $5/month extra for YouTube/X aggregation.
+- Ongoing cost: market data must be free to start (Yahoo Finance via an unofficial library). AI usage should stay within the $10/month Google Cloud credit that comes with the owner's Gemini Pro subscription. At most about $5/month extra for YouTube/X aggregation.
 - Starts with one command once installed.
 - A full morning report for 25 tickers finishes in under 10 minutes.
 - Secrets (API keys) live only in `.env`, never in code or git.
@@ -149,7 +149,5 @@ Acceptance criteria (initial):
 
 ## Open questions
 - **X/Twitter source** (needed by the X phase): pick between X's official pay-per-use API and a third-party read API, within about $5/month and X's terms. Check current prices then.
-- **Gemini access:** does the existing Gemini Pro subscription include API credits? If not, use a free Google AI Studio API key. Confirm before the first report phase.
 - **Macro indicators (F6):** final list, especially retail trading volume, fund inflows/outflows and overall sentiment measures. Their free data sources need confirming.
-- **Covered calls:** should capital at risk use the underlying price at the time of sale (current default) or my cost basis for the shares?
 - **Report delivery:** in the app only for now. Is email or PDF wanted later?

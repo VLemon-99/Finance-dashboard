@@ -14,12 +14,11 @@
 - **Alternatives considered:** YouTube Data API search (needs a key and has a quota; search results are noisy); transcript-scraping libraries (unofficial, often blocked).
 - **Revisit if:** Gemini's free tier limits video summaries, or a channel has no RSS feed.
 
-## 2026-11-01 — AI summaries: Gemini API (free tier first), behind a swappable adapter; public data only
-- **Decision:** Use the Gemini API through the `google-genai` library, wrapped in our own small `LLM` interface. Start with a free Google AI Studio key and a "Flash" model. Send only public content (articles, filings, video links), never portfolio or watchlist data.
-- **Why:** The owner already uses Gemini, it handles YouTube videos natively, and the free tier probably covers a 25-ticker daily report. Google may use free-tier inputs to improve its models, which is acceptable for public news but not for personal positions. The adapter means switching providers later is a one-file change.
-- **Alternatives considered:** Claude or OpenAI APIs (similar cost and quality, but no existing account and no native YouTube input).
-- **Revisit if:** Free-tier limits get in the way (switch to paid Gemini, a few $/month), quality is poor, or privacy needs change.
-- **Note:** A Gemini Pro consumer subscription probably doesn't include API access. Verify this. If it doesn't, the free AI Studio key is the plan.
+## 2026-11-01 — AI summaries: Gemini API paid tier, paid for by the subscription's Cloud credit, behind a swappable adapter; public data only
+- **Decision:** Use the Gemini API through the `google-genai` library, wrapped in our own small `LLM` interface. Use an API key from Google AI Studio linked to the owner's Google Cloud project, so usage is billed to the $10/month Google Cloud credit that comes with the Gemini Pro subscription (unused credit carries over and expires after 12 months). Default to a "Flash" model. Set a budget alert in Google Cloud at $10/month. Send only public content (articles, filings, video links), never portfolio or watchlist data.
+- **Why:** The owner already pays for this credit, Gemini handles YouTube videos natively, and $10/month should comfortably cover a 25-ticker daily report on a Flash model. Billed (paid-tier) usage also gets higher rate limits than the free tier. Under Google's terms at the time of writing, paid-tier inputs aren't used to improve their models. The adapter means switching providers later is a one-file change.
+- **Alternatives considered:** Gemini free tier (no billing setup, but lower limits, and inputs may be used for training; kept as a fallback); Claude or OpenAI APIs (similar cost and quality, but no existing credit and no native YouTube input).
+- **Revisit if:** monthly usage gets close to the $10 credit, quality is poor, or the subscription changes.
 
 ## 2026-11-01 — Market data: Yahoo Finance via `yfinance`, behind a provider interface; greeks calculated by us
 - **Decision:** Get quotes, option chains (with IV), history, earnings dates, holders and analyst data from `yfinance`. Calculate the greeks ourselves with the Black-Scholes formula, using Yahoo's IV and a risk-free rate from 13-week T-bills (`^IRX`) or FRED.

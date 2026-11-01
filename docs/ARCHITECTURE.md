@@ -90,7 +90,7 @@ Every user-owned table has a `user_id` column from day one (one default user for
 - **SEC EDGAR** (free, no key; must send a contact User-Agent) for filings and Form 4. Set as `SEC_USER_AGENT` in `.env`.
 - **Google News RSS / company press-release RSS / blog RSS** (free) via `feedparser`.
 - **YouTube channel RSS feeds** (free, no key) to list new videos from trusted channels.
-- **Gemini API** (Google AI Studio key `GEMINI_API_KEY`) for summaries, sentiment and video understanding. Free tier first.
+- **Gemini API** (Google AI Studio key `GEMINI_API_KEY`) for summaries, sentiment and video understanding. Billed to the $10/month Google Cloud credit included with the owner's Gemini Pro subscription.
 - **FRED API** (free key `FRED_API_KEY`) for macro release dates and, later, macro series.
 - **Later:** X/Twitter (provider to be decided, ≤ ~$5/month, key in `.env`); Reddit API (free personal-use app credentials).
 

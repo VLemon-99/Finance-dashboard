@@ -57,10 +57,10 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - **Done when:** F7.1–F7.3 pass and the security review has no open high-severity findings.
 
 ## Next up
-1. Owner: get a Gemini API key from Google AI Studio (needed by Phase 3, not Phase 1) and check whether the Gemini Pro subscription includes API credits.
-2. Owner: install `uv` (instructions will be given at the start of Phase 1).
-3. Phase 1: scaffold the project (`pyproject.toml`, `app/main.py`, `app/db/`, `tests/`, CI workflow).
-4. Phase 1: the single-ticker quote page + recorded-data test.
+1. Phase 1: scaffold the project (`pyproject.toml`, `app/main.py`, `app/db/`, `tests/`, CI workflow).
+2. Phase 1: the single-ticker quote page + recorded-data test.
+3. Owner: install `uv` and run the app locally (exact steps given at the end of Phase 1).
+4. Owner, before Phase 3: create a Gemini API key in Google AI Studio linked to the Google Cloud project that receives the $10/month credit, and set a $10 budget alert (step-by-step given then).
 
 ## Done (recent)
 - 2026-11-01 Kickoff: interviewed owner; wrote SPEC, ARCHITECTURE, PLAN, DECISIONS; filled in stack and commands in CLAUDE.md. No application code yet.
@@ -69,4 +69,4 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - None yet (no code).
 
 ## Handoff note
-Planning is complete and no code has been written. The next session should start Phase 1 using prompt #2 in `docs/PROMPTS.md`. Before Phase 3, check the open questions in `docs/SPEC.md` (Gemini access). Before Phase 8, check the X provider pricing.
+Planning is complete and no code has been written. The next session should start Phase 1 using prompt #2 in `docs/PROMPTS.md`. Gemini access is settled ($10/month Cloud credit, see DECISIONS) and the covered-call formula is confirmed. Before Phase 8, check the X provider pricing. Before Phase 9, confirm the macro indicator list.
