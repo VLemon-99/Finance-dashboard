@@ -1,6 +1,6 @@
 """Time helpers. Rule: store times in UTC, show them in US Eastern time."""
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 EASTERN = ZoneInfo("America/New_York")
@@ -23,3 +23,8 @@ def format_eastern(value: datetime) -> str:
     local = as_utc(value).astimezone(EASTERN)
     hour = local.hour % 12 or 12
     return f"{local:%b} {local.day}, {local.year} {hour}:{local:%M %p} ET"
+
+
+def today_eastern() -> date:
+    """Today's date in US Eastern time (the market's calendar day)."""
+    return utc_now().astimezone(EASTERN).date()

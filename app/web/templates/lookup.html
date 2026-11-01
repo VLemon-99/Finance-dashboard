@@ -1,7 +1,8 @@
 {% extends "base.html" %}
+{% block title %}Quote lookup · Finance Dashboard{% endblock %}
 {% block content %}
-<h1>Stock quote</h1>
-<form action="/" method="get" hx-get="/quote" hx-target="#result" hx-indicator="#loading" class="quote-form">
+<h1>Quote lookup</h1>
+<form action="/lookup" method="get" hx-get="/lookup/result" hx-target="#result" hx-indicator="#loading" class="quote-form">
   <label for="ticker">Ticker</label>
   <input id="ticker" name="ticker" value="{{ ticker }}" placeholder="e.g. AAPL" maxlength="12"
          autocomplete="off" autocapitalize="characters" required autofocus>

@@ -1,6 +1,6 @@
-"""The quote page end to end (fake Yahoo with the recorded sample, temporary database)."""
+"""The quote lookup page end to end (fake Yahoo with the recorded sample, temporary database)."""
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,12 +10,22 @@ from app.db.models import Quote, User
 from app.db.session import make_engine
 from app.main import create_app
 from app.timeutils import format_eastern
+from app.web.formatting import session_label
 
 
-def test_home_page_shows_the_form(client):
-    response = client.get("/")
+def age_stored_quotes(engine, minutes=16):
+    """Make stored quotes older than the 15-minute refresh window."""
+    with Session(engine) as session:
+        for quote in session.exec(select(Quote)):
+            quote.fetched_at = quote.fetched_at - timedelta(minutes=minutes)
+            session.add(quote)
+        session.commit()
+
+
+def test_lookup_page_shows_the_form(client):
+    response = client.get("/lookup")
     assert response.status_code == 200
-    assert '<form action="/"' in response.text
+    assert '<form action="/lookup"' in response.text
     assert 'name="ticker"' in response.text
     assert "htmx.min.js" in response.text
 
@@ -26,12 +36,17 @@ def test_static_files_are_served(client):
 
 
 def test_quote_flow_full_page(client, engine):
-    response = client.get("/", params={"ticker": "aapl"})
+    response = client.get("/lookup", params={"ticker": "aapl"})
     assert response.status_code == 200
     html = response.text
     assert "AAPL" in html
     assert "259.58" in html
-    assert "+1.54 (+0.60%) today" in html
+    # The sample's last session is Fri Oct 30, so the change is labelled with that day.
+    assert f"+1.54 (+0.60%) {session_label(date(2026, 10, 30), date(2026, 11, 1))}" in html
+    assert "on Fri, Oct 30" in html
+    assert "257.60 – 260.15" in html  # day range
+    assert "186.20 – 271.40" in html  # 52-week range
+    assert "$3.85T" in html
     assert 'class="change up"' in html
     with Session(engine) as session:
         stored = session.exec(select(Quote)).one()
@@ -40,16 +55,25 @@ def test_quote_flow_full_page(client, engine):
 
 
 def test_quote_flow_htmx_partial(client):
-    response = client.get("/quote", params={"ticker": "AAPL"}, headers={"HX-Request": "true"})
+    response = client.get(
+        "/lookup/result", params={"ticker": "AAPL"}, headers={"HX-Request": "true"}
+    )
     assert response.status_code == 200
     assert "259.58" in response.text
     assert "<html" not in response.text  # just the result box
 
 
-def test_f1_6_page_still_loads_when_source_is_down(client, fake_market_data):
-    client.get("/", params={"ticker": "AAPL"})
+def test_recent_quote_is_reused_on_lookup(client, fake_market_data):
+    client.get("/lookup", params={"ticker": "AAPL"})
+    client.get("/lookup", params={"ticker": "AAPL"})
+    assert fake_market_data.calls == ["AAPL"]
+
+
+def test_f1_6_page_still_loads_when_source_is_down(client, engine, fake_market_data):
+    client.get("/lookup", params={"ticker": "AAPL"})
+    age_stored_quotes(engine)
     fake_market_data.mode = "down"
-    response = client.get("/", params={"ticker": "AAPL"})
+    response = client.get("/lookup", params={"ticker": "AAPL"})
     assert response.status_code == 200
     assert "259.58" in response.text
     assert 'data-status="stale"' in response.text
@@ -59,21 +83,21 @@ def test_f1_6_page_still_loads_when_source_is_down(client, fake_market_data):
 
 def test_f1_6_source_down_with_nothing_stored_shows_error_note(client, fake_market_data):
     fake_market_data.mode = "down"
-    response = client.get("/quote", params={"ticker": "AAPL"})
+    response = client.get("/lookup/result", params={"ticker": "AAPL"})
     assert response.status_code == 200
     assert "No stored data for AAPL yet" in response.text
 
 
 def test_f1_7_unknown_ticker(client, fake_market_data):
     fake_market_data.mode = "not_found"
-    response = client.get("/", params={"ticker": "ZZZZ"})
+    response = client.get("/lookup", params={"ticker": "ZZZZ"})
     assert response.status_code == 200
     assert "Ticker ZZZZ not found." in response.text
 
 
 @pytest.mark.parametrize("bad", ["<script>alert(1)</script>", "1234", "A B C"])
 def test_invalid_input_is_rejected_politely(client, fake_market_data, bad):
-    response = client.get("/", params={"ticker": bad})
+    response = client.get("/lookup", params={"ticker": bad})
     assert response.status_code == 200
     assert "Please enter a valid US ticker" in response.text
     assert "<script>alert(1)</script>" not in response.text  # never echoed back unescaped

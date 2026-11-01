@@ -6,7 +6,7 @@ It also tracks stocks, option contracts (greeks, IV, days to expiration) and a v
 portfolio, including the annualized return on short options, and shows a calendar of
 market-moving events. It is not linked to any brokerage and never places trades.
 
-**Status:** Phase 1 (walking skeleton) works: type a ticker, see its price. See `PLAN.md` for the current phase.
+**Status:** Phase 2 works: watchlists with search, a full row of stock data, and a Refresh button. A single-ticker quote lookup is at `/lookup`. See `PLAN.md` for the current phase.
 
 ## Documents
 | File | Purpose |
@@ -43,7 +43,7 @@ market-moving events. It is not linked to any brokerage and never places trades.
    ```bash
    uv sync
    ```
-4. Create your settings file from the example (nothing in it is needed yet for Phase 1):
+4. Create your settings file from the example (nothing in it is needed yet). Limits such as the number of watchlists are in `config/settings.yaml`, which you can edit directly:
    ```bash
    cp .env.example .env
    ```

@@ -1,0 +1,20 @@
+# App limits and timings. Edit the numbers, then restart the app to apply them.
+# (No secrets here. API keys go in .env.)
+
+watchlists:
+  # Most watchlists you can have (SPEC F1.3).
+  max_watchlists: 30
+  # Most stocks in one watchlist (SPEC F1.3).
+  max_items_per_list: 25
+
+market_data:
+  # Stored prices younger than this are shown without asking Yahoo again.
+  # The Refresh button always fetches new prices (SPEC F1.5).
+  refresh_minutes: 15
+  # How many stocks to fetch from Yahoo at the same time when refreshing a list.
+  # Higher is faster but more likely to get rate-limited. 1 to 10.
+  max_parallel_fetches: 4
+
+search:
+  # Most results to show for a ticker/company search (SPEC F1.1). 1 to 25.
+  max_results: 10

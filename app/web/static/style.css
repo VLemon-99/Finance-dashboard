@@ -10,9 +10,12 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
-header { padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--card); }
+header { padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--card); display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+header nav { display: flex; gap: 16px; }
+header nav a { color: var(--muted); text-decoration: none; }
+header nav a:hover { color: var(--text); }
 .brand { color: var(--text); text-decoration: none; font-weight: 600; }
-main { max-width: 640px; margin: 0 auto; padding: 16px; }
+main { max-width: 1180px; margin: 0 auto; padding: 16px; }
 .quote-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
 .quote-form input { font-size: 1rem; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; width: 10em; text-transform: uppercase; background: var(--card); color: var(--text); }
 .quote-form button { font-size: 1rem; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--text); color: var(--bg); cursor: pointer; }
@@ -30,3 +33,32 @@ main { max-width: 640px; margin: 0 auto; padding: 16px; }
 .note { padding: 8px 12px; border-radius: 6px; }
 .note.warning { background: var(--warn-bg); color: var(--warn); margin-top: 12px; }
 .note.error { background: var(--err-bg); color: var(--down); }
+a { color: inherit; }
+.muted { color: var(--muted); }
+.small { font-size: 0.875rem; }
+.block { display: block; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+button { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); color: var(--text); cursor: pointer; }
+button[type=submit]:not(.link):not(.danger) { background: var(--text); color: var(--bg); }
+button.link { border: none; background: none; color: var(--muted); padding: 0; text-decoration: underline; }
+button.danger { background: var(--err-bg); color: var(--down); border-color: var(--down); }
+input { font: inherit; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text); }
+.ticker-input { text-transform: uppercase; width: 8em; }
+.inline-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+.toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.list-cards { list-style: none; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.list-cards li { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; display: flex; justify-content: space-between; gap: 8px; }
+.list-cards a { font-weight: 600; text-decoration: none; }
+.table-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+table.stocks { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.stocks th, .stocks td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; vertical-align: top; }
+.stocks th { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+.stocks .num { text-align: right; }
+.stocks tr.stale td, .stocks tr.error td { background: var(--warn-bg); }
+.stocks tr.row-note td { color: var(--warn); background: var(--warn-bg); font-size: 0.85rem; white-space: normal; }
+.search-results { list-style: none; padding: 0; margin: 8px 0; }
+.search-results li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 12px 0 0; font-variant-numeric: tabular-nums; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; }
+.ticker-input::placeholder, .quote-form input::placeholder { text-transform: none; }

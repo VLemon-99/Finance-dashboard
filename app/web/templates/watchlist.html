@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}{{ watchlist.name }} · Finance Dashboard{% endblock %}
+{% block content %}
+<p class="small"><a href="/">← All watchlists</a></p>
+<h1>{{ watchlist.name }}</h1>
+{% if error %}<p class="note error" role="alert">{{ error }}</p>{% endif %}
+
+<div class="toolbar">
+  <form method="get" action="/watchlists/{{ watchlist.id }}">
+    <input type="hidden" name="refresh" value="1">
+    <button type="submit">Refresh prices</button>
+  </form>
+  <span class="muted small">Prices up to {{ refresh_minutes }} minutes old are reused. Each row shows when it was fetched.</span>
+</div>
+
+{% if problem_count %}
+<p class="note warning" role="status">The data source failed for {{ problem_count }} of {{ rows | length }} stocks. Those rows show the last stored values, marked stale.</p>
+{% endif %}
+
+{% if rows %}
+<div class="table-wrap">
+<table class="stocks">
+  <thead>
+    <tr>
+      <th>Ticker</th><th class="num">Last</th><th class="num">Change</th><th class="num">Day range</th>
+      <th class="num">52-week range</th><th class="num">Volume</th><th class="num">Market cap</th>
+      <th>Next earnings</th><th>Fetched</th><th><span class="visually-hidden">Remove</span></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in rows %}{% set q = row.quote %}
+    <tr data-symbol="{{ q.symbol }}" data-status="{{ q.status }}"{% if q.status != 'ok' %} class="{{ q.status }}"{% endif %}>
+      <td><strong>{{ q.symbol }}</strong>{% if q.status == 'stale' %} <span class="badge">stale</span>{% elif q.status == 'error' %} <span class="badge">missing</span>{% endif %}</td>
+      <td class="num">{{ q.last_price | money }}</td>
+      <td class="num">
+        {% if q.change is not none %}
+        <span class="{{ 'up' if q.change > 0 else ('down' if q.change < 0 else 'flat') }}">{{ q.change | signed }} ({{ q.change_pct | signed }}%)</span>
+        <span class="muted small block">{{ q.session_date | session_label }}</span>
+        {% else %}—{% endif %}
+      </td>
+      <td class="num">{{ price_range(q.day_low, q.day_high) }}</td>
+      <td class="num">{{ price_range(q.year_low, q.year_high) }}</td>
+      <td class="num">{{ q.volume | compact }}</td>
+      <td class="num">{% if q.market_cap is not none %}${{ q.market_cap | compact }}{% else %}—{% endif %}</td>
+      <td>{{ q.next_earnings | short_date }}</td>
+      <td class="small">{% if q.fetched_at %}{{ q.fetched_at | eastern }}{% else %}Not fetched yet{% endif %}</td>
+      <td>
+        <form method="post" action="/watchlists/{{ watchlist.id }}/items/{{ row.item_id }}/delete">
+          <button type="submit" class="link" aria-label="Remove {{ q.symbol }}">Remove</button>
+        </form>
+      </td>
+    </tr>
+    {% if q.note %}<tr class="row-note"><td colspan="10">{{ q.symbol }}: {{ q.note }}</td></tr>{% endif %}
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p>This list is empty. Add a stock below.</p>
+{% endif %}
+<p class="muted small">{{ rows | length }} of {{ limits.max_items_per_list }} stocks.</p>
+
+<h2>Add a stock</h2>
+<form method="get" action="/watchlists/{{ watchlist.id }}" hx-get="/watchlists/{{ watchlist.id }}/search"
+      hx-target="#search-results" hx-indicator="#searching" class="inline-form">
+  <label for="q">Search by ticker or company name</label>
+  <input id="q" name="q" value="{{ search.query }}" maxlength="50" placeholder="e.g. amazon or AMZN" autocomplete="off">
+  <button type="submit">Search</button>
+  <span id="searching" class="htmx-indicator">Searching…</span>
+</form>
+<div id="search-results">{% include "_search_results.html" %}</div>
+<form method="post" action="/watchlists/{{ watchlist.id }}/items" class="inline-form">
+  <label for="ticker">Or add by ticker</label>
+  <input id="ticker" name="ticker" maxlength="12" required placeholder="e.g. AAPL" autocapitalize="characters" class="ticker-input">
+  <button type="submit">Add</button>
+</form>
+
+<h2>Manage this list</h2>
+<form method="post" action="/watchlists/{{ watchlist.id }}/rename" class="inline-form">
+  <label for="rename">Name</label>
+  <input id="rename" name="name" value="{{ watchlist.name }}" maxlength="60" required>
+  <button type="submit">Rename</button>
+</form>
+<form method="post" action="/watchlists/{{ watchlist.id }}/delete" class="inline-form"
+      onsubmit="return confirm('Delete this watchlist? The stocks in it are removed from the list.');">
+  <button type="submit" class="danger">Delete this list</button>
+</form>
+{% endblock %}

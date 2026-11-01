@@ -1,10 +1,14 @@
 """Quote lookup rules: ticker checking, day change maths, saving, and F1.6 / F1.7."""
 
+from datetime import date, timedelta
+
 import pytest
 from sqlmodel import select
 
 from app.db.models import Instrument, Quote
-from app.services.quotes import InvalidTicker, day_change, lookup_quote, normalize_ticker
+from app.services.quotes import day_change, lookup_quote
+from app.tickers import InvalidTicker, normalize_ticker
+from tests.conftest import FAKE_MARKET_CAP, FAKE_NEXT_EARNINGS
 
 
 @pytest.mark.parametrize(
@@ -117,3 +121,32 @@ def test_previously_known_ticker_returning_nothing_is_stale_not_not_found(
     view = lookup_quote(session, fake_market_data, "AAPL")
     assert view.status == "stale"
     assert view.last_price == pytest.approx(259.58)
+
+
+def test_full_stock_row_is_saved(session, fake_market_data):
+    lookup_quote(session, fake_market_data, "AAPL")
+    quote = session.exec(select(Quote)).one()
+    assert (quote.day_low, quote.day_high) == pytest.approx((257.60, 260.15))
+    assert (quote.year_low, quote.year_high) == pytest.approx((186.20, 271.40))
+    assert quote.volume == 36_540_100
+    assert quote.session_date == date(2026, 10, 30)
+    assert quote.market_cap == pytest.approx(FAKE_MARKET_CAP)
+    assert quote.next_earnings == FAKE_NEXT_EARNINGS
+
+
+def test_stale_view_keeps_the_full_row(session, fake_market_data):
+    lookup_quote(session, fake_market_data, "AAPL")
+    fake_market_data.mode = "down"
+    view = lookup_quote(session, fake_market_data, "AAPL")
+    assert view.status == "stale"
+    assert view.year_high == pytest.approx(271.40)
+    assert view.market_cap == pytest.approx(FAKE_MARKET_CAP)
+
+
+def test_recent_quote_is_reused_within_max_age(session, fake_market_data):
+    first = lookup_quote(session, fake_market_data, "AAPL")
+    fake_market_data.mode = "down"  # would fail if it asked the source again
+    view = lookup_quote(session, fake_market_data, "AAPL", max_age=timedelta(minutes=15))
+    assert view.status == "ok"
+    assert view.fetched_at == first.fetched_at
+    assert fake_market_data.calls == ["AAPL"]
