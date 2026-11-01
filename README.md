@@ -60,6 +60,23 @@ uv run uvicorn app.main:app --reload
 ```
 Then open http://localhost:8000 in your browser. Press `Ctrl+C` in the terminal to stop the app.
 
+**Updating to a new version**
+
+Merging changes on GitHub doesn't change the folder on your computer. After each merge, stop the app (`Ctrl+C`), then run these in the project folder:
+```bash
+git checkout main
+```
+```bash
+git pull
+```
+```bash
+uv sync
+```
+```bash
+uv run alembic upgrade head
+```
+Then start the app as usual. `uv sync` installs any new libraries and `alembic upgrade head` applies any database changes; both do nothing if nothing changed. If `git pull` shows an error or mentions conflicts, stop and ask before going further.
+
 **Checks (optional)**
 ```bash
 uv run pytest
