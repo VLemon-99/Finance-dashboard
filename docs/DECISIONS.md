@@ -2,6 +2,12 @@
 
 > One entry per meaningful choice, newest at the top. This stops future sessions from quietly undoing past decisions.
 
+## 2026-11-01 — Static files are linked with a version code
+- **Decision:** Pages link to `style.css` and `htmx.min.js` as e.g. `/static/style.css?v=3f2a9c1e04b7`, where the code comes from the file's content (`app/web/assets.py`).
+- **Why:** After the Phase 2 update, the owner's browser kept using its saved copy of Phase 1's `style.css`, because the address hadn't changed and the app didn't say how long a copy may be kept. A content-based code changes exactly when the file changes, so browsers can still keep unchanged files but always fetch updated ones.
+- **Alternatives considered:** telling browsers never to keep a copy (slower every page load); asking the owner to hard-refresh after every update (easy to forget).
+- **Revisit if:** we add a build step or a CDN that versions files on its own.
+
 ## 2026-11-01 — Phase 2: where the stock row comes from, and other watchlist choices
 - **Decision:**
   - **Stock row from three Yahoo calls per ticker.** One year of daily price bars gives price, previous close, day range, volume, 52-week range and the trading day. Yahoo's share count × price gives market cap. Yahoo's company calendar gives the next earnings date. This replaces Phase 1's 5-day request. Market cap and earnings are optional: if they fail, the row shows "—" for them and everything else still appears.

@@ -61,6 +61,7 @@ Each phase ends with a working app, passing tests, and the docs updated.
 2. Owner, before Phase 3: create a Gemini API key in Google AI Studio linked to the Google Cloud project that receives the $10/month credit, and set a $10 budget alert (step-by-step given then).
 
 ## Done (recent)
+- 2026-11-01 Fixed: after updating, the browser kept Phase 1's saved stylesheet, so Phase 2 pages showed with the old look (narrow, unstyled lists and buttons). Pages now link to `style.css` and `htmx.min.js` with a version code taken from the file's content, so an updated file always gets a new address. Test in `tests/test_assets.py`. Also confirmed from the owner's screenshots: GOOG/GOOGL market cap shows the whole company (~$3.4T), not one share class.
 - 2026-11-01 Owner confirmed Phase 2 locally with real Yahoo data. First try showed the old Phase 1 page: the merge was on GitHub but the owner's folder hadn't been updated with `git pull`. Added "Updating to a new version" steps to the README.
 - 2026-11-01 Phase 2 watchlists & stock tracking: `config/settings.yaml` (limits 30 lists / 25 stocks, 15-minute refresh window); Yahoo adapter returns the full F1.4 row and searches US-listed stocks/ETFs; `watchlists` + `watchlist_items` tables (with `user_id`) and new `quotes` columns in a second migration (checked to keep existing Phase 1 data); watchlist rules (limits checked before any fetch/save, unknown tickers not added, per-user ownership); parallel refresh with per-row stale/missing handling; home page lists watchlists; watchlist page with search + one-click Add, Refresh, rename, delete; quote lookup moved to `/lookup` and now uses the refresh window. Tests: 133 pass (up from 47), all offline. New dependencies: PyYAML, python-multipart (see DECISIONS).
 - 2026-11-01 Owner ran Phase 1 locally against real Yahoo: `AMZN` (price + day change), `BRK.A` (shown as `BRK-A`) and `ZZZZQ` ("not found") all behaved as expected.
@@ -69,7 +70,8 @@ Each phase ends with a working app, passing tests, and the docs updated.
 
 ## Known issues / bugs
 - The test samples (`tests/fixtures/yahoo_history_AAPL_1y.json`, `yahoo_search_amazon.json`) are hand-made in yfinance's format with invented prices. The cloud build machine can't reach Yahoo, so real recorded samples would have to be captured on the owner's computer.
-- Market cap = Yahoo's share count × price. For companies with several share classes (e.g. GOOGL/GOOG), Yahoo's share count may cover one class only, so market cap could read low. Worth a spot-check against Yahoo's website.
+- Next earnings shows "—" when Yahoo hasn't published the next date yet (seen for GOOG/GOOGL right after their October report). Expected, not a bug.
+- The owner couldn't fully check the Refresh button because the market was closed. Worth a quick look during market hours: prices and fetch times should change after clicking it.
 - Each stock refresh makes three Yahoo requests (prices, share count, calendar). If Yahoo starts rate-limiting, cache market cap and earnings for a day.
 - For the Phase 10 security review: the forms have no protection against another website submitting them in the background ("cross-site request forgery"). It's low risk while the app only runs on your own computer, but it must be fixed before it goes online.
 - After a failed add/rename, the browser's address bar shows the form's address (e.g. `/watchlists/1/items`). Reloading that page asks to resend the form. Harmless; clicking the list's name or "All watchlists" gets back to normal.
