@@ -10,7 +10,8 @@ from sqlmodel import Session
 
 from app.db.session import get_session
 from app.providers.market_data import MarketData
-from app.services.quotes import InvalidTicker, QuoteView, lookup_quote
+from app.services.quotes import QuoteView, lookup_quote
+from app.tickers import InvalidTicker
 from app.timeutils import format_eastern
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")

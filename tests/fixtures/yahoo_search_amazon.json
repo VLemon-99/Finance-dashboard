@@ -1,0 +1,12 @@
+{
+  "_note": "Hand-made sample in the shape of Yahoo's /v1/finance/search 'quotes' list (what yfinance's Search(...).quotes returns). Includes non-US, OTC, option and mutual fund entries that must be filtered out.",
+  "quotes": [
+    {"exchange": "NMS", "shortname": "Amazon.com, Inc.", "quoteType": "EQUITY", "symbol": "AMZN", "index": "quotes", "score": 2056400.0, "typeDisp": "Equity", "longname": "Amazon.com, Inc.", "exchDisp": "NASDAQ", "sector": "Consumer Cyclical", "industry": "Internet Retail", "isYahooFinance": true},
+    {"exchange": "MEX", "shortname": "AMAZON COM INC", "quoteType": "EQUITY", "symbol": "AMZN.MX", "index": "quotes", "score": 20034.0, "typeDisp": "Equity", "longname": "Amazon.com, Inc.", "exchDisp": "Mexico", "isYahooFinance": true},
+    {"exchange": "PCX", "shortname": "Sample Amazon Income ETF", "quoteType": "ETF", "symbol": "AMZY", "index": "quotes", "score": 20020.0, "typeDisp": "ETF", "longname": "Sample Amazon Option Income Strategy ETF", "exchDisp": "NYSE Arca", "isYahooFinance": true},
+    {"exchange": "PNK", "shortname": "AMAZONICA CORP", "quoteType": "EQUITY", "symbol": "AMZZ", "index": "quotes", "score": 20010.0, "typeDisp": "Equity", "exchDisp": "OTC Markets", "isYahooFinance": true},
+    {"exchange": "OPR", "shortname": "AMZN Nov 2026 250.000 call", "quoteType": "OPTION", "symbol": "AMZN261120C00250000", "index": "quotes", "score": 20005.0, "typeDisp": "Option", "exchDisp": "OPR", "isYahooFinance": true},
+    {"exchange": "NAS", "shortname": "Sample Amazon Growth Fund", "quoteType": "MUTUALFUND", "symbol": "SAGFX", "index": "quotes", "score": 20001.0, "typeDisp": "Fund", "exchDisp": "Nasdaq", "isYahooFinance": true},
+    {"exchange": "NYQ", "shortname": "Sample Amazonia Holdings", "quoteType": "EQUITY", "symbol": "SAH.B", "index": "quotes", "score": 20000.0, "typeDisp": "Equity", "exchDisp": "NYSE", "isYahooFinance": true}
+  ]
+}

@@ -4,7 +4,8 @@ import pytest
 from sqlmodel import select
 
 from app.db.models import Instrument, Quote
-from app.services.quotes import InvalidTicker, day_change, lookup_quote, normalize_ticker
+from app.services.quotes import day_change, lookup_quote
+from app.tickers import InvalidTicker, normalize_ticker
 
 
 @pytest.mark.parametrize(

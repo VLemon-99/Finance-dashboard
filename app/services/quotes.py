@@ -5,7 +5,6 @@ F1.7: an unknown ticker shows "not found" and nothing is saved.
 """
 
 import logging
-import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
@@ -14,27 +13,12 @@ from sqlmodel import Session, select
 
 from app.db.models import Instrument, Quote
 from app.providers.market_data import MarketData, MarketDataError, QuoteData, TickerNotFound
+from app.tickers import normalize_ticker
 from app.timeutils import as_utc
 
 log = logging.getLogger(__name__)
 
-# US tickers: 1-6 letters/digits starting with a letter, optionally a share class
-# like BRK-B or BRK.B. Anything else is rejected before we call any outside service.
-_TICKER_RE = re.compile(r"^[A-Z][A-Z0-9]{0,5}(?:-[A-Z]{1,2})?$")
-
 Status = Literal["ok", "stale", "not_found", "error"]
-
-
-class InvalidTicker(ValueError):
-    pass
-
-
-def normalize_ticker(raw: str) -> str:
-    """'  brk.b ' -> 'BRK-B'. Raises InvalidTicker for anything that isn't ticker-shaped."""
-    symbol = (raw or "").strip().upper().replace(".", "-")
-    if not _TICKER_RE.fullmatch(symbol):
-        raise InvalidTicker(raw)
-    return symbol
 
 
 @dataclass(frozen=True)
