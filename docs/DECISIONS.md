@@ -2,6 +2,24 @@
 
 > One entry per meaningful choice, newest at the top. This stops future sessions from quietly undoing past decisions.
 
+## 2026-11-01 — Phase 2: where the stock row comes from, and other watchlist choices
+- **Decision:**
+  - **Stock row from three Yahoo calls per ticker.** One year of daily price bars gives price, previous close, day range, volume, 52-week range and the trading day. Yahoo's share count × price gives market cap. Yahoo's company calendar gives the next earnings date. This replaces Phase 1's 5-day request. Market cap and earnings are optional: if they fail, the row shows "—" for them and everything else still appears.
+  - **Market cap is calculated by us** (share count × last price), like the other finance numbers.
+  - **Prices younger than 15 minutes are reused** everywhere (watchlists and the quote lookup). The Refresh button always fetches. The window lives in `config/settings.yaml`.
+  - **A watchlist's stocks are fetched 4 at a time** (`max_parallel_fetches` in `config/settings.yaml`), so a 25-stock refresh takes seconds, not a minute. Only the Yahoo calls run in parallel; the database is used from one thread.
+  - **Search shows only US exchange-listed stocks and ETFs** (NASDAQ, NYSE, NYSE American, NYSE Arca, Cboe). OTC/pink-sheet, foreign, fund and option results are dropped.
+  - **A ticker is checked with Yahoo before it's added.** Unknown → "not found", not added. If Yahoo is down and we've never seen the ticker, it isn't added either ("try again later"), because we can't tell a typo from a real stock.
+  - **List limits are checked before anything is fetched or saved.**
+  - **List names are unique per user, ignoring upper/lower case** ("Tech" and "tech" can't both exist).
+  - **`config/settings.yaml` is read with PyYAML** (new direct dependency; it was already installed as part of the web server). Misspelled setting names stop the app with a message instead of being silently ignored.
+  - **Forms use `python-multipart`** (new dependency): the small library FastAPI requires to read submitted HTML forms.
+  - **Changes are plain form posts followed by a redirect.** Pages work without JavaScript; HTMX only swaps in search results and the quote lookup result.
+  - **The home page (`/`) is the watchlists dashboard.** The Phase 1 quote page moved to `/lookup` (owner agreed).
+- **Why:** These are the fewest calls that cover every F1.4 field. Yahoo's quick "fast info" summary would download the same year of prices again just to get the ranges, and it has no earnings date. The full `info` call is slow and rate-limited more often. The other choices keep pages working when Yahoo is down and follow the "simplest thing that meets the spec" rule.
+- **Alternatives considered:** Yahoo's `info` call for everything (one call, but slower and the first to be rate-limited); caching market cap and earnings for a day (fewer calls, but more code. Revisit if Yahoo rate-limits us); parsing forms by hand instead of adding `python-multipart` (non-standard, easy to get wrong).
+- **Revisit if:** Yahoo starts rate-limiting refreshes, market caps look wrong for companies with several share classes (Yahoo's share count may cover only one class, e.g. GOOGL), or refreshes feel slow.
+
 ## 2026-11-01 — Phase 1 build choices (small ones, recorded so they aren't undone by accident)
 - **Decision:**
   - **HTMX is saved in the repo** (`app/web/static/htmx.min.js`, version 2.0.4, checked against the npm registry's published fingerprint), not loaded from a website.
@@ -13,7 +31,7 @@
   - **`tzdata` is installed on Windows only**, so US Eastern times display correctly there too. Mac and Linux already have this data.
 - **Why:** These are the simplest choices that work offline, keep tests off the network, and follow the "one failing source never breaks a page" rule.
 - **Alternatives considered:** loading HTMX from a CDN (needs internet, could change under us); Yahoo's `info` call for quotes (slower and rate-limited more often); creating tables automatically at startup (hides migration mistakes).
-- **Revisit if:** Phase 2 needs intraday fields Yahoo's daily bars don't give (day range, volume and market cap may need `fast_info`).
+- **Revisit if:** Phase 2 needs intraday fields Yahoo's daily bars don't give (day range, volume and market cap may need `fast_info`). *(Revisited in Phase 2: see the entry above. Quotes now use a year of daily bars plus share count and calendar.)*
 
 ## 2026-11-01 — X/Twitter: no scraping; pluggable, capped, decided later (OPEN)
 - **Decision:** Don't scrape X. Build X as an optional source plug-in in Phase 8. It will use either X's official pay-per-use API or a low-cost third-party read API, look only at trusted accounts plus `$TICKER` searches, and have a hard spending cap (about $5/month) and an on/off switch. The specific provider is chosen at that phase.
