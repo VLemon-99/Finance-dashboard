@@ -22,6 +22,7 @@ from app.services.search import SearchOutcome, search_instruments
 from app.tickers import InvalidTicker
 from app.timeutils import format_eastern, today_eastern
 from app.web import formatting
+from app.web.assets import asset_version
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 templates.env.filters.update(
@@ -33,6 +34,7 @@ templates.env.filters.update(
     session_label=lambda d: formatting.session_label(d, today_eastern()),
 )
 templates.env.globals["price_range"] = formatting.price_range
+templates.env.globals["asset_version"] = asset_version
 
 router = APIRouter()
 

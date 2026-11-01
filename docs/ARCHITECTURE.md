@@ -116,7 +116,7 @@ app/
   config.py        settings from environment / .env, plus loading/checking config/settings.yaml
   tickers.py       ticker format rules (shared by services and adapters)
   timeutils.py     UTC storage ↔ US Eastern display
-  web/             routes, formatting.py (number/date display), templates/ (HTML pages + HTMX partials), static/ (CSS, vendored htmx.min.js)
+  web/             routes, formatting.py (number/date display), assets.py (version codes on CSS/JS links), templates/ (HTML pages + HTMX partials), static/ (CSS, vendored htmx.min.js)
   services/        business rules (watchlists, portfolio, options_math, reports, calendar, macro)
   providers/       market data + calendar data adapters (yahoo, fred)
   sources/         research content plug-ins (news_rss, edgar, youtube, blogs, x, reddit)

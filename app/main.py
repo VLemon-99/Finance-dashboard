@@ -1,7 +1,6 @@
 """Starts the web app: `uv run uvicorn app.main:app --reload`."""
 
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -14,9 +13,8 @@ from app.providers.market_data import MarketData
 from app.providers.yahoo import YahooMarketData
 from app.services.users import ensure_default_user
 from app.services.watchlists import WatchlistNotFound
+from app.web.assets import STATIC_DIR
 from app.web.routes import router, watchlist_not_found
-
-STATIC_DIR = Path(__file__).parent / "web" / "static"
 
 
 def create_app(
