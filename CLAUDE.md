@@ -1,6 +1,6 @@
-# Project: [NAME]
+# Project: Finance Dashboard
 
-[One or two sentences: what this project is and who it's for.]
+A personal research dashboard for one investor (for now): it aggregates and AI-summarizes news, SEC filings, blogs, YouTube, X and Reddit for followed tickers into a daily report, and tracks stocks, option contracts (greeks, IV, DTE) and a virtual portfolio with annualized returns on short options, plus a market-events calendar. Not linked to any brokerage; never places trades.
 
 ## About the owner
 I'm tech-savvy but not a programmer. Explain choices in plain language, avoid jargon, and tell me exactly what to run or click when I need to do something myself.
@@ -14,14 +14,21 @@ I'm tech-savvy but not a programmer. Explain choices in plain language, avoid ja
 If my request conflicts with these documents, point it out and ask before proceeding.
 
 ## Tech stack
-- Language/framework: [e.g. Python 3.12 + FastAPI]
-- Database/storage: [e.g. SQLite]
-- Hosting/deployment: [e.g. none yet / Vercel]
+Status: planned. The app is not scaffolded yet; the commands below become real in Phase 1. Reasons for each choice are in `docs/DECISIONS.md`.
+- Language/framework: Python 3.12 + FastAPI, server-rendered pages with Jinja2 templates + HTMX, Chart.js for charts
+- Database/storage: SQLite (`data/app.db`, git-ignored) via SQLModel/SQLAlchemy, Alembic migrations; Postgres-compatible for later
+- Background jobs: APScheduler (weekday 7:30am US Eastern report)
+- Data sources: Yahoo Finance via `yfinance` (market data), SEC EDGAR, news/blog/YouTube RSS via `feedparser`, FRED API; X and Reddit later
+- AI: Gemini API via `google-genai`, behind `app/ai/llm.py` interface
+- Tooling: `uv` (dependencies + running), `ruff` (lint + format), `pytest`, GitHub Actions CI
+- Hosting/deployment: none yet. Runs locally at http://localhost:8000; cloud + login planned for the last phase
 
 ## Commands
-- Install: `[command]`
-- Run locally: `[command]`
-- Run tests: `[command]`
+- Install: `uv sync`
+- Set up the database: `uv run alembic upgrade head`
+- Run locally: `uv run uvicorn app.main:app --reload` (then open http://localhost:8000)
+- Run tests: `uv run pytest`
+- Check code style: `uv run ruff check .` and `uv run ruff format .`
 
 ## How to work
 1. **Plan before coding.** For anything bigger than a small fix, propose a short plan and wait for my OK.
@@ -40,4 +47,13 @@ If my request conflicts with these documents, point it out and ask before procee
 
 ## Project-specific rules and lessons learned
 <!-- Add rules here as you discover them, e.g. "Dates are always stored in UTC." -->
-- [none yet]
+- Every outside service (market data, content sources, AI) goes through its adapter in `app/providers/`, `app/sources/` or `app/ai/`. Pages and services never call `yfinance`, HTTP feeds or Gemini directly.
+- One failing source must never break a page or a report. Show "stale"/"missing" instead (SPEC F1.6, F4.11).
+- Never send portfolio, watchlist or other personal data to the AI service. Only public content (SPEC F4.13).
+- Every report claim must cite a stored source item. No uncited AI text in reports.
+- Finance numbers (greeks, DTE, P&L, capital at risk, annualized return, sentiment score) are calculated in Python code, not by the AI, and each formula has tests with known answers (SPEC F2.3, F3.6).
+- Tests never hit the network: use recorded sample responses and mock the AI.
+- Dates and times are stored in UTC and shown in US Eastern time.
+- Every user-owned table has a `user_id` column (accounts come later).
+- Limits, weights, thresholds and trusted sources live in `config/`, not in code.
+- No scraping that breaks a site's terms of service (see the X/Twitter decision).
