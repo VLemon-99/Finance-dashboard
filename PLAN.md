@@ -4,12 +4,12 @@
 > Feature IDs (F1.4 etc.) refer to acceptance criteria in `docs/SPEC.md`.
 
 ## Current phase
-**Phase 1: Walking skeleton**: built, tested, CI green. One check remains: the owner runs it locally against real Yahoo data (Yahoo is blocked from the cloud machine where it was built). After that, Phase 2.
+**Phase 1: Walking skeleton**: done. Merged, CI green, and confirmed by the owner against real Yahoo data. Next: Phase 2.
 
 ## Phases
 Each phase ends with a working app, passing tests, and the docs updated.
 
-- [x] **Phase 1 — Walking skeleton** (code done 2026-11-01; awaiting owner's local run with real Yahoo data)
+- [x] **Phase 1 — Walking skeleton** (done 2026-11-01; owner confirmed it locally with real Yahoo data)
   - Project set up with `uv`, FastAPI, SQLite + migrations, ruff, pytest, GitHub Actions CI.
   - One page: type a ticker → shows last price, day change and fetched time (from Yahoo), saved in `quotes`.
   - Default user created at startup (F7.1). `.env` loading in place.
@@ -57,21 +57,21 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - **Done when:** F7.1–F7.3 pass and the security review has no open high-severity findings.
 
 ## Next up
-1. Owner: merge the Phase 1 pull request, install `uv`, and run the app locally (steps in `README.md` → "Running it on your computer"). Try `AAPL`, `BRK.B` and a made-up ticker like `ZZZZQ`, and report what you see.
-2. Phase 2: watchlists & stock tracking (F1.1–F1.7). Before starting, settle which Yahoo call supplies the full F1.4 row (day range, 52-week range, volume, market cap, next earnings).
-3. Owner, before Phase 3: create a Gemini API key in Google AI Studio linked to the Google Cloud project that receives the $10/month credit, and set a $10 budget alert (step-by-step given then).
+1. Phase 2: watchlists & stock tracking (F1.1–F1.7). Before starting, settle which Yahoo call supplies the full F1.4 row (day range, 52-week range, volume, market cap, next earnings).
+2. Owner, before Phase 3: create a Gemini API key in Google AI Studio linked to the Google Cloud project that receives the $10/month credit, and set a $10 budget alert (step-by-step given then).
 
 ## Done (recent)
+- 2026-11-01 Owner ran Phase 1 locally against real Yahoo: `AMZN` (price + day change), `BRK.A` (shown as `BRK-A`) and `ZZZZQ` ("not found") all behaved as expected.
 - 2026-11-01 Phase 1 walking skeleton: uv project, FastAPI + Jinja2 + HTMX quote page, SQLite tables `users`/`instruments`/`quotes` with the first Alembic migration, default user at startup (F7.1), Yahoo adapter behind `MarketData`, stale/error handling (F1.6) and "not found" (F1.7) for the quote page, 47 tests (no network), GitHub Actions CI (ruff + pytest) green.
 - 2026-11-01 Kickoff: interviewed owner; wrote SPEC, ARCHITECTURE, PLAN, DECISIONS; filled in stack and commands in CLAUDE.md. No application code yet.
 
 ## Known issues / bugs
-- The Yahoo adapter hasn't been tried against real Yahoo yet: the cloud build machine can't reach Yahoo. The error path *was* exercised live (Yahoo blocked → stale/error note shown correctly). Real-data check is "Next up" #1.
-- The test sample `tests/fixtures/yahoo_history_AAPL_5d.json` is hand-made in yfinance's format with invented prices. Once the app runs somewhere with Yahoo access, replace it with a real recorded response.
+- The test sample `tests/fixtures/yahoo_history_AAPL_5d.json` is hand-made in yfinance's format with invented prices. The cloud build machine can't reach Yahoo, so a real recorded sample would have to be captured on the owner's computer.
+- The day change is labelled "today", but on weekends and holidays it is really the last trading day's change (on a Sunday it shows Friday vs. Thursday). Fix in Phase 2 together with the F1.4 row, e.g. show the date of the last trading session.
 - The quote page fetches from Yahoo on every lookup (no 15-minute cache yet). The refresh window and the Refresh button come in Phase 2 (F1.5).
 
 ## Handoff note
-Phase 1 is complete on branch `claude/zealous-wright-5wqtbj` (CI green). First check whether the owner ran it locally against real Yahoo data, and fix anything they report before starting Phase 2.
+Phase 1 is complete, merged into `main`, and confirmed by the owner with real Yahoo data. Start Phase 2 with prompt #2 in `docs/PROMPTS.md`.
 - How the code is laid out: `app/main.py` has `create_app(engine, market_data)`, so tests inject a temporary DB and `FakeMarketData` (`tests/conftest.py`). The test DB is built by running the real Alembic migrations.
 - New tables need a model in `app/db/models.py` plus `uv run alembic revision --autogenerate -m "..."`. Review the generated file, which is excluded from ruff.
 - Dev-tool note: `httpx2` (Starlette's suggested replacement for `httpx` in tests) was *not* added because it wasn't vetted. A deprecation warning is filtered in `pyproject.toml` instead.
