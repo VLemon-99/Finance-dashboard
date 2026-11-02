@@ -64,6 +64,10 @@ Leave a list empty if nothing fits.
 )
 
 
+# The value in .env.example: treated as "no key yet".
+_PLACEHOLDER_KEY = "your-gemini-key-here"
+
+
 class _ItemOut(BaseModel):
     ref: int
     summary: str
@@ -94,7 +98,7 @@ class GeminiLLM:
         timeout_seconds: float = 120.0,
         client: Any = None,  # tests pass a fake
     ) -> None:
-        if client is None and not api_key.strip():
+        if client is None and (not api_key.strip() or api_key.strip() == _PLACEHOLDER_KEY):
             raise AIError("AI summaries are off: set GEMINI_API_KEY in the .env file.")
         self.model_name = model_name
         self._client = client or genai.Client(
@@ -181,7 +185,7 @@ def _api_error_message(exc: errors.APIError) -> str:
     code = getattr(exc, "code", None)
     if code == 429:
         return "The AI service's usage limit was reached; try again later."
-    if code in (401, 403):
+    if code in (401, 403) or (code == 400 and "api key" in str(exc).lower()):
         return "The AI service refused the key: check GEMINI_API_KEY in the .env file."
     if code == 404:
         return "The AI model name wasn't recognised: check ai.model in config/settings.yaml."

@@ -114,6 +114,7 @@ def test_nothing_to_send_makes_no_call():
     [
         (errors.ClientError(429, {"error": {"message": "quota"}}), "usage limit"),
         (errors.ClientError(403, {"error": {"message": "denied"}}), "GEMINI_API_KEY"),
+        (errors.ClientError(400, {"error": {"message": "API key not valid."}}), "GEMINI_API_KEY"),
         (errors.ClientError(404, {"error": {"message": "no model"}}), "ai.model"),
         (errors.ServerError(503, {"error": {"message": "busy"}}), "error \\(503\\)"),
         (TimeoutError("slow"), "TimeoutError"),
@@ -130,6 +131,7 @@ def test_odd_answers_become_ai_errors(answer):
         llm(FakeClient(answer)).summarize_items("AAPL", None, ITEMS)
 
 
-def test_missing_key_is_a_clear_error():
+@pytest.mark.parametrize("key", ["  ", "your-gemini-key-here"])
+def test_missing_or_placeholder_key_is_a_clear_error(key):
     with pytest.raises(AIError, match="GEMINI_API_KEY"):
-        GeminiLLM(api_key="  ", model_name="m")
+        GeminiLLM(api_key=key, model_name="m")

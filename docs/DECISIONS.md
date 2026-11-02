@@ -2,6 +2,28 @@
 
 > One entry per meaningful choice, newest at the top. This stops future sessions from quietly undoing past decisions.
 
+## 2026-11-02 — Phase 3: how the report is built
+- **Decision:**
+  - **Press releases come through Google News** (Business Wire, PR Newswire and GlobeNewswire are outlets there), not each company's own feed (owner agreed).
+  - **News is stored as headline + feed snippet.** We don't download the article pages: many are paywalled, and Google News links are redirects. So news summaries are only as rich as the headline. Filings are different: we download the full text (8-Ks with their press-release exhibit 99), cut to 150,000 characters.
+  - **The trusted-outlets list exists but is off by default** (`trusted_outlets_only: false` in `config/sources.yaml`), because SPEC F4.4 says the main news feeds are used as they are. Switch it on to keep only listed outlets.
+  - **Google News search text is a config setting**: `"{company}" OR "{ticker} stock"`, with the company name taken from the SEC's ticker list ("Apple Inc." → "Apple").
+  - **Same story = near-identical headline** (similarity ≥ 0.85, published within 72 hours), using Python's built-in text comparison. Filings are never merged.
+  - **One AI summary and rating per story**, not per outlet; the sentiment counts and score count each story once.
+  - **Form 4s aren't sent to the AI or rated.** Their buys and sells are read from the filing's data in code. Only open-market buys (code P) and sales (code S) count; grants, option exercises, tax withholding and gifts are counted separately.
+  - **Sentiment score** = 100 × Σ(weight × rating) / Σ(weight), ratings +1/0/−1, rounded to a whole number (halves away from zero); no rated stories → no score instead of 0.
+  - **The watchlist summary on top is built in code**, from each ticker's score and first development. Each AI call is about one ticker, so the list of tickers in a watchlist never reaches the AI (F4.13).
+  - **The AI must cite.** It gets numbered stories and returns statements with story numbers. Statements citing nothing, or numbers we didn't send, are dropped. A development must cite a confirmed story and a rumor an unconfirmed one.
+  - **Without a Gemini key, or when the AI fails, the report is still made**: it lists every source item (headline, outlet, date, link) and says the AI part is missing.
+  - **Reports are stored as structured data (JSON)**, not markdown, and drawn by the page template.
+  - **Model: `gemini-flash-latest`**, Google's name that always points at the current Flash model; changeable in `config/settings.yaml`. Items are summarized in batches (up to 20 per request) to keep requests few.
+  - **"Generate now" runs in a background thread** with one run at a time; the page shows progress and reloads when done. A run cut off by stopping the app is marked "didn't finish" at the next start.
+  - **The app checks the database is up to date at startup** and says to run `uv run alembic upgrade head` if not.
+  - **New libraries:** `feedparser` (reads news feeds), `google-genai` (Gemini), `httpx` (web requests; it was already installed for tests, now a regular dependency).
+- **Why:** Simplest way to meet F4.1–F4.4, F4.6, F4.10–F4.14 while keeping the hard rules: numbers in code, every claim cited, no personal data to the AI, one failing source never breaks a report.
+- **Alternatives considered:** each company's own press-release feed (many have none, and URLs differ per company); fetching article pages (paywalls, fragile, terms-of-service risk); a text-similarity library for duplicates (new dependency for a small gain); letting the AI write the watchlist summary (would send the watchlist's tickers together); per-item AI calls (many more requests for headline-sized items).
+- **Revisit if:** news summaries feel too thin (consider a news API with article text), duplicates slip through with different wording, Google or Yahoo change their feeds, or the AI bill nears the $10 credit.
+
 ## 2026-11-01 — Static files are linked with a version code
 - **Decision:** Pages link to `style.css` and `htmx.min.js` as e.g. `/static/style.css?v=3f2a9c1e04b7`, where the code comes from the file's content (`app/web/assets.py`).
 - **Why:** After the Phase 2 update, the owner's browser kept using its saved copy of Phase 1's `style.css`, because the address hadn't changed and the app didn't say how long a copy may be kept. A content-based code changes exactly when the file changes, so browsers can still keep unchanged files but always fetch updated ones.
