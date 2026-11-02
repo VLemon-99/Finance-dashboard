@@ -113,3 +113,42 @@ class SourceItemRow(SQLModel, table=True):
     is_rumor: bool | None = None  # unconfirmed report / speculation
     summarized_at: datetime | None = None
     ai_model: str | None = Field(default=None, max_length=60)
+
+
+class ReportRun(SQLModel, table=True):
+    """One "Generate now" (or, later, scheduled) run: one ticker or a whole watchlist.
+
+    Holds the progress while it runs and the watchlist summary shown on top when done.
+    """
+
+    __tablename__ = "report_runs"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    # The watchlist it was run for (None for a single ticker). No database link, so deleting
+    # the watchlist keeps its past reports; `label` keeps the name as it was.
+    watchlist_id: int | None = None
+    label: str = Field(max_length=100)
+    started_at: datetime = Field(default_factory=utc_now, index=True)
+    finished_at: datetime | None = None
+    status: str = Field(default="running", max_length=10)  # running | done | failed
+    total: int = 0  # tickers to do
+    done: int = 0  # tickers finished
+    summary: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    error: str | None = Field(default=None, max_length=500)
+
+
+class Report(SQLModel, table=True):
+    """One ticker's research report (SPEC F4.1). The content is stored as structured JSON."""
+
+    __tablename__ = "reports"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    run_id: int = Field(foreign_key="report_runs.id", index=True)
+    ticker: str = Field(max_length=32, index=True)
+    generated_at: datetime = Field(default_factory=utc_now, index=True)
+    period_start: datetime  # the date range it covers (F4.14)
+    period_end: datetime
+    body: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    missing: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))

@@ -26,6 +26,7 @@ log = logging.getLogger(__name__)
 @dataclass
 class CollectResult:
     ticker: str
+    company: str | None = None  # short company name from the SEC, if known
     new_items: int = 0
     missing: list[str] = field(default_factory=list)  # "Google News: didn't answer in time."
 
@@ -37,8 +38,8 @@ def collect_for_ticker(
     since: datetime,
     config: ReportsConfig,
 ) -> CollectResult:
-    result = CollectResult(ticker=ticker)
     company = _company_name(sources, ticker)
+    result = CollectResult(ticker=ticker, company=company)
     for source in sources.sources:
         try:
             items = source.fetch(ticker, company, since)

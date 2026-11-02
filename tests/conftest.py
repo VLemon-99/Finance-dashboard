@@ -171,10 +171,11 @@ def fake_fetch():
 @pytest.fixture
 def sources_now(monkeypatch):
     """Freeze 'now' for the source plug-ins so the sample dates fall in the window."""
+    import app.services.reports
     import app.sources.edgar
     import app.sources.news_rss
 
-    for module in (app.sources.edgar, app.sources.news_rss):
+    for module in (app.sources.edgar, app.sources.news_rss, app.services.reports):
         monkeypatch.setattr(module, "utc_now", lambda: SOURCES_NOW)
     return SOURCES_NOW
 
