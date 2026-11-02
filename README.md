@@ -91,7 +91,13 @@ uv sync
 ```bash
 uv run alembic upgrade head
 ```
-Then start the app as usual. `uv sync` installs any new libraries and `alembic upgrade head` applies any database changes; both do nothing if nothing changed. If `git pull` shows an error or mentions conflicts, stop and ask before going further.
+Then start the app again (the first step stopped it, so until you run this, the browser shows "localhost refused to connect"):
+```bash
+uv run uvicorn app.main:app --reload
+```
+Wait for the line `Application startup complete.`, then open http://localhost:8000. Leave this terminal window open while you use the app.
+
+`uv sync` installs any new libraries and `alembic upgrade head` applies any database changes; both do nothing if nothing changed. If `git pull` shows an error or mentions conflicts, stop and ask before going further. If the app stops with an error instead of `Application startup complete.`, copy the last few lines of the terminal and send them to Claude.
 
 **Checks (optional)**
 ```bash

@@ -63,6 +63,7 @@ Each phase ends with a working app, passing tests, and the docs updated.
 4. Then Phase 4: options chain + virtual portfolio.
 
 ## Done (recent)
+- 2026-11-02 Fixed: after merging Phase 3 and running the four update commands, the browser showed "localhost refused to connect". The app wasn't broken (the same steps start cleanly here, with a Phase 2 database and the example `.env`); the README's update steps start with "stop the app" but never gave the command to start it again. The start command is now the last step, with what to look for (`Application startup complete.`). Test: `tests/test_readme.py`.
 - 2026-11-02 Phase 3 report v1, in five commits:
   1. Source plug-ins (`app/sources/`): Google News and Yahoo Finance RSS, SEC EDGAR (8-K with press-release exhibit, 10-Q, 10-K, Form 4, 13D/13G); Form 4 buys/sells read in code; `config/sources.yaml` (F4.3, F4.4).
   2. `source_items` table; each URL stored once per ticker; same-headline stories merged; failing sources listed, failed downloads retried next run (F4.11, F4.12).
