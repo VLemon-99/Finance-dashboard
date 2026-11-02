@@ -31,6 +31,18 @@ class Settings(BaseSettings):
     # The limits/timings file (see AppConfig below).
     app_config_file: Path = PROJECT_ROOT / "config" / "settings.yaml"
 
+    # The trusted sources file for reports (see SourcesConfig below, SPEC F4.4).
+    sources_config_file: Path = PROJECT_ROOT / "config" / "sources.yaml"
+
+    # Seconds to wait for a news feed or the SEC before giving up.
+    source_timeout_seconds: float = 20.0
+
+    # The SEC requires a contact in every request: "Your Name your-email@example.com".
+    sec_user_agent: str = ""
+
+    # Gemini API key from Google AI Studio. Empty = AI summaries are switched off.
+    gemini_api_key: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:
@@ -65,19 +77,70 @@ class AppConfig(_Section):
     search: SearchConfig = SearchConfig()
 
 
+# --- config/sources.yaml (trusted sources, SPEC F4.4) ---------------------------------
+
+
+class GoogleNewsConfig(_Section):
+    enabled: bool = True
+    query: str = '"{company}" OR "{ticker} stock"'
+    query_without_company: str = '"{ticker} stock"'
+
+
+class FeedConfig(_Section):
+    enabled: bool = True
+
+
+class NewsConfig(_Section):
+    google_news: GoogleNewsConfig = GoogleNewsConfig()
+    yahoo_finance: FeedConfig = FeedConfig()
+    trusted_outlets_only: bool = False
+    trusted_outlets: list[str] = []
+
+
+class EdgarConfig(_Section):
+    enabled: bool = True
+    forms: list[str] = [
+        "8-K",
+        "10-Q",
+        "10-K",
+        "4",
+        "SC 13D",
+        "SC 13G",
+        "SCHEDULE 13D",
+        "SCHEDULE 13G",
+    ]
+    insider_lookback_days: int = Field(default=90, ge=1, le=365)
+    max_text_chars: int = Field(default=150_000, ge=1_000, le=1_000_000)
+
+
+class SourcesConfig(_Section):
+    news: NewsConfig = NewsConfig()
+    sec_edgar: EdgarConfig = EdgarConfig()
+
+
 class ConfigFileError(RuntimeError):
     pass
 
 
-def load_app_config(path: Path) -> AppConfig:
-    """Read config/settings.yaml. Problems stop the app with a message naming the file."""
+def _load_yaml(path: Path, model: type[BaseModel], what: str):
+    """Read a YAML config file. Problems stop the app with a message naming the file."""
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     except FileNotFoundError as exc:
-        raise ConfigFileError(f"Settings file not found: {path}") from exc
+        raise ConfigFileError(f"{what} file not found: {path}") from exc
     except yaml.YAMLError as exc:
         raise ConfigFileError(f"{path} isn't valid YAML: {exc}") from exc
     try:
-        return AppConfig.model_validate(raw or {})
+        return model.model_validate(raw or {})
     except ValidationError as exc:
         raise ConfigFileError(f"{path} has a problem:\n{exc}") from exc
+
+
+def load_app_config(path: Path) -> AppConfig:
+    """Read config/settings.yaml."""
+    return _load_yaml(path, AppConfig, "Settings")
+
+
+def load_sources_config(path: Path) -> SourcesConfig:
+    """Read config/sources.yaml."""
+    return _load_yaml(path, SourcesConfig, "Sources")

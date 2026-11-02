@@ -1,0 +1,64 @@
+# Trusted sources for the research report (SPEC F4.4).
+# Edit this file, then restart the app to apply the changes. No secrets here.
+# Later phases add blogs, YouTube channels, X accounts and subreddits.
+
+news:
+  google_news:
+    enabled: true
+    # What to search Google News for. {company} is the short company name from the SEC's
+    # list (e.g. "Apple"); {ticker} is the ticker (e.g. "AAPL").
+    # Press releases (Business Wire, PR Newswire, GlobeNewswire) come through this feed too.
+    query: '"{company}" OR "{ticker} stock"'
+    # Used when the company name isn't known (e.g. most ETFs).
+    query_without_company: '"{ticker} stock"'
+
+  yahoo_finance:
+    enabled: true
+
+  # The main news feeds above are used as they are (SPEC F4.4).
+  # Change to true to keep only articles from the outlets listed below.
+  # Names must match the outlet name shown in reports (upper/lower case doesn't matter).
+  trusted_outlets_only: false
+  trusted_outlets:
+    - Reuters
+    - Bloomberg
+    - The Wall Street Journal
+    - Financial Times
+    - CNBC
+    - Barron's
+    - MarketWatch
+    - Yahoo Finance
+    - Associated Press
+    - The New York Times
+    - Forbes
+    - Fortune
+    - Business Insider
+    - Investor's Business Daily
+    - The Motley Fool
+    - Seeking Alpha
+    - Morningstar
+    - TechCrunch
+    - The Verge
+    - The Information
+    - Axios
+    - Business Wire
+    - PR Newswire
+    - GlobeNewswire
+
+sec_edgar:
+  enabled: true
+  # Filing types to collect (SPEC F4.3). "4" is the insider trading form.
+  # Since 2025 the SEC calls the big-holder forms "SCHEDULE 13D/13G"; older ones are "SC 13D/G".
+  forms:
+    - 8-K
+    - 10-Q
+    - 10-K
+    - "4"
+    - SC 13D
+    - SC 13G
+    - SCHEDULE 13D
+    - SCHEDULE 13G
+  # How far back insider buys and sells are shown (SPEC F4.8).
+  insider_lookback_days: 90
+  # Longest filing text (characters) handed to the AI. Longer filings are cut off.
+  max_text_chars: 150000

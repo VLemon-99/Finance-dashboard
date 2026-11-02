@@ -2,7 +2,7 @@
 
 import json
 from dataclasses import replace
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -17,6 +17,7 @@ from app.db.session import make_engine
 from app.main import create_app
 from app.providers.market_data import MarketDataError, QuoteData, SearchResult, TickerNotFound
 from app.providers.yahoo import quote_from_history, search_results_from_quotes
+from app.sources.base import SourceError
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -104,3 +105,68 @@ def client(engine, fake_market_data, app_config):
     app = create_app(engine=engine, market_data=fake_market_data, app_config=app_config)
     with TestClient(app) as c:  # `with` runs startup (creates the default user)
         yield c
+
+
+# --- research sources (Phase 3) ------------------------------------------------------
+
+SOURCE_FIXTURES = FIXTURES / "sources"
+
+# Pretend "now" for source tests: the samples are dated just before this.
+SOURCES_NOW = datetime(2026, 11, 2, 12, 0, tzinfo=UTC)
+
+# Address (or the start of one) -> sample file. Checked in order; first match wins.
+DEFAULT_ROUTES = {
+    "https://news.google.com/rss/search": "google_news_aapl.xml",
+    "https://feeds.finance.yahoo.com/rss/2.0/headline?s=AAPL": "yahoo_news_aapl.xml",
+    "https://www.sec.gov/files/company_tickers.json": "sec_company_tickers.json",
+    "https://data.sec.gov/submissions/CIK0000320193.json": "sec_submissions_aapl.json",
+    "https://www.sec.gov/Archives/edgar/data/320193/000032019326000101/wk-form4_1730412312.xml": (
+        "sec_form4_sell.xml"
+    ),
+    "https://www.sec.gov/Archives/edgar/data/320193/000032019326000090/wk-form4_1726423200.xml": (
+        "sec_form4_buy.xml"
+    ),
+    "https://www.sec.gov/Archives/edgar/data/320193/000032019326000100/index.json": (
+        "sec_8k_index.json"
+    ),
+    "https://www.sec.gov/Archives/edgar/data/320193/000032019326000100/aapl-20261030.htm": (
+        "sec_8k_primary.htm"
+    ),
+    "https://www.sec.gov/Archives/edgar/data/320193/000032019326000100/a8-kex991": (
+        "sec_8k_ex99.htm"
+    ),
+}
+
+
+class FakeFetch:
+    """Stands in for the internet: answers known addresses with recorded samples."""
+
+    def __init__(self, routes: dict[str, str] | None = None) -> None:
+        self.routes = dict(DEFAULT_ROUTES if routes is None else routes)
+        self.down: set[str] = set()  # address starts that fail with SourceError
+        self.calls: list[str] = []
+
+    def __call__(self, url: str) -> bytes:
+        self.calls.append(url)
+        if any(url.startswith(prefix) for prefix in self.down):
+            raise SourceError("The site didn't answer in time.")
+        for prefix, name in self.routes.items():
+            if url.startswith(prefix):
+                return (SOURCE_FIXTURES / name).read_bytes()
+        raise SourceError("The site says this page doesn't exist (404).")
+
+
+@pytest.fixture
+def fake_fetch():
+    return FakeFetch()
+
+
+@pytest.fixture
+def sources_now(monkeypatch):
+    """Freeze 'now' for the source plug-ins so the sample dates fall in the window."""
+    import app.sources.edgar
+    import app.sources.news_rss
+
+    for module in (app.sources.edgar, app.sources.news_rss):
+        monkeypatch.setattr(module, "utc_now", lambda: SOURCES_NOW)
+    return SOURCES_NOW

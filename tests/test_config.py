@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.config import PROJECT_ROOT, ConfigFileError, load_app_config
+from app.config import PROJECT_ROOT, ConfigFileError, load_app_config, load_sources_config
 
 
 def test_shipped_settings_file_has_the_spec_defaults():
@@ -39,3 +39,27 @@ def test_bad_values_are_reported(tmp_path, text):
 def test_missing_file_is_reported(tmp_path):
     with pytest.raises(ConfigFileError, match="not found"):
         load_app_config(tmp_path / "nope.yaml")
+
+
+def test_shipped_sources_file_loads():
+    cfg = load_sources_config(PROJECT_ROOT / "config" / "sources.yaml")
+    assert cfg.news.google_news.enabled
+    assert cfg.news.trusted_outlets_only is False  # SPEC F4.4: main feeds used as they are
+    assert "Reuters" in cfg.news.trusted_outlets
+    assert "4" in cfg.sec_edgar.forms and "8-K" in cfg.sec_edgar.forms
+    assert cfg.sec_edgar.insider_lookback_days == 90
+
+
+def test_sources_file_can_switch_a_source_off(tmp_path):
+    path = tmp_path / "sources.yaml"
+    path.write_text("news:\n  yahoo_finance:\n    enabled: false\n")
+    cfg = load_sources_config(path)
+    assert cfg.news.yahoo_finance.enabled is False
+    assert cfg.news.google_news.enabled is True
+
+
+def test_misspelled_source_setting_is_reported(tmp_path):
+    path = tmp_path / "sources.yaml"
+    path.write_text("news:\n  trusted_outlet_only: true\n")
+    with pytest.raises(ConfigFileError, match="trusted_outlet_only"):
+        load_sources_config(path)
