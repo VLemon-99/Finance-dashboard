@@ -36,3 +36,16 @@ reports:
     youtube: 0.7
     x: 0.5
     reddit: 0.3
+
+ai:
+  # Gemini model. "gemini-flash-latest" always points at Google's current Flash model.
+  model: gemini-flash-latest
+  # Seconds to wait for one AI answer.
+  timeout_seconds: 120
+  # How many items the AI summarizes in one request, and the most text per request
+  # (characters). Fewer, bigger requests cost about the same but are faster.
+  max_items_per_call: 20
+  max_chars_per_call: 400000
+  # Most statements in the "Major developments" and "Rumors & speculation" sections.
+  max_developments: 6
+  max_rumors: 4

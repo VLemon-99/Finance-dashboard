@@ -12,6 +12,7 @@ from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
+from app.ai.llm import AIError, Claim, ItemSummary, PublicItem, PublicStory, ReportDraft
 from app.config import PROJECT_ROOT, AppConfig
 from app.db.session import make_engine
 from app.main import create_app
@@ -176,3 +177,63 @@ def sources_now(monkeypatch):
     for module in (app.sources.edgar, app.sources.news_rss):
         monkeypatch.setattr(module, "utc_now", lambda: SOURCES_NOW)
     return SOURCES_NOW
+
+
+# --- the AI (Phase 3): always faked in tests ------------------------------------------
+
+
+class FakeLLM:
+    """Stands in for Gemini. Rates items by simple keyword rules so answers are predictable."""
+
+    model_name = "fake-model"
+
+    def __init__(self) -> None:
+        self.fail: str | None = None  # set to a message to make every call raise AIError
+        self.skip_refs: set[int] = set()  # items it pretends aren't about the ticker
+        self.extra_claims: list[Claim] = []  # added to developments (e.g. uncited ones)
+        self.item_calls: list[tuple[str, str | None, list[PublicItem]]] = []
+        self.report_calls: list[tuple[str, str | None, list[PublicStory]]] = []
+
+    def summarize_items(self, ticker, company, items):
+        if self.fail:
+            raise AIError(self.fail)
+        self.item_calls.append((ticker, company, list(items)))
+        answers = []
+        for item in items:
+            if item.ref in self.skip_refs:
+                continue
+            title = item.title.lower()
+            if any(w in title for w in ("record", "beat", "buy")):
+                sentiment = "bullish"
+            elif any(w in title for w in ("slip", "worr", "sell", "recall")):
+                sentiment = "bearish"
+            else:
+                sentiment = "neutral"
+            answers.append(
+                ItemSummary(
+                    ref=item.ref,
+                    summary=f"Summary of: {item.title}",
+                    sentiment=sentiment,
+                    reason=f"Reason for {sentiment}.",
+                    is_rumor=any(w in title for w in ("said to", "report:", "rumor")),
+                )
+            )
+        return answers
+
+    def write_report(self, ticker, company, stories, max_developments, max_rumors):
+        if self.fail:
+            raise AIError(self.fail)
+        self.report_calls.append((ticker, company, list(stories)))
+        developments = [
+            Claim(f"Development: {s.title}.", (s.ref,)) for s in stories if not s.is_rumor
+        ]
+        rumors = [Claim(f"Rumor: {s.title}.", (s.ref,)) for s in stories if s.is_rumor]
+        return ReportDraft(
+            developments=tuple(developments[:max_developments] + self.extra_claims),
+            rumors=tuple(rumors[:max_rumors]),
+        )
+
+
+@pytest.fixture
+def fake_llm():
+    return FakeLLM()

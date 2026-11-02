@@ -89,11 +89,24 @@ class ReportsConfig(_Section):
     }
 
 
+class AIConfig(_Section):
+    # Gemini model. "gemini-flash-latest" always points at Google's current Flash model.
+    model: str = Field(default="gemini-flash-latest", min_length=1, max_length=60)
+    timeout_seconds: int = Field(default=120, ge=10, le=600)
+    # Items summarized together in one AI call, and the most text per call (characters).
+    max_items_per_call: int = Field(default=20, ge=1, le=100)
+    max_chars_per_call: int = Field(default=400_000, ge=10_000, le=2_000_000)
+    # Most statements per report section.
+    max_developments: int = Field(default=6, ge=1, le=20)
+    max_rumors: int = Field(default=4, ge=0, le=20)
+
+
 class AppConfig(_Section):
     watchlists: WatchlistLimits = WatchlistLimits()
     market_data: MarketDataConfig = MarketDataConfig()
     search: SearchConfig = SearchConfig()
     reports: ReportsConfig = ReportsConfig()
+    ai: AIConfig = AIConfig()
 
 
 # --- config/sources.yaml (trusted sources, SPEC F4.4) ---------------------------------
