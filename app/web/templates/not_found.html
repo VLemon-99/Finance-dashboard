@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Not found</h1>
+{% if what == "report" %}
+<p>That report doesn't exist. <a href="/reports">See all reports</a>.</p>
+{% else %}
 <p>That watchlist doesn't exist (it may have been deleted). <a href="/">Back to your watchlists</a>.</p>
+{% endif %}
 {% endblock %}

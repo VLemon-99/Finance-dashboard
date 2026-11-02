@@ -101,13 +101,6 @@ def app_config():
     return AppConfig.model_validate({"watchlists": {"max_watchlists": 3, "max_items_per_list": 2}})
 
 
-@pytest.fixture
-def client(engine, fake_market_data, app_config):
-    app = create_app(engine=engine, market_data=fake_market_data, app_config=app_config)
-    with TestClient(app) as c:  # `with` runs startup (creates the default user)
-        yield c
-
-
 # --- research sources (Phase 3) ------------------------------------------------------
 
 SOURCE_FIXTURES = FIXTURES / "sources"
@@ -238,3 +231,64 @@ class FakeLLM:
 @pytest.fixture
 def fake_llm():
     return FakeLLM()
+
+
+# --- the whole app ------------------------------------------------------------------
+
+TEST_SEC_USER_AGENT = "Test Person test.person@mail.test"
+
+
+@pytest.fixture
+def report_services(fake_fetch, fake_llm, sources_now, app_config):
+    """Report pipeline wired to the fake internet and the fake AI."""
+    from app.config import SourcesConfig
+    from app.services.reports import ReportServices
+    from app.sources.edgar import EdgarSource
+    from app.sources.news_rss import GoogleNewsSource, YahooNewsSource
+    from app.sources.registry import SourceSet
+
+    sources_config = SourcesConfig()
+    edgar = EdgarSource(fake_fetch, sources_config.sec_edgar, TEST_SEC_USER_AGENT)
+    news = sources_config.news
+    return ReportServices(
+        sources=SourceSet(
+            [GoogleNewsSource(fake_fetch, news), YahooNewsSource(fake_fetch, news), edgar], edgar
+        ),
+        llm=fake_llm,
+        llm_problem=None,
+        config=app_config,
+        sources_config=sources_config,
+    )
+
+
+class RecordingRunner:
+    """Runs reports straight away (no background thread), or holds them when `hold` is set."""
+
+    def __init__(self) -> None:
+        self.hold = False
+        self.started: list[tuple[int, list[str]]] = []
+
+    def __call__(self, engine, run_id, tickers, services):
+        from app.services.reports import execute_run
+
+        self.started.append((run_id, list(tickers)))
+        if not self.hold:
+            execute_run(engine, run_id, tickers, services)
+
+
+@pytest.fixture
+def report_runner():
+    return RecordingRunner()
+
+
+@pytest.fixture
+def client(engine, fake_market_data, app_config, report_services, report_runner):
+    app = create_app(
+        engine=engine,
+        market_data=fake_market_data,
+        app_config=app_config,
+        report_services=report_services,
+        report_runner=report_runner,
+    )
+    with TestClient(app) as c:  # `with` runs startup (creates the default user)
+        yield c

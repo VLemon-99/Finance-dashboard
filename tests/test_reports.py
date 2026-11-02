@@ -231,3 +231,18 @@ def test_running_and_interrupted_runs(session, user_id):
     session.refresh(run)
     assert run.status == "failed" and "stopped" in run.error
     assert running_run(session, user_id) is None
+
+
+def test_runs_in_a_real_background_thread(session, engine, user_id, services):
+    import threading
+
+    from app.main import run_in_background
+
+    run = start_run(session, user_id, ["AAPL"], label="AAPL")
+    run_in_background(engine, run.id, ["AAPL"], services)
+    thread = next(t for t in threading.enumerate() if t.name == f"report-run-{run.id}")
+    thread.join(timeout=30)
+    session.expire_all()
+    finished = session.get(ReportRun, run.id)
+    assert finished.status == "done" and finished.done == 1
+    assert latest_report(session).body["stories"]

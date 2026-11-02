@@ -60,7 +60,11 @@ def start_run(
     watchlist_id: int | None = None,
 ) -> ReportRun:
     run = ReportRun(
-        user_id=user_id, watchlist_id=watchlist_id, label=label[:100], total=len(tickers)
+        user_id=user_id,
+        watchlist_id=watchlist_id,
+        label=label[:100],
+        total=len(tickers),
+        started_at=utc_now(),
     )
     session.add(run)
     session.commit()

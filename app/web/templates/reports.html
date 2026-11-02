@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Reports · Finance Dashboard{% endblock %}
+{% block content %}
+<h1>Research reports</h1>
+{% if error %}<p class="note error" role="alert">{{ error }}</p>{% endif %}
+
+<h2>Generate now</h2>
+{% if watchlists %}
+<form method="post" action="/reports/generate" class="inline-form">
+  <label for="watchlist_id">Whole watchlist</label>
+  <select id="watchlist_id" name="watchlist_id">{% for w in watchlists %}<option value="{{ w.id }}">{{ w.name }} ({{ w.item_count }})</option>{% endfor %}</select>
+  <button type="submit">Generate report</button>
+</form>
+{% endif %}
+<form method="post" action="/reports/generate" class="inline-form">
+  <label for="gen-ticker">One ticker</label>
+  <input id="gen-ticker" name="ticker" maxlength="12" required placeholder="e.g. AAPL" autocapitalize="characters" class="ticker-input">
+  <button type="submit">Generate report</button>
+</form>
+<p class="muted small">A report covers the time since that ticker's previous report (at most 7 days). A whole watchlist can take a few minutes.</p>
+
+<h2>Past reports</h2>
+<form method="get" action="/reports" class="inline-form">
+  <label for="f-ticker">Ticker</label>
+  <input id="f-ticker" name="ticker" value="{{ ticker }}" maxlength="12" placeholder="any" autocapitalize="characters" class="ticker-input">
+  <label for="f-day">Date</label>
+  <input id="f-day" name="day" type="date" value="{{ day.isoformat() if day else '' }}" max="{{ today.isoformat() }}">
+  <button type="submit">Filter</button>
+  {% if ticker or day %}<a href="/reports" class="small">Clear</a>{% endif %}
+</form>
+
+{% if ticker %}
+<h3>{{ ticker }} reports</h3>
+{% if reports %}
+<ul class="history">{% for r in reports %}
+  <li><a href="/reports/{{ r.id }}">{{ r.generated_at | eastern }}</a>
+    <span class="muted small">covers {{ r.period_start | eastern }} to {{ r.period_end | eastern }}{% if r.missing %} · {{ r.missing | length }} missing source(s){% endif %}</span></li>{% endfor %}
+</ul>
+{% else %}<p class="muted">No {{ ticker }} reports{% if day %} on that date{% endif %}.</p>{% endif %}
+{% else %}
+{% if runs %}
+<ul class="history">{% for run in runs %}
+  <li><a href="/reports/runs/{{ run.id }}">{{ run.label }}</a> <span class="muted small">{{ run.started_at | eastern }} · {{ run.total }} ticker{{ "" if run.total == 1 else "s" }}</span>
+    {% if run.status == "running" %}<span class="badge plain">running</span>{% elif run.status == "failed" %}<span class="badge">didn't finish</span>{% endif %}</li>{% endfor %}
+</ul>
+{% else %}<p class="muted">No reports{% if day %} on that date{% else %} yet{% endif %}.</p>{% endif %}
+{% endif %}
+{% endblock %}

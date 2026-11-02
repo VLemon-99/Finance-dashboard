@@ -19,6 +19,20 @@ def database_is_set_up(engine: Engine) -> bool:
     return inspect(engine).has_table("users")
 
 
+def database_is_up_to_date(engine: Engine) -> bool:
+    """True when every migration has been applied (`uv run alembic upgrade head`)."""
+    from alembic.config import Config
+    from alembic.runtime.migration import MigrationContext
+    from alembic.script import ScriptDirectory
+
+    from app.config import PROJECT_ROOT
+
+    script = ScriptDirectory.from_config(Config(str(PROJECT_ROOT / "alembic.ini")))
+    with engine.connect() as connection:
+        current = MigrationContext.configure(connection).get_current_heads()
+    return set(current) == set(script.get_heads())
+
+
 def get_session(request: Request) -> Iterator[Session]:
     """FastAPI dependency: one database session per web request."""
     with Session(request.app.state.engine) as session:

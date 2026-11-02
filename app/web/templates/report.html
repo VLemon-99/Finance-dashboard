@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}{{ report.ticker }} report · Finance Dashboard{% endblock %}
+{% block content %}
+<p class="small"><a href="/reports">← All reports</a>{% if run and run.total > 1 %} · <a href="/reports/runs/{{ run.id }}">Whole "{{ run.label }}" report</a>{% endif %}
+  · <a href="/reports?ticker={{ report.ticker }}">Earlier {{ report.ticker }} reports</a></p>
+{% include "_ticker_report.html" %}
+{% endblock %}
