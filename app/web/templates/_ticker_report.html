@@ -1,0 +1,111 @@
+{# One ticker's report (SPEC F4.1). Needs `report`. Every statement links to its sources (F4.2). #}
+{% set body = report.body %}
+{% set nums = citation_numbers(body.stories) %}
+{% set rid = report.id %}
+{% macro cite(refs) -%}
+  {%- for ref in refs if ref in nums %}<a class="cite" href="#r{{ rid }}-s{{ nums[ref] }}" title="Source {{ nums[ref] }}">[{{ nums[ref] }}]</a>{% endfor -%}
+{%- endmacro %}
+<article class="report" id="report-{{ rid }}" data-ticker="{{ report.ticker }}">
+  <h2 class="report-title">{{ report.ticker }}{% if body.company %} <span class="muted">· {{ body.company }}</span>{% endif %}</h2>
+  <p class="muted small">Generated {{ report.generated_at | eastern }} · covers {{ report.period_start | eastern }} to {{ report.period_end | eastern }}{% if body.ai_model %} · summaries by {{ body.ai_model }}{% endif %}</p>
+
+  {% if report.missing %}
+  <div class="note warning" role="status">
+    <strong>Missing from this report:</strong>
+    <ul class="missing">{% for m in report.missing %}<li>{{ m }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  <section>
+    <h3>Major developments</h3>
+    {% if body.developments %}
+    <ul class="claims">{% for c in body.developments %}<li>{{ c.text }} {{ cite(c.refs) }}</li>{% endfor %}</ul>
+    {% elif body.stories %}
+    <p class="muted">No AI-written summary for this period. The items found are listed under Sources.</p>
+    {% else %}
+    <p class="muted">Nothing new found in this period.</p>
+    {% endif %}
+  </section>
+
+  <section>
+    <h3>Rumors &amp; speculation</h3>
+    {% if body.rumors %}
+    <ul class="claims">{% for c in body.rumors %}<li><span class="badge">unconfirmed</span> {{ c.text }} {{ cite(c.refs) }}</li>{% endfor %}</ul>
+    {% else %}
+    <p class="muted">None found.</p>
+    {% endif %}
+  </section>
+
+  <section>
+    {% set ins = body.insider %}
+    <h3>Institutional &amp; insider activity</h3>
+    <p>Insider trades (Form 4, last {{ ins.lookback_days }} days):
+      {% if ins.trades %}
+      <strong>{{ ins.buys }} buy{{ "" if ins.buys == 1 else "s" }}</strong> ({{ "{:,.0f}".format(ins.shares_bought) }} shares, ${{ ins.value_bought | money }}),
+      <strong>{{ ins.sells }} sale{{ "" if ins.sells == 1 else "s" }}</strong> ({{ "{:,.0f}".format(ins.shares_sold) }} shares, ${{ ins.value_sold | money }}).
+      Net: <span class="{{ 'up' if ins.net_value > 0 else ('down' if ins.net_value < 0 else 'flat') }}">{{ "-" if ins.net_value < 0 else "" }}${{ (ins.net_value | abs) | money }}</span>.
+      {% else %}no open-market buys or sales.{% endif %}
+    </p>
+    {% if ins.missing_prices %}<p class="muted small">{{ ins.missing_prices }} trade(s) had no price and aren't in the dollar totals.</p>{% endif %}
+    {% if ins.filings_without_trades %}<p class="muted small">{{ ins.filings_without_trades }} other Form 4 filing(s) only reported grants, option exercises, tax withholding or gifts; not counted as buys or sales.</p>{% endif %}
+    {% if ins.trades %}
+    <div class="table-wrap"><table class="stocks">
+      <thead><tr><th>Date</th><th>Insider</th><th>Trade</th><th class="num">Shares</th><th class="num">Price</th><th class="num">Value</th><th>Source</th></tr></thead>
+      <tbody>{% for t in ins.trades %}
+        <tr>
+          <td>{{ t.date or "—" }}</td>
+          <td>{{ t.name }} <span class="muted small block">{{ t.role }}</span></td>
+          <td class="{{ 'up' if t.kind == 'buy' else 'down' }}">{{ "Bought" if t.kind == "buy" else "Sold" }}{% if t.plan_10b5_1 %} <span class="muted small block">pre-arranged plan</span>{% endif %}</td>
+          <td class="num">{{ "{:,.0f}".format(t.shares) }}</td>
+          <td class="num">{{ t.price | money }}</td>
+          <td class="num">{% if t.value is not none %}${{ t.value | money }}{% else %}—{% endif %}</td>
+          <td><a href="{{ t.source.url }}" rel="noopener noreferrer" target="_blank">Form 4</a> <span class="muted small block">{{ t.source.outlet }}, {{ t.source.published_at | from_iso | eastern }}</span></td>
+        </tr>{% endfor %}
+      </tbody>
+    </table></div>
+    {% endif %}
+    <p>New 5%+ holder reports (13D/13G, last {{ ins.lookback_days }} days):
+      {% if ins.holder_filings %}</p>
+    <ul>{% for h in ins.holder_filings %}<li><a href="{{ h.source.url }}" rel="noopener noreferrer" target="_blank">{{ h.source.title }}</a> <span class="muted small">{{ h.source.outlet }}, {{ h.source.published_at | from_iso | eastern }}</span></li>{% endfor %}</ul>
+      {% else %}none.</p>{% endif %}
+    <p class="muted small">Top institutional holders and unusual options activity come in a later phase.</p>
+  </section>
+
+  <section>
+    <h3>Valuation snapshot</h3>
+    <p class="muted">Coming in a later phase (P/E, EV/EBITDA, P/S against the stock's history and peers; analyst targets).</p>
+  </section>
+
+  <section>
+    {% set s = body.sentiment %}
+    <h3>Sentiment</h3>
+    {% if s.score is not none %}
+    <p class="sentiment-score"><strong class="{{ 'up' if s.score > 0 else ('down' if s.score < 0 else 'flat') }}">{{ "{:+d}".format(s.score) }}</strong> <span class="muted">on a scale from −100 (all bearish) to +100 (all bullish)</span></p>
+    {% else %}
+    <p class="muted">No score: no items were rated in this period.</p>
+    {% endif %}
+    <p>{{ s.counts.bullish }} bullish · {{ s.counts.neutral }} neutral · {{ s.counts.bearish }} bearish
+      <span class="muted small">(each story counts once, however many outlets carried it)</span></p>
+    <p class="muted small">Weights used: {% for k, v in s.weights.items() %}{{ k }} {{ v }}{{ " · " if not loop.last }}{% endfor %}. Change them in config/settings.yaml.</p>
+  </section>
+
+  <section>
+    <h3>Sources</h3>
+    {% if body.stories %}
+    <ol class="sources">{% for st in body.stories %}
+      <li id="r{{ rid }}-s{{ loop.index }}">
+        <p class="source-title"><a href="{{ st["items"][0].url }}" rel="noopener noreferrer" target="_blank">{{ st.title }}</a>
+          {% if st.kind == "filing" %}<span class="badge plain">filing</span>{% endif %}
+          {% if st.is_rumor %}<span class="badge">unconfirmed</span>{% endif %}</p>
+        {% if st.summary %}<p>{{ st.summary }}</p>{% endif %}
+        {% if st.sentiment %}<p class="small"><span class="rating {{ st.sentiment }}">{{ st.sentiment }}</span> {{ st.reason }}</p>{% endif %}
+        <ul class="small">{% for it in st["items"] %}
+          <li><a href="{{ it.url }}" rel="noopener noreferrer" target="_blank">{{ it.title }}</a> <span class="muted">{{ it.outlet }}, {{ it.published_at | from_iso | eastern }}</span></li>{% endfor %}
+        </ul>
+      </li>{% endfor %}
+    </ol>
+    {% else %}
+    <p class="muted">No news or filings found in this period.</p>
+    {% endif %}
+  </section>
+</article>

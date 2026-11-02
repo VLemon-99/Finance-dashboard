@@ -39,7 +39,7 @@ a { color: inherit; }
 .block { display: block; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 button { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); color: var(--text); cursor: pointer; }
-button[type=submit]:not(.link):not(.danger) { background: var(--text); color: var(--bg); }
+button[type=submit]:not(.link):not(.danger):not(.secondary) { background: var(--text); color: var(--bg); }
 button.link { border: none; background: none; color: var(--muted); padding: 0; text-decoration: underline; }
 button.danger { background: var(--err-bg); color: var(--down); border-color: var(--down); }
 input { font: inherit; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text); }
@@ -62,3 +62,31 @@ table.stocks { border-collapse: collapse; width: 100%; font-variant-numeric: tab
 .facts dt { color: var(--muted); }
 .facts dd { margin: 0; }
 .ticker-input::placeholder, .quote-form input::placeholder { text-transform: none; }
+button.secondary { background: var(--card); color: var(--text); }
+button[disabled] { opacity: 0.5; cursor: not-allowed; }
+select { font: inherit; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text); }
+.row-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.report { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin: 16px 0; }
+.report-title { margin: 0 0 4px; }
+.report section { margin-top: 16px; }
+.report h3 { margin: 0 0 6px; font-size: 1.05rem; }
+.report ul.missing { margin: 4px 0 0; padding-left: 20px; }
+.claims { padding-left: 20px; margin: 0; }
+.claims li { margin-bottom: 6px; line-height: 1.45; }
+a.cite { font-size: 0.75rem; vertical-align: super; text-decoration: none; margin-left: 2px; color: var(--muted); }
+a.cite:hover { color: var(--text); text-decoration: underline; }
+.badge.plain { background: var(--border); color: var(--text); }
+.sources { padding-left: 24px; }
+.sources > li { margin-bottom: 12px; }
+.sources p { margin: 2px 0; }
+.sources ul { margin: 2px 0 0; padding-left: 18px; }
+.source-title a { font-weight: 600; }
+.rating { font-weight: 600; text-transform: capitalize; }
+.rating.bullish { color: var(--up); } .rating.bearish { color: var(--down); } .rating.neutral { color: var(--muted); }
+.sentiment-score { font-size: 1.4rem; margin: 0 0 4px; }
+.sentiment-score .muted { font-size: 0.9rem; }
+.history { list-style: none; padding: 0; }
+.history li { padding: 6px 0; border-bottom: 1px solid var(--border); }
+.stocks td.wrap { white-space: normal; min-width: 280px; }
+:target { scroll-margin-top: 16px; }
+.sources > li:target { background: var(--warn-bg); border-radius: 6px; }

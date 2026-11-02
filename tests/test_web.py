@@ -127,3 +127,23 @@ def test_times_are_shown_in_us_eastern():
     assert format_eastern(datetime(2026, 7, 1, 14, 30, tzinfo=UTC)) == "Jul 1, 2026 10:30 AM ET"
     # Times read back from SQLite have no timezone attached; they are UTC.
     assert format_eastern(datetime(2026, 7, 1, 20, 5)) == "Jul 1, 2026 4:05 PM ET"
+
+
+def test_startup_explains_database_needing_an_update(tmp_path, fake_market_data, report_services):
+    """After updating the app, an older database gets a clear message (not a crash later)."""
+    from alembic import command
+    from alembic.config import Config
+
+    from app.config import PROJECT_ROOT
+
+    url = f"sqlite:///{tmp_path / 'old.db'}"
+    cfg = Config(str(PROJECT_ROOT / "alembic.ini"))
+    cfg.set_main_option("sqlalchemy.url", url)
+    cfg.attributes["configure_logger"] = False
+    command.upgrade(cfg, "a6c672db0116")  # the Phase 2 database
+    engine = make_engine(url)
+    app = create_app(engine=engine, market_data=fake_market_data, report_services=report_services)
+    with pytest.raises(RuntimeError, match="needs updating.*alembic upgrade head"):
+        with TestClient(app):
+            pass
+    engine.dispose()

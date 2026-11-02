@@ -1,0 +1,4 @@
+<div id="run-progress" class="note" hx-get="/reports/runs/{{ run.id }}/progress" hx-trigger="every 3s" hx-swap="outerHTML" role="status">
+  <strong>Working on it…</strong> {{ run.done }} of {{ run.total }} ticker{{ "" if run.total == 1 else "s" }} done.
+  <span class="muted small">This page updates by itself. Reports can take a few minutes. If nothing changes, reload the page.</span>
+</div>

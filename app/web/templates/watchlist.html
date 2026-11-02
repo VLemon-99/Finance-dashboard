@@ -10,6 +10,10 @@
     <input type="hidden" name="refresh" value="1">
     <button type="submit">Refresh prices</button>
   </form>
+  <form method="post" action="/reports/generate">
+    <input type="hidden" name="watchlist_id" value="{{ watchlist.id }}">
+    <button type="submit" class="secondary"{% if not rows %} disabled{% endif %}>Generate report</button>
+  </form>
   <span class="muted small">Prices up to {{ refresh_minutes }} minutes old are reused. Each row shows when it was fetched.</span>
 </div>
 
@@ -24,7 +28,7 @@
     <tr>
       <th>Ticker</th><th class="num">Last</th><th class="num">Change</th><th class="num">Day range</th>
       <th class="num">52-week range</th><th class="num">Volume</th><th class="num">Market cap</th>
-      <th>Next earnings</th><th>Fetched</th><th><span class="visually-hidden">Remove</span></th>
+      <th>Next earnings</th><th>Fetched</th><th><span class="visually-hidden">Actions</span></th>
     </tr>
   </thead>
   <tbody>
@@ -44,11 +48,15 @@
       <td class="num">{% if q.market_cap is not none %}${{ q.market_cap | compact }}{% else %}—{% endif %}</td>
       <td>{{ q.next_earnings | short_date }}</td>
       <td class="small">{% if q.fetched_at %}{{ q.fetched_at | eastern }}{% else %}Not fetched yet{% endif %}</td>
-      <td>
+      <td><div class="row-actions">
+        <form method="post" action="/reports/generate">
+          <input type="hidden" name="ticker" value="{{ q.symbol }}">
+          <button type="submit" class="link" aria-label="Generate report for {{ q.symbol }}">Report</button>
+        </form>
         <form method="post" action="/watchlists/{{ watchlist.id }}/items/{{ row.item_id }}/delete">
           <button type="submit" class="link" aria-label="Remove {{ q.symbol }}">Remove</button>
         </form>
-      </td>
+      </div></td>
     </tr>
     {% if q.note %}<tr class="row-note"><td colspan="10">{{ q.symbol }}: {{ q.note }}</td></tr>{% endif %}
   {% endfor %}

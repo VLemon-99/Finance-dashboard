@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hand-made sample in Yahoo Finance headline RSS format. Headlines, links and dates are invented. -->
+<rss version="2.0"><channel><copyright>Copyright (c) 2026 Yahoo! Inc. All rights reserved.</copyright><description>Latest Financial News for AAPL</description><language>en-US</language><lastBuildDate>Mon, 02 Nov 2026 11:05:00 +0000</lastBuildDate><link>http://finance.yahoo.com/q/h?s=AAPL</link><title>Yahoo! Finance: AAPL News</title>
+<item><description>Apple's quarterly results beat analyst estimates, helped by its services business, while iPhone sales were flat.</description><guid isPermaLink="false">sample-yahoo-0001</guid><link>https://finance.yahoo.com/news/apple-results-beat-estimates-sample-0001.html?.tsrc=rss</link><pubDate>Fri, 30 Oct 2026 21:10:00 +0000</pubDate><title>Apple results beat estimates on services strength</title></item>
+<item><description>&lt;p&gt;Three things to watch in &lt;b&gt;Apple&lt;/b&gt; stock this week.&lt;/p&gt;</description><guid isPermaLink="false">sample-yahoo-0002</guid><link>https://www.fool.com/investing/2026/11/01/three-things-apple-sample-0002/</link><pubDate>Sun, 01 Nov 2026 12:00:00 +0000</pubDate><title>3 Things to Watch in Apple Stock This Week</title></item>
+<item><description>Older story outside the report window.</description><guid isPermaLink="false">sample-yahoo-0003</guid><link>https://finance.yahoo.com/news/old-apple-story-sample-0003.html</link><pubDate>Thu, 01 Oct 2026 12:00:00 +0000</pubDate><title>An old Apple story</title></item>
+</channel></rss>

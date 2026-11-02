@@ -1,0 +1,19 @@
+{
+  "_note": "Hand-made sample in SEC EDGAR submissions format. Accession numbers, dates and documents are invented. EDGAR's acceptanceDateTime ends in Z but is US Eastern clock time.",
+  "cik": "320193",
+  "entityType": "operating",
+  "name": "Apple Inc.",
+  "tickers": ["AAPL"],
+  "filings": {
+    "recent": {
+      "accessionNumber": ["0000320193-26-000101", "0001234567-26-000202", "0000320193-26-000100", "0000320193-26-000099", "0009999999-26-000303", "0000320193-26-000090", "0000320193-26-000050", "0000320193-26-000010"],
+      "filingDate": ["2026-10-31", "2026-10-30", "2026-10-30", "2026-10-29", "2026-10-28", "2026-09-15", "2026-07-20", "2026-05-01"],
+      "reportDate": ["2026-10-30", "2026-10-28", "2026-10-30", "2026-09-27", "", "2026-09-11", "2026-07-17", "2026-03-28"],
+      "acceptanceDateTime": ["2026-10-31T18:05:12.000Z", "2026-10-30T17:40:00.000Z", "2026-10-30T16:30:45.000Z", "2026-10-29T06:01:36.000Z", "2026-10-28T09:15:00.000Z", "2026-09-15T18:00:00.000Z", "2026-07-20T18:00:00.000Z", "2026-05-01T16:30:00.000Z"],
+      "form": ["4", "SCHEDULE 13G", "8-K", "10-K", "S-8", "4", "4", "10-Q"],
+      "items": ["", "", "2.02,9.01", "", "", "", "", ""],
+      "primaryDocument": ["xslF345X05/wk-form4_1730412312.xml", "xslSCHEDULE_13G_X01/primary_doc.xml", "aapl-20261030.htm", "aapl-20260927.htm", "s8.htm", "xslF345X05/wk-form4_1726423200.xml", "xslF345X05/wk-form4_1721498400.xml", "aapl-20260328.htm"],
+      "primaryDocDescription": ["FORM 4", "SCHEDULE 13G", "8-K", "10-K", "S-8", "FORM 4", "FORM 4", "10-Q"]
+    }
+  }
+}
