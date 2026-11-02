@@ -71,10 +71,29 @@ class SearchConfig(_Section):
     max_results: int = Field(default=10, ge=1, le=25)
 
 
+class ReportsConfig(_Section):
+    # A report covers the time since the previous one, but never more than this (F4.14).
+    max_days: int = Field(default=7, ge=1, le=31)
+    # Headlines at least this similar (0 to 1) count as the same story (F4.12).
+    duplicate_headline_similarity: float = Field(default=0.85, ge=0.5, le=1.0)
+    # ...if they were published within this many hours of each other.
+    duplicate_window_hours: int = Field(default=72, ge=1, le=336)
+    # Sentiment weight per source type (F4.6).
+    sentiment_weights: dict[str, float] = {
+        "filing": 1.0,
+        "news": 1.0,
+        "blog": 0.8,
+        "youtube": 0.7,
+        "x": 0.5,
+        "reddit": 0.3,
+    }
+
+
 class AppConfig(_Section):
     watchlists: WatchlistLimits = WatchlistLimits()
     market_data: MarketDataConfig = MarketDataConfig()
     search: SearchConfig = SearchConfig()
+    reports: ReportsConfig = ReportsConfig()
 
 
 # --- config/sources.yaml (trusted sources, SPEC F4.4) ---------------------------------

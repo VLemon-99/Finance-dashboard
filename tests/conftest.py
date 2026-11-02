@@ -135,6 +135,12 @@ DEFAULT_ROUTES = {
     "https://www.sec.gov/Archives/edgar/data/320193/000032019326000100/a8-kex991": (
         "sec_8k_ex99.htm"
     ),
+    "https://www.sec.gov/Archives/edgar/data/320193/000032019326000099/aapl-20260927.htm": (
+        "sec_10k.htm"
+    ),
+    "https://www.sec.gov/Archives/edgar/data/320193/000123456726000202/xslSCHEDULE_13G": (
+        "sec_13g.htm"
+    ),
 }
 
 

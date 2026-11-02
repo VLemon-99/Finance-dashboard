@@ -12,7 +12,7 @@
       "acceptanceDateTime": ["2026-10-31T18:05:12.000Z", "2026-10-30T17:40:00.000Z", "2026-10-30T16:30:45.000Z", "2026-10-29T06:01:36.000Z", "2026-10-28T09:15:00.000Z", "2026-09-15T18:00:00.000Z", "2026-07-20T18:00:00.000Z", "2026-05-01T16:30:00.000Z"],
       "form": ["4", "SCHEDULE 13G", "8-K", "10-K", "S-8", "4", "4", "10-Q"],
       "items": ["", "", "2.02,9.01", "", "", "", "", ""],
-      "primaryDocument": ["xslF345X05/wk-form4_1730412312.xml", "primary_doc.xml", "aapl-20261030.htm", "aapl-20260927.htm", "s8.htm", "xslF345X05/wk-form4_1726423200.xml", "xslF345X05/wk-form4_1721498400.xml", "aapl-20260328.htm"],
+      "primaryDocument": ["xslF345X05/wk-form4_1730412312.xml", "xslSCHEDULE_13G_X01/primary_doc.xml", "aapl-20261030.htm", "aapl-20260927.htm", "s8.htm", "xslF345X05/wk-form4_1726423200.xml", "xslF345X05/wk-form4_1721498400.xml", "aapl-20260328.htm"],
       "primaryDocDescription": ["FORM 4", "SCHEDULE 13G", "8-K", "10-K", "S-8", "FORM 4", "FORM 4", "10-Q"]
     }
   }

@@ -18,3 +18,21 @@ market_data:
 search:
   # Most results to show for a ticker/company search (SPEC F1.1). 1 to 25.
   max_results: 10
+
+reports:
+  # A report covers the time since the previous report, but never more than this many
+  # days (SPEC F4.14).
+  max_days: 7
+  # Headlines at least this similar (0 to 1, where 1 = identical) are treated as the same
+  # story and shown once with all their sources (SPEC F4.12)...
+  duplicate_headline_similarity: 0.85
+  # ...when they were published within this many hours of each other.
+  duplicate_window_hours: 72
+  # How much each kind of source counts toward a ticker's sentiment score (SPEC F4.6).
+  sentiment_weights:
+    filing: 1.0
+    news: 1.0
+    blog: 0.8
+    youtube: 0.7
+    x: 0.5
+    reddit: 0.3
