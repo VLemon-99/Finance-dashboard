@@ -42,6 +42,14 @@ def contract_label(underlying: str, expiration: date, strike_price: float, optio
     return f"{underlying} {short_date(expiration)} {strike(strike_price)} {option_type}"
 
 
+def instrument_label(item) -> str:
+    """A stock's ticker, or an option contract as 'AAPL Nov 20, 2026 260 call'. Takes anything
+    with kind/symbol (and underlying/expiration/strike/option_type for options)."""
+    if getattr(item, "kind", "stock") == "option":
+        return contract_label(item.underlying, item.expiration, item.strike, item.option_type)
+    return item.symbol
+
+
 def compact(value: float | None) -> str:
     """36_540_100 -> '36.54M', 3.85e12 -> '3.85T'."""
     if value is None:

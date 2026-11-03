@@ -115,6 +115,30 @@ class WatchlistItem(SQLModel, table=True):
     added_at: datetime = Field(default_factory=utc_now)
 
 
+class Transaction(SQLModel, table=True):
+    """One Bought or Sold trade in the virtual portfolio (SPEC F3.1).
+
+    Only trades are stored; positions, P&L and returns are calculated from them when shown
+    (see DECISIONS.md, "Positions are calculated from trades, not stored").
+    """
+
+    __tablename__ = "transactions"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    instrument_id: int = Field(foreign_key="instruments.id", index=True)
+    side: str = Field(max_length=6)  # "bought" | "sold"
+    quantity: int  # shares, or option contracts
+    price: float  # per share (options: per share, as quoted; x 100 per contract)
+    trade_date: date = Field(index=True)
+    price_source: str = Field(max_length=10)  # "auto" (filled in by the app) | "manual"
+    # Options only: the stock price when the trade was made (covered-call capital, F3.5).
+    underlying_price: float | None = None
+    # "trade", or how an option position ended (F3.9): "expired" | "assigned" | "exercised"
+    reason: str = Field(default="trade", max_length=10)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 class SourceItemRow(SQLModel, table=True):
     """One piece of public research content about one ticker (an article, a filing...).
 

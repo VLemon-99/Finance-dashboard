@@ -97,3 +97,8 @@ class MarketData(Protocol):
         """Annual risk-free rate as a fraction (0.04 = 4%), from 13-week US T-bills.
         Raises MarketDataError."""
         ...
+
+    def get_daily_close(self, symbol: str, day: date) -> float | None:
+        """Closing price on that day, for a stock or an option contract symbol. None if the
+        source has no price for that day (weekend, holiday, no trades). Raises MarketDataError."""
+        ...

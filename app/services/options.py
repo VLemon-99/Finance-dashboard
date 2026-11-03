@@ -9,6 +9,7 @@ always fetches (F1.5), and if the source fails the last stored prices are shown 
 """
 
 import logging
+import re
 import threading
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -36,6 +37,9 @@ from app.timeutils import EASTERN, as_utc, format_eastern, utc_now
 log = logging.getLogger(__name__)
 
 ChainStatus = Literal["ok", "stale", "error"]
+
+# OCC-style option symbol: root, YYMMDD, C or P, strike x 1000 in 8 digits.
+CONTRACT_SYMBOL_RE = re.compile(r"^[A-Z][A-Z0-9]{0,5}\d{6}[CP]\d{8}$")
 
 
 # --- the risk-free rate ---------------------------------------------------------------
@@ -266,6 +270,34 @@ def _stored_rows(
         .order_by(col(OptionQuote.option_type), col(OptionQuote.strike))
     )
     return list(session.exec(statement))
+
+
+def stored_contract(session: Session, contract_symbol: str) -> OptionQuote | None:
+    """The stored prices of a contract seen on an option chain, or None (unknown or
+    malformed symbol). Contracts can only be saved or traded once we've seen them."""
+    symbol = (contract_symbol or "").strip().upper()
+    if not CONTRACT_SYMBOL_RE.fullmatch(symbol):
+        return None
+    return session.exec(select(OptionQuote).where(OptionQuote.contract_symbol == symbol)).first()
+
+
+def contract_instrument(session: Session, stored: OptionQuote) -> Instrument:
+    """The `instruments` row for a contract, created if needed. Committed by the caller."""
+    instrument = session.exec(
+        select(Instrument).where(Instrument.symbol == stored.contract_symbol)
+    ).first()
+    if instrument is None:
+        instrument = Instrument(
+            kind="option",
+            symbol=stored.contract_symbol,
+            underlying=stored.underlying,
+            option_type=stored.option_type,
+            strike=stored.strike,
+            expiration=stored.expiration,
+        )
+        session.add(instrument)
+        session.flush()
+    return instrument
 
 
 def get_expirations(

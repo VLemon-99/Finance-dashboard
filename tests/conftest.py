@@ -26,6 +26,7 @@ from app.providers.market_data import (
 )
 from app.providers.yahoo import (
     chain_from_yahoo,
+    close_on,
     expirations_from_yahoo,
     quote_from_history,
     search_results_from_quotes,
@@ -93,9 +94,16 @@ def options_clock(monkeypatch):
     import app.providers.yahoo
     import app.services.options
     import app.web.option_routes
+    import app.web.portfolio_routes
 
     clock = Clock(OPTIONS_NOW)
-    for module in (app.providers.yahoo, app.services.options, app.web.option_routes):
+    modules = (
+        app.providers.yahoo,
+        app.services.options,
+        app.web.option_routes,
+        app.web.portfolio_routes,
+    )
+    for module in modules:
         monkeypatch.setattr(module, "utc_now", clock)
     return clock
 
@@ -115,6 +123,9 @@ class FakeMarketData:
         self.chain_calls: list[tuple[str, date]] = []
         self.expiration_calls: list[str] = []
         self.rate_calls = 0
+        # Portfolio (Phase 4 part B)
+        self.option_closes: dict[tuple[str, date], float] = {}
+        self.close_calls: list[tuple[str, date]] = []
 
     def get_quote(self, symbol: str) -> QuoteData:
         self.calls.append(symbol)
@@ -166,6 +177,15 @@ class FakeMarketData:
         return chain_from_yahoo(
             symbol, expiration, sample["calls"], sample["puts"], sample["underlying"]
         )
+
+    def get_daily_close(self, symbol: str, day: date) -> float | None:
+        """Stocks: the recorded sample's close for that day. Options: `option_closes`."""
+        self.close_calls.append((symbol, day))
+        self._check_options(symbol)
+        if len(symbol) > 12:  # an option contract symbol
+            return self.option_closes.get((symbol, day))
+        history, _ = load_yahoo_history()
+        return close_on(history, day)
 
     def get_risk_free_rate(self) -> float:
         self.rate_calls += 1

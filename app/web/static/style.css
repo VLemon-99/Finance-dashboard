@@ -101,3 +101,12 @@ a.cite:hover { color: var(--text); text-decoration: underline; }
 .stocks tr.expired td { color: var(--muted); }
 .note.success { background: var(--itm-bg); color: var(--text); }
 .row-actions a { color: var(--muted); }
+.trade-form { display: grid; gap: 14px; max-width: 640px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; }
+.trade-form .field { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.trade-form .field > label { min-width: 13em; }
+.trade-form button[type=submit]:last-child { justify-self: start; }
+.segmented-radio { border: none; padding: 0; margin: 0; display: flex; gap: 16px; align-items: center; }
+.segmented-radio legend { float: left; min-width: 13em; padding: 0; }
+.row-links { display: flex; gap: 10px; align-items: center; white-space: nowrap; }
+.row-links a { color: var(--muted); font-size: 0.875rem; }
+.row-links form { display: inline; }

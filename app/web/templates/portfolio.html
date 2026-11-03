@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Portfolio · Finance Dashboard{% endblock %}
+{% block content %}
+<h1>Portfolio</h1>
+<p class="muted small">A virtual portfolio for tracking performance. Nothing here is linked to a broker.</p>
+
+<form method="get" action="/portfolio/trade" class="inline-form">
+  <label for="symbol">Record a stock trade</label>
+  <input id="symbol" name="symbol" maxlength="12" required placeholder="e.g. AAPL" autocapitalize="characters" class="ticker-input">
+  <button type="submit" name="side" value="bought">Bought</button>
+  <button type="submit" name="side" value="sold" class="secondary">Sold</button>
+</form>
+<p class="muted small">For option trades, open the stock's <a href="/options">option chain</a> and press Bought or Sold on a row.</p>
+
+<h2>Trades</h2>
+{% if trades %}
+<div class="table-wrap">
+<table class="stocks trades">
+  <thead>
+    <tr><th>Date</th><th>Trade</th><th>Instrument</th><th class="num">Quantity</th><th class="num">Price</th><th class="num">Stock price</th><th>Price from</th><th><span class="visually-hidden">Actions</span></th></tr>
+  </thead>
+  <tbody>
+  {% for row in trades %}{% set t = row.trade %}
+    <tr data-trade="{{ t.id }}">
+      <td>{{ t.trade_date | short_date }}</td>
+      <td>{{ t.side | capitalize }}{% if t.reason != 'trade' %} <span class="badge plain">{{ t.reason }}</span>{% endif %}</td>
+      <td>{{ instrument_label(row.target) }}</td>
+      <td class="num">{{ t.quantity | whole }} {{ "contract" if row.target.kind == "option" else "share" }}{{ "" if t.quantity == 1 else "s" }}</td>
+      <td class="num">{{ t.price | money }}</td>
+      <td class="num">{{ t.underlying_price | money if row.target.kind == "option" else "" }}</td>
+      <td class="small">{{ "app" if t.price_source == "auto" else "typed in" }}</td>
+      <td>
+        <form method="post" action="/portfolio/trades/{{ t.id }}/delete"
+              onsubmit="return confirm('Delete this trade? Positions and returns are recalculated without it.');">
+          <button type="submit" class="link" aria-label="Delete trade {{ t.id }}">Delete</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="muted small">To fix a wrong trade, delete it and enter it again.</p>
+{% else %}
+<p>No trades yet. Press Bought or Sold on a watchlist row, an option chain row, or above.</p>
+{% endif %}
+{% endblock %}

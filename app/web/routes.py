@@ -40,6 +40,7 @@ templates.env.filters.update(
 )
 templates.env.globals["price_range"] = formatting.price_range
 templates.env.globals["contract_label"] = formatting.contract_label
+templates.env.globals["instrument_label"] = formatting.instrument_label
 templates.env.globals["asset_version"] = asset_version
 
 router = APIRouter()
