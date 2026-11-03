@@ -18,7 +18,7 @@ from typing import Literal
 from sqlalchemy import func
 from sqlmodel import Session, col, select
 
-from app.db.models import OptionQuote
+from app.db.models import Instrument, OptionQuote
 from app.providers.market_data import MarketData, MarketDataError, OptionChainData
 from app.services.options_math import (
     Greeks,
@@ -371,3 +371,80 @@ def option_chain(
         rate=rate,
         notes=notes,
     )
+
+
+# --- option contracts in a watchlist (F2.6, F2.7) -------------------------------------
+
+
+@dataclass(frozen=True)
+class ContractRow:
+    """One option contract in a watchlist."""
+
+    item_id: int
+    contract_symbol: str
+    underlying: str
+    option_type: OptionType
+    strike: float
+    expiration: date
+    status: Literal["ok", "stale", "error", "expired"]
+    view: ContractView | None = None  # None if no prices were ever stored
+    note: str | None = None
+
+
+def contract_rows(
+    session: Session,
+    market_data: MarketData,
+    rates: RiskFreeRate,
+    items: Sequence[tuple[int, Instrument]],
+    *,
+    max_age: timedelta | None,
+    min_iv: float,
+) -> tuple[list[ContractRow], RateView | None]:
+    """Rows for a watchlist's contracts, plus the rate used for their greeks.
+
+    Contracts are refreshed through their chain (one fetch per stock and expiration date).
+    Expired contracts are not refreshed: they keep their last stored prices (F2.7).
+    """
+    now = utc_now()
+    chains: dict[tuple[str, date], StoredChain] = {}
+    for _, instrument in items:
+        key = (instrument.underlying or "", instrument.expiration)
+        if key not in chains and not is_expired(instrument.expiration, now):
+            chains[key] = load_chain(session, market_data, key[0], key[1], max_age)
+
+    rate = rates.get(market_data, max_age) if chains else None
+    rows = []
+    for item_id, instrument in items:
+        stored = session.exec(
+            select(OptionQuote).where(OptionQuote.contract_symbol == instrument.symbol)
+        ).first()
+        row = _contract_row(item_id, instrument)
+        view = contract_view(stored, rate.rate if rate else 0.0, now, min_iv) if stored else None
+        if is_expired(instrument.expiration, now):
+            rows.append(row(status="expired", view=view))
+            continue
+        chain = chains[(instrument.underlying or "", instrument.expiration)]
+        if view is None:
+            note = chain.note or "No stored prices for this contract yet."
+            rows.append(row(status="error", note=note))
+        elif stored.fetched_at is not None and as_utc(stored.fetched_at) != chain.fetched_at:
+            note = chain.note or "The data source no longer lists this contract."
+            rows.append(row(status="stale", view=view, note=note))
+        else:
+            rows.append(row(status=chain.status, view=view, note=chain.note))
+    return rows, rate
+
+
+def _contract_row(item_id: int, instrument: Instrument):
+    def row(**kwargs) -> ContractRow:
+        return ContractRow(
+            item_id=item_id,
+            contract_symbol=instrument.symbol,
+            underlying=instrument.underlying or "",
+            option_type="put" if instrument.option_type == "put" else "call",
+            strike=instrument.strike or 0.0,
+            expiration=instrument.expiration,
+            **kwargs,
+        )
+
+    return row

@@ -21,13 +21,18 @@ class User(SQLModel, table=True):
 
 
 class Instrument(SQLModel, table=True):
-    """One stock/ETF (later also option contracts)."""
+    """One stock/ETF, or one option contract (Phase 4)."""
 
     __tablename__ = "instruments"
 
     id: int | None = Field(default=None, primary_key=True)
-    kind: str = Field(default="stock", max_length=10)  # "stock" | "option" (Phase 4)
-    symbol: str = Field(unique=True, index=True, max_length=32)
+    kind: str = Field(default="stock", max_length=10)  # "stock" | "option"
+    symbol: str = Field(unique=True, index=True, max_length=32)  # option: AAPL261120C00260000
+    # Option contracts only (empty for stocks):
+    underlying: str | None = Field(default=None, max_length=32)  # the stock, e.g. AAPL
+    option_type: str | None = Field(default=None, max_length=4)  # "call" | "put"
+    strike: float | None = None
+    expiration: date | None = None
 
 
 class Quote(SQLModel, table=True):

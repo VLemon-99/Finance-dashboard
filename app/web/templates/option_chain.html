@@ -13,6 +13,11 @@
 </p>
 {% endif %}
 
+{% if error %}<p class="note error" role="alert">{{ error }}</p>{% endif %}
+{% if added_row and target %}
+<p class="note success" role="status">Added {{ contract_label(added_row.underlying, added_row.expiration, added_row.strike, added_row.option_type) }} to <a href="/watchlists/{{ target.id }}">{{ target.name }}</a>.</p>
+{% endif %}
+
 {% for note in chain.notes %}
 <p class="note {{ 'error' if chain.status in ('error', 'no_options') else 'warning' }}" role="status">{{ note }}</p>
 {% endfor %}
@@ -43,6 +48,19 @@
 {% endif %}
 
 {% if chain.rows %}
+{% if target %}
+<form method="get" action="/options/{{ chain.symbol }}" class="inline-form">
+  <input type="hidden" name="expiration" value="{{ chain.expiration.isoformat() }}">
+  <input type="hidden" name="type" value="{{ chain.option_type }}">
+  <label for="list">Add contracts to</label>
+  <select id="list" name="list">
+    {% for w in watchlists %}<option value="{{ w.id }}"{% if w.id == target.id %} selected{% endif %}>{{ w.name }}</option>{% endfor %}
+  </select>
+  <button type="submit" class="secondary">Use this list</button>
+</form>
+{% else %}
+<p class="muted small">To save contracts, first <a href="/">create a watchlist</a>.</p>
+{% endif %}
 <p class="muted small">
   {{ type_label }} expiring {{ chain.expiration | short_date }} ({{ chain.dte }} day{{ '' if chain.dte == 1 else 's' }} left).
   Greeks use stock price {{ chain.underlying_price | money }} and a risk-free rate of {{ chain.rate.rate | percent(2) }}{% if chain.rate.is_fallback %} (fallback from settings){% else %} (13-week T-bill){% endif %}.
@@ -56,6 +74,7 @@
       <th class="num">Last</th><th class="num">Volume</th><th class="num">Open int.</th><th class="num">IV</th>
       <th class="num">Delta</th><th class="num">Gamma</th><th class="num" title="Change in price per day">Theta</th>
       <th class="num" title="Change in price per 1 point of IV">Vega</th><th class="num">DTE</th>
+      {% if target %}<th><span class="visually-hidden">Add to watchlist</span></th>{% endif %}
     </tr>
   </thead>
   <tbody>
@@ -79,6 +98,18 @@
       <td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>
       {% endif %}
       <td class="num">{{ c.dte }}</td>
+      {% if target %}<td>
+        {% if c.contract_symbol in in_list %}<span class="muted small">In list</span>
+        {% else %}
+        <form method="post" action="/options/{{ chain.symbol }}/add">
+          <input type="hidden" name="contract" value="{{ c.contract_symbol }}">
+          <input type="hidden" name="watchlist_id" value="{{ target.id }}">
+          <input type="hidden" name="expiration" value="{{ chain.expiration.isoformat() }}">
+          <input type="hidden" name="type" value="{{ chain.option_type }}">
+          <button type="submit" class="link" aria-label="Add {{ contract_label(c.underlying, c.expiration, c.strike, c.option_type) }} to {{ target.name }}">Add</button>
+        </form>
+        {% endif %}
+      </td>{% endif %}
     </tr>
   {% endfor %}
   </tbody>

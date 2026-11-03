@@ -64,10 +64,72 @@
   </tbody>
 </table>
 </div>
-{% else %}
-<p>This list is empty. Add a stock below.</p>
+{% elif not contracts %}
+<p>This list is empty. Add a stock below, or add option contracts from a stock's option chain.</p>
 {% endif %}
-<p class="muted small">{{ rows | length }} of {{ limits.max_items_per_list }} stocks.</p>
+
+{% if contracts %}
+<h2>Option contracts</h2>
+{% if contract_problems %}
+<p class="note warning" role="status">The data source failed for {{ contract_problems }} of {{ contracts | length }} contracts. Those rows show the last stored values, marked stale.</p>
+{% endif %}
+<div class="table-wrap">
+<table class="stocks contracts">
+  <thead>
+    <tr>
+      <th>Contract</th><th class="num">Stock</th><th class="num">Bid</th><th class="num">Ask</th><th class="num">Mid</th>
+      <th class="num">Last</th><th class="num">Volume</th><th class="num">Open int.</th><th class="num">IV</th>
+      <th class="num">Delta</th><th class="num">Gamma</th><th class="num" title="Change in price per day">Theta</th>
+      <th class="num" title="Change in price per 1 point of IV">Vega</th><th class="num">DTE</th>
+      <th>Fetched</th><th><span class="visually-hidden">Actions</span></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in contracts %}{% set c = row.view %}{% set label = contract_label(row.underlying, row.expiration, row.strike, row.option_type) %}
+    <tr data-symbol="{{ row.contract_symbol }}" data-status="{{ row.status }}"{% if row.status in ('stale', 'error') %} class="{{ row.status }}"{% elif row.status == 'expired' %} class="expired"{% endif %}>
+      <td><a href="/options/{{ row.underlying }}?expiration={{ row.expiration.isoformat() }}&amp;type={{ row.option_type }}" aria-label="{{ label }}"><strong>{{ row.underlying }} {{ row.strike | strike }} {{ row.option_type }}</strong></a>
+        <span class="muted small block">{{ row.expiration | short_date }}</span>
+        {% if row.status == 'stale' %} <span class="badge">stale</span>{% elif row.status == 'error' %} <span class="badge">missing</span>{% elif row.status == 'expired' %} <span class="badge plain">expired</span>{% endif %}</td>
+      {% if c %}
+      <td class="num">{{ c.underlying_price | money }}</td>
+      <td class="num">{{ c.bid | money }}</td>
+      <td class="num">{{ c.ask | money }}</td>
+      <td class="num">{{ c.mid | money }}</td>
+      <td class="num">{{ c.last_price | money }}</td>
+      <td class="num">{{ c.volume | whole }}</td>
+      <td class="num">{{ c.open_interest | whole }}</td>
+      <td class="num">{{ c.implied_volatility | percent }}</td>
+      {% if c.greeks %}
+      <td class="num">{{ c.greeks.delta | number(3) }}</td>
+      <td class="num">{{ c.greeks.gamma | number(4) }}</td>
+      <td class="num">{{ c.greeks.theta | number(3) }}</td>
+      <td class="num">{{ c.greeks.vega | number(3) }}</td>
+      {% else %}
+      <td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>
+      {% endif %}
+      <td class="num">{{ 'expired' if row.status == 'expired' else c.dte }}</td>
+      <td class="small">{{ c.fetched_at | eastern }}</td>
+      {% else %}
+      <td class="num" colspan="13">—</td>
+      <td class="small">Not fetched yet</td>
+      {% endif %}
+      <td><div class="row-actions">
+        <form method="post" action="/watchlists/{{ watchlist.id }}/items/{{ row.item_id }}/delete">
+          <button type="submit" class="link" aria-label="Remove {{ label }}">Remove</button>
+        </form>
+      </div></td>
+    </tr>
+    {% if row.note %}<tr class="row-note"><td colspan="16">{{ label }}: {{ row.note }}</td></tr>{% endif %}
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="muted small">
+  {% if rate %}Greeks use the stock price sent with each option chain and a risk-free rate of {{ rate.rate | percent(2) }}{% if rate.is_fallback %} (fallback from settings){% else %} (13-week T-bill){% endif %}.{% if rate.note %} {{ rate.note }}{% endif %}{% endif %}
+  Expired contracts keep their last prices and are no longer refreshed.
+</p>
+{% endif %}
+<p class="muted small">{{ (rows | length) + (contracts | length) }} of {{ limits.max_items_per_list }} items.</p>
 
 <h2>Add a stock</h2>
 <form method="get" action="/watchlists/{{ watchlist.id }}" hx-get="/watchlists/{{ watchlist.id }}/search"

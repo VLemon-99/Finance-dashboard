@@ -32,8 +32,8 @@ def test_home_lists_watchlists_with_counts(client):
     add(client, url, "AAPL")
     html = client.get("/").text
     assert f'<a href="{url}">Tech</a>' in html
-    assert "1 stock<" in html
-    assert "Dividends" in html and "0 stocks" in html
+    assert "1 item<" in html
+    assert "Dividends" in html and "0 items" in html
     assert "2 of 3 lists used" in html
 
 
@@ -164,7 +164,7 @@ def test_f1_3_item_limit_message(client, engine):
     assert "This list already has 2 items, the maximum." in response.text
     with Session(engine) as session:
         assert len(session.exec(select(WatchlistItem)).all()) == 2
-    assert "2 of 2 stocks" in response.text
+    assert "2 of 2 items" in response.text
 
 
 # --- F1.4 full row --------------------------------------------------------------------

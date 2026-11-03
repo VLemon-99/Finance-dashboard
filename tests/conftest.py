@@ -92,9 +92,10 @@ def options_clock(monkeypatch):
     """Freeze 'now' for option fetching, storing and expiry."""
     import app.providers.yahoo
     import app.services.options
+    import app.web.option_routes
 
     clock = Clock(OPTIONS_NOW)
-    for module in (app.providers.yahoo, app.services.options):
+    for module in (app.providers.yahoo, app.services.options, app.web.option_routes):
         monkeypatch.setattr(module, "utc_now", clock)
     return clock
 

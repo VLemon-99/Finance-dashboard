@@ -33,6 +33,11 @@ def strike(value: float) -> str:
     return f"{value:,.0f}" if value == int(value) else f"{value:,.2f}"
 
 
+def contract_label(underlying: str, expiration: date, strike_price: float, option_type: str) -> str:
+    """'AAPL Nov 20, 2026 260 call'."""
+    return f"{underlying} {short_date(expiration)} {strike(strike_price)} {option_type}"
+
+
 def compact(value: float | None) -> str:
     """36_540_100 -> '36.54M', 3.85e12 -> '3.85T'."""
     if value is None:
