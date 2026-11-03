@@ -12,6 +12,133 @@
 </form>
 <p class="muted small">For option trades, open the stock's <a href="/options">option chain</a> and press Bought or Sold on a row.</p>
 
+{% macro pnl_cells(r) %}
+  <td class="num">{% if r.pnl is not none %}<span class="{{ 'up' if r.pnl > 0 else ('down' if r.pnl < 0 else 'flat') }}">{{ r.pnl | signed }}</span>{% else %}—{% endif %}</td>
+  <td class="num">{% if r.pnl_pct is not none %}<span class="{{ 'up' if r.pnl_pct > 0 else ('down' if r.pnl_pct < 0 else 'flat') }}">{{ r.pnl_pct | signed }}%</span>{% else %}—{% endif %}</td>
+{% endmacro %}
+{% macro position_cell(r) %}
+  {{ "Short" if r.position.is_short else "Long" }} {{ r.position.quantity | whole }}
+  {% if r.position.realized %}<span class="muted small block">realized so far {{ r.position.realized | signed }}</span>{% endif %}
+{% endmacro %}
+{% macro trade_links(r) %}
+  <span class="small"><a href="/portfolio/trade?symbol={{ r.target.symbol }}&amp;side=bought" aria-label="Bought {{ instrument_label(r.target) }}">Bought</a> · <a href="/portfolio/trade?symbol={{ r.target.symbol }}&amp;side=sold" aria-label="Sold {{ instrument_label(r.target) }}">Sold</a></span>
+{% endmacro %}
+
+{% if view.has_trades %}
+<div class="toolbar">
+  <form method="get" action="/portfolio">
+    <input type="hidden" name="refresh" value="1">
+    <button type="submit">Refresh prices</button>
+  </form>
+  <span class="muted small">Prices up to {{ refresh_minutes }} minutes old are reused.</span>
+</div>
+{% endif %}
+
+<h2>Stocks</h2>
+{% if view.stocks %}
+<div class="table-wrap">
+<table class="stocks positions">
+  <thead>
+    <tr><th>Ticker</th><th class="num">Position</th><th class="num">Avg entry</th><th class="num">Current</th><th class="num">P&amp;L $</th><th class="num">P&amp;L %</th><th>Since</th><th>Price fetched</th><th><span class="visually-hidden">Actions</span></th></tr>
+  </thead>
+  <tbody>
+  {% for r in view.stocks %}
+    <tr data-symbol="{{ r.target.symbol }}" data-status="{{ r.price_status }}"{% if r.price_status in ('stale', 'error') %} class="{{ r.price_status }}"{% endif %}>
+      <td><strong>{{ r.target.symbol }}</strong>{% if r.price_status == 'stale' %} <span class="badge">stale</span>{% elif r.price_status == 'error' %} <span class="badge">missing</span>{% endif %}</td>
+      <td class="num">{{ position_cell(r) }}</td>
+      <td class="num">{{ r.position.avg_price | money }}</td>
+      <td class="num">{{ r.current_price | money }}</td>
+      {{ pnl_cells(r) }}
+      <td>{{ r.position.opened_on | short_date }}</td>
+      <td class="small">{% if r.fetched_at %}{{ r.fetched_at | eastern }}{% else %}Not fetched yet{% endif %}</td>
+      <td>{{ trade_links(r) }}</td>
+    </tr>
+    {% if r.note %}<tr class="row-note"><td colspan="9">{{ r.target.symbol }}: {{ r.note }}</td></tr>{% endif %}
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="muted">No open stock positions.</p>
+{% endif %}
+
+<h2>Options</h2>
+{% if view.options %}
+<div class="table-wrap">
+<table class="stocks positions options-positions">
+  <thead>
+    <tr>
+      <th>Contract</th><th class="num">Position</th><th class="num">Avg entry</th><th class="num">Current</th>
+      <th class="num">P&amp;L $</th><th class="num">P&amp;L %</th><th class="num">DTE</th><th class="num">IV</th><th class="num">Delta</th>
+      <th class="num">Premium</th><th class="num">Capital at risk</th>
+      <th class="num" title="Premium ÷ capital at risk × 365 ÷ days to expiration when opened">Return locked-in</th>
+      <th class="num" title="Premium ÷ capital at risk × 365 ÷ days to expiration left today">Return remaining</th>
+      <th><span class="visually-hidden">Actions</span></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in view.options %}{% set c = r.contract %}
+    <tr data-symbol="{{ r.target.symbol }}" data-status="{{ r.price_status }}"{% if r.price_status in ('stale', 'error') %} class="{{ r.price_status }}"{% elif r.expired %} class="expired"{% endif %}>
+      <td><a href="/options/{{ r.target.underlying }}?expiration={{ r.target.expiration.isoformat() }}&amp;type={{ r.target.option_type }}" aria-label="{{ instrument_label(r.target) }}"><strong>{{ r.target.underlying }} {{ r.target.strike | strike }} {{ r.target.option_type }}</strong></a>
+        <span class="muted small block">{{ r.target.expiration | short_date }}{% if r.strategy %} · {{ r.strategy }}{% endif %}</span>
+        {% if r.expiring_today %}<span class="badge">expiring today</span>{% elif r.expired %}<span class="badge plain">expired</span>{% elif r.price_status == 'stale' %}<span class="badge">stale</span>{% elif r.price_status == 'error' %}<span class="badge">missing</span>{% endif %}</td>
+      <td class="num">{{ position_cell(r) }}</td>
+      <td class="num">{{ r.position.avg_price | money }}</td>
+      <td class="num">{{ r.current_price | money }}{% if r.current_price is not none %}<span class="muted small block">{{ r.price_label }}</span>{% endif %}</td>
+      {{ pnl_cells(r) }}
+      <td class="num">{{ 'expired' if r.expired else r.dte }}</td>
+      <td class="num">{{ c.implied_volatility | percent if c else '—' }}</td>
+      <td class="num">{{ c.greeks.delta | number(3) if c and c.greeks else '—' }}</td>
+      <td class="num">{% if r.premium is not none %}{{ r.premium | money }}{% else %}—{% endif %}</td>
+      {% if r.strategy == 'uncovered call' %}
+      <td class="num" colspan="3"><span class="uncovered">uncovered — no return figure</span></td>
+      {% else %}
+      <td class="num">{% if r.capital is not none %}{{ r.capital | money }}{% else %}—{% endif %}</td>
+      <td class="num">{{ r.return_locked | percent(2) }}{% if r.dte_at_entry is not none and r.position.is_short %}<span class="muted small block">{{ r.dte_at_entry }} DTE at entry</span>{% endif %}</td>
+      <td class="num">{{ r.return_remaining | percent(2) }}</td>
+      {% endif %}
+      <td>{{ trade_links(r) }}</td>
+    </tr>
+    {% if r.note %}<tr class="row-note"><td colspan="14">{{ instrument_label(r.target) }}: {{ r.note }}</td></tr>{% endif %}
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="muted small">
+  Option prices are per share; P&amp;L, premium and capital are in dollars (100 shares per contract).
+  Capital at risk: cash-secured put = strike × 100 × contracts − premium; covered call = stock price when sold × 100 × contracts.
+  A short call is covered only when you hold 100 shares per contract here.
+  {% if view.rate %}Delta uses a risk-free rate of {{ view.rate.rate | percent(2) }}{% if view.rate.is_fallback %} (fallback from settings){% endif %}.{% endif %}
+</p>
+{% else %}
+<p class="muted">No open option positions.</p>
+{% endif %}
+
+{% if view.closed %}
+<h2>Closed positions</h2>
+<div class="table-wrap">
+<table class="stocks closed-positions">
+  <thead>
+    <tr><th>Instrument</th><th class="num">Position</th><th class="num">Avg entry</th><th class="num">Avg exit</th><th class="num">Realized P&amp;L $</th><th class="num">Realized %</th><th>Opened</th><th>Closed</th></tr>
+  </thead>
+  <tbody>
+  {% for r in view.closed %}{% set p = r.position %}
+    <tr data-symbol="{{ r.target.symbol }}">
+      <td>{{ instrument_label(r.target) }}{% if p.ended_by != 'trade' %} <span class="badge plain">{{ p.ended_by }}</span>{% endif %}</td>
+      <td class="num">{{ "Short" if p.direction < 0 else "Long" }} {{ p.quantity | whole }}</td>
+      <td class="num">{{ p.avg_entry | money }}</td>
+      <td class="num">{{ p.avg_exit | money }}</td>
+      <td class="num"><span class="{{ 'up' if p.realized > 0 else ('down' if p.realized < 0 else 'flat') }}">{{ p.realized | signed }}</span></td>
+      <td class="num">{% if p.realized_pct is not none %}{{ p.realized_pct | signed }}%{% else %}—{% endif %}</td>
+      <td>{{ p.opened_on | short_date }}</td>
+      <td>{{ p.closed_on | short_date }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+
 <h2>Trades</h2>
 {% if trades %}
 <div class="table-wrap">

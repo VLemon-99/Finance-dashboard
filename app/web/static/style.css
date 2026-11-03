@@ -110,3 +110,4 @@ a.cite:hover { color: var(--text); text-decoration: underline; }
 .row-links { display: flex; gap: 10px; align-items: center; white-space: nowrap; }
 .row-links a { color: var(--muted); font-size: 0.875rem; }
 .row-links form { display: inline; }
+.uncovered { color: var(--warn); font-weight: 600; white-space: nowrap; }

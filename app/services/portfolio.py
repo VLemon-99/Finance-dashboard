@@ -5,7 +5,7 @@ Every function takes the user's id and only touches that user's trades.
 """
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta
 from typing import Literal
 
@@ -15,12 +15,28 @@ from app.db.models import Instrument, Transaction
 from app.providers.market_data import MarketData
 from app.services.options import (
     CONTRACT_SYMBOL_RE,
+    ContractQuote,
+    ContractView,
+    RateView,
+    RiskFreeRate,
     contract_instrument,
+    contract_quotes,
     load_chain,
     stored_contract,
 )
-from app.services.options_math import is_expired, mid_price
-from app.services.quotes import lookup_quote
+from app.services.options_math import (
+    CONTRACT_SIZE,
+    annualized_return,
+    capital_at_risk_cash_secured_put,
+    capital_at_risk_covered_call,
+    days_to_expiry,
+    is_expired,
+    mid_price,
+    position_pnl,
+    premium_received,
+)
+from app.services.positions import ClosedPosition, OpenPosition, TradeInput, build_positions
+from app.services.quotes import get_quotes, lookup_quote
 from app.tickers import InvalidTicker, normalize_ticker
 from app.timeutils import EASTERN, as_utc
 from app.web.formatting import short_date
@@ -294,3 +310,227 @@ def delete_trade(session: Session, user_id: int, trade_id: int) -> None:
         raise TradeNotFound(trade_id)
     session.delete(trade)
     session.commit()
+
+
+# --- the portfolio page (F3.3, F3.4, F3.5, F3.8) --------------------------------------------
+
+Strategy = Literal["cash-secured put", "covered call", "uncovered call"]
+
+
+@dataclass(frozen=True)
+class OpenRow:
+    """One open position as the portfolio page shows it."""
+
+    target: TradeTarget
+    position: OpenPosition
+    current_price: float | None
+    price_label: str  # "last price" | "mid" | "last trade"
+    price_status: str  # ok | stale | error | expired
+    fetched_at: datetime | None
+    pnl: float | None
+    pnl_pct: float | None
+    note: str | None = None
+    # Options only
+    contract: ContractView | None = None
+    dte: int | None = None
+    expiring_today: bool = False
+    expired: bool = False
+    # Short options only (F3.4, F3.5, F3.8)
+    strategy: Strategy | None = None
+    premium: float | None = None  # $ received
+    capital: float | None = None  # $ at risk
+    dte_at_entry: int | None = None
+    return_locked: float | None = None  # fraction, using DTE at entry
+    return_remaining: float | None = None  # fraction, using DTE left today
+
+
+@dataclass(frozen=True)
+class ClosedRow:
+    target: TradeTarget
+    position: ClosedPosition
+
+
+@dataclass(frozen=True)
+class PortfolioView:
+    stocks: list[OpenRow]
+    options: list[OpenRow]
+    closed: list[ClosedRow]
+    rate: RateView | None
+    has_trades: bool
+
+
+def portfolio_view(
+    session: Session,
+    market_data: MarketData,
+    rates: RiskFreeRate,
+    user_id: int,
+    *,
+    now: datetime,
+    max_age: timedelta | None,
+    min_iv: float,
+    max_parallel: int = 1,
+) -> PortfolioView:
+    """Positions calculated from the user's trades, priced with current data."""
+    rows = session.exec(
+        select(Transaction, Instrument)
+        .join(Instrument, col(Instrument.id) == col(Transaction.instrument_id))
+        .where(Transaction.user_id == user_id)
+    ).all()
+    targets = {instrument.id: _target(instrument) for _, instrument in rows}
+    instruments = {instrument.id: instrument for _, instrument in rows}
+    open_positions, closed_positions = build_positions(
+        TradeInput(
+            id=trade.id,
+            instrument_id=trade.instrument_id,
+            side=trade.side,
+            quantity=trade.quantity,
+            price=trade.price,
+            trade_date=trade.trade_date,
+            size=targets[trade.instrument_id].size,
+            underlying_price=trade.underlying_price,
+            reason=trade.reason,
+        )
+        for trade, _ in rows
+    )
+
+    stock_positions = [p for p in open_positions if targets[p.instrument_id].kind == "stock"]
+    option_positions = [p for p in open_positions if targets[p.instrument_id].kind == "option"]
+    quotes = get_quotes(
+        session,
+        market_data,
+        [targets[p.instrument_id].symbol for p in stock_positions],
+        max_age=max_age,
+        max_parallel=max_parallel,
+    )
+    contract_prices, rate = contract_quotes(
+        session,
+        market_data,
+        rates,
+        [instruments[p.instrument_id] for p in option_positions],
+        max_age=max_age,
+        min_iv=min_iv,
+    )
+
+    stocks = [_stock_row(targets[p.instrument_id], p, quotes) for p in stock_positions]
+    shares_held = {
+        row.target.symbol: row.position.quantity for row in stocks if not row.position.is_short
+    }
+    covered = _covered_calls(option_positions, targets, shares_held)
+    today = eastern_date(now)
+    options = [
+        _option_row(
+            targets[p.instrument_id],
+            p,
+            contract_prices[targets[p.instrument_id].symbol],
+            today,
+            covered,
+        )
+        for p in option_positions
+    ]
+    stocks.sort(key=lambda r: r.target.symbol)
+    options.sort(key=lambda r: (r.target.underlying, r.target.expiration, r.target.strike))
+    closed = sorted(
+        (ClosedRow(targets[c.instrument_id], c) for c in closed_positions),
+        key=lambda r: r.position.closed_on,
+        reverse=True,
+    )
+    return PortfolioView(stocks, options, closed, rate, has_trades=bool(rows))
+
+
+def _stock_row(target: TradeTarget, position: OpenPosition, quotes) -> OpenRow:
+    quote = quotes[target.symbol]
+    pnl, pct = position_pnl(
+        position.direction, position.avg_price, quote.last_price, position.quantity
+    )
+    return OpenRow(
+        target=target,
+        position=position,
+        current_price=quote.last_price,
+        price_label="last price",
+        price_status=quote.status,
+        fetched_at=quote.fetched_at,
+        pnl=pnl,
+        pnl_pct=pct,
+        note=quote.note,
+    )
+
+
+def _covered_calls(
+    positions: list[OpenPosition], targets: dict[int, TradeTarget], shares_held: dict[str, int]
+) -> set[int]:
+    """Instrument ids of the short calls covered by shares held, oldest first (F3.5).
+    A position is covered only if all its contracts are (100 shares each)."""
+    left = dict(shares_held)
+    covered = set()
+    short_calls = sorted(
+        (p for p in positions if p.is_short and targets[p.instrument_id].option_type == "call"),
+        key=lambda p: (p.opened_on, p.instrument_id),
+    )
+    for position in short_calls:
+        underlying = targets[position.instrument_id].underlying
+        needed = position.quantity * CONTRACT_SIZE
+        if left.get(underlying, 0) >= needed:
+            left[underlying] -= needed
+            covered.add(position.instrument_id)
+    return covered
+
+
+def _option_row(
+    target: TradeTarget,
+    position: OpenPosition,
+    quote: ContractQuote,
+    today: date,
+    covered: set[int],
+) -> OpenRow:
+    view = quote.view
+    price, label = None, "mid"
+    if view is not None:
+        price, label = (
+            (view.mid, "mid") if view.mid is not None else (view.last_price, "last trade")
+        )
+    pnl, pct = position_pnl(
+        position.direction, position.avg_price, price, position.quantity, CONTRACT_SIZE
+    )
+    dte = days_to_expiry(target.expiration, today)
+    expired = quote.status == "expired"
+    row = OpenRow(
+        target=target,
+        position=position,
+        current_price=price,
+        price_label=label,
+        price_status=quote.status,
+        fetched_at=view.fetched_at if view else None,
+        pnl=pnl,
+        pnl_pct=pct,
+        note=quote.note,
+        contract=view,
+        dte=dte,
+        expiring_today=dte == 0 and not expired,
+        expired=expired,
+    )
+    if not position.is_short:
+        return row
+
+    dte_at_entry = days_to_expiry(target.expiration, position.opened_on)
+    premium = premium_received(position.avg_price, position.quantity)
+    if target.option_type == "put":
+        strategy: Strategy = "cash-secured put"
+        capital = capital_at_risk_cash_secured_put(target.strike, premium, position.quantity)
+    elif position.instrument_id in covered:
+        strategy = "covered call"
+        capital = (
+            capital_at_risk_covered_call(position.underlying_avg, position.quantity)
+            if position.underlying_avg
+            else None
+        )
+    else:
+        return replace(row, strategy="uncovered call", premium=premium, dte_at_entry=dte_at_entry)
+    return replace(
+        row,
+        strategy=strategy,
+        premium=premium,
+        capital=capital,
+        dte_at_entry=dte_at_entry,
+        return_locked=annualized_return(premium, capital, dte_at_entry) if capital else None,
+        return_remaining=annualized_return(premium, capital, dte) if capital else None,
+    )

@@ -57,9 +57,33 @@ def _parse_whole(text: str) -> int | None:
 
 
 @router.get("/portfolio", response_class=HTMLResponse)
-def portfolio_page(request: Request, session: SessionDep, user_id: UserDep):
+def portfolio_page(
+    request: Request,
+    session: SessionDep,
+    market_data: MarketDataDep,
+    user_id: UserDep,
+    config: ConfigDep,
+    refresh: bool = False,
+):
+    """`?refresh=1` is the Refresh button."""
+    view = pf.portfolio_view(
+        session,
+        market_data,
+        request.app.state.risk_free_rate,
+        user_id,
+        now=utc_now(),
+        max_age=None if refresh else _refresh_window(config),
+        min_iv=config.options.min_implied_volatility_percent / 100,
+        max_parallel=config.market_data.max_parallel_fetches,
+    )
     return templates.TemplateResponse(
-        request, "portfolio.html", {"trades": pf.list_trades(session, user_id)}
+        request,
+        "portfolio.html",
+        {
+            "view": view,
+            "trades": pf.list_trades(session, user_id),
+            "refresh_minutes": config.market_data.refresh_minutes,
+        },
     )
 
 
