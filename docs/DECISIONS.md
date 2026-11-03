@@ -2,6 +2,24 @@
 
 > One entry per meaningful choice, newest at the top. This stops future sessions from quietly undoing past decisions.
 
+## 2026-11-03 — Phase 4 part A: option chain choices
+- **Decision** (the first five were confirmed by the owner before coding):
+  - **Black-Scholes without dividends**, as in the SPEC F2.3 test case. Time is counted in calendar days over a 365-day year, up to **4:00 PM US Eastern on the expiration date**.
+  - **Theta is per calendar day; vega is per 1 percentage point of IV** (e.g. 20% → 21%), as most broker screens show them.
+  - **Risk-free rate = Yahoo's 13-week T-bill yield (`^IRX`)**, taken as it is. It's remembered in memory for the refresh window (15 minutes). If it can't be fetched, the last good value is used; if there's none, the fallback rate in `config/settings.yaml` (4.0%) is used and the page says so.
+  - **Option prices are reused for 15 minutes like stocks**, and Refresh always fetches. Every strike of a fetched chain is stored in a new `option_quotes` table, so the chain page and watchlists share the same prices, and stored prices can be shown "stale" when Yahoo fails (F1.6).
+  - **No new libraries**: the normal distribution comes from Python's built-in `math.erfc`.
+  - **Greeks, mid and DTE are calculated when shown**, not stored. The greeks use the stock price Yahoo sends with the option chain (so stock and option prices are from the same moment); the stored stock quote is used only if the chain comes without one.
+  - **Yahoo's placeholder IV is ignored**: IVs below 1% (`min_implied_volatility_percent` in `config/settings.yaml`) are shown as "—", with no greeks. Yahoo reports about 0.001% for strikes that barely trade.
+  - **Mid** is shown only when there's a bid above zero and the ask isn't below it.
+  - **"In the money"**: calls with strike below the stock price, puts with strike above it. The **nearest strike** is the one closest to the stock price (the lower one on a tie).
+  - **Expired** = from 4:00 PM Eastern on the expiration date. Expired dates aren't offered on the chain page; expired contracts in a watchlist are marked "expired", keep their last prices, show no greeks and aren't refreshed (F2.7).
+  - **Contracts in watchlists** are rows in `instruments` with kind `option` and their OCC-style symbol. They can only be added from a chain we have stored prices for (the symbol is checked against a format rule and our stored chain), and they **count toward the 25-items-per-list limit** (SPEC F1.3 says "items"). A watchlist refreshes its contracts through their chains, one fetch per stock + expiration date. The **expiration-date list is fetched on every chain page visit** (it's small); if that fails, the dates with stored prices are offered.
+  - **Reports research a watchlist's stocks only**; option contracts are skipped.
+- **Why:** Meets F2.1–F2.4, F2.5a, F2.6 and F2.7 with the fewest moving parts, keeps every finance number in tested Python code, and reuses the stock rules (refresh window, stale/missing) the owner already knows.
+- **Alternatives considered:** dividends in the formula (needs a dividend-yield feed; small effect for most stocks); a binomial model for American-style options (more complex; for calls on non-dividend stocks it gives the same answer); `scipy` for the normal distribution (a large new library for one function); refreshing watchlist contracts via each contract's own Yahoo ticker (no IV there); storing the calculated greeks (they'd go out of date as time passes); FRED for the rate (needs a key the owner hasn't set up yet).
+- **Revisit if:** the greeks differ noticeably from the owner's broker (likely causes: dividends, or the broker's own IV), Yahoo starts rate-limiting the chain or date requests, or watchlists hold many contracts across many dates (refreshes are one chain at a time).
+
 ## 2026-11-02 — Phase 3: how the report is built
 - **Decision:**
   - **Press releases come through Google News** (Business Wire, PR Newswire and GlobeNewswire are outlets there), not each company's own feed (owner agreed).
