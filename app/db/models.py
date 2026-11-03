@@ -6,7 +6,7 @@ Rule: every user-owned table has a `user_id` column (F7.1). Market data tables
 
 from datetime import date, datetime
 
-from sqlalchemy import JSON, BigInteger, Column, Text, UniqueConstraint
+from sqlalchemy import JSON, BigInteger, Column, Index, Text, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 from app.timeutils import utc_now
@@ -21,13 +21,18 @@ class User(SQLModel, table=True):
 
 
 class Instrument(SQLModel, table=True):
-    """One stock/ETF (later also option contracts)."""
+    """One stock/ETF, or one option contract (Phase 4)."""
 
     __tablename__ = "instruments"
 
     id: int | None = Field(default=None, primary_key=True)
-    kind: str = Field(default="stock", max_length=10)  # "stock" | "option" (Phase 4)
-    symbol: str = Field(unique=True, index=True, max_length=32)
+    kind: str = Field(default="stock", max_length=10)  # "stock" | "option"
+    symbol: str = Field(unique=True, index=True, max_length=32)  # option: AAPL261120C00260000
+    # Option contracts only (empty for stocks):
+    underlying: str | None = Field(default=None, max_length=32)  # the stock, e.g. AAPL
+    option_type: str | None = Field(default=None, max_length=4)  # "call" | "put"
+    strike: float | None = None
+    expiration: date | None = None
 
 
 class Quote(SQLModel, table=True):
@@ -51,6 +56,34 @@ class Quote(SQLModel, table=True):
     volume: int | None = Field(default=None, sa_column=Column(BigInteger, nullable=True))
     market_cap: float | None = None
     next_earnings: date | None = None
+
+
+class OptionQuote(SQLModel, table=True):
+    """Latest stored prices for one option contract, with when they were fetched.
+
+    Shared market data like `quotes` (no `user_id`). Every strike of a fetched option chain
+    is stored, so the chain page and watchlists can reuse recent prices and fall back on
+    them when the source fails (SPEC F1.5, F1.6). One row per contract, overwritten.
+    """
+
+    __tablename__ = "option_quotes"
+    __table_args__ = (Index("ix_option_quotes_chain", "underlying", "expiration", "fetched_at"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    contract_symbol: str = Field(unique=True, index=True, max_length=32)  # AAPL261120C00260000
+    underlying: str = Field(max_length=32)
+    expiration: date
+    option_type: str = Field(max_length=4)  # "call" | "put"
+    strike: float
+    bid: float | None = None
+    ask: float | None = None
+    last_price: float | None = None
+    volume: int | None = Field(default=None, sa_column=Column(BigInteger, nullable=True))
+    open_interest: int | None = Field(default=None, sa_column=Column(BigInteger, nullable=True))
+    implied_volatility: float | None = None  # a fraction: 0.25 = 25%
+    underlying_price: float | None = None  # stock price sent with the chain
+    fetched_at: datetime
+    source: str = Field(max_length=32)
 
 
 class Watchlist(SQLModel, table=True):

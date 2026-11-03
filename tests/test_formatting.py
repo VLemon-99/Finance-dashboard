@@ -45,3 +45,15 @@ def test_session_label_fixes_the_weekend_today_label():
 def test_price_range():
     assert f.price_range(257.6, 260.15) == "257.60 – 260.15"
     assert f.price_range(None, 260.15) == "—"
+
+
+def test_option_number_formats():
+    assert f.number(0.63683, 3) == "0.637"
+    assert f.number(-0.017573, 3) == "-0.018"
+    assert f.number(None, 3) == "—"
+    assert f.whole(15230) == "15,230"
+    assert f.whole(None) == "—"
+    assert f.percent(0.2834) == "28.3%"
+    assert f.percent(None) == "—"
+    assert f.strike(260.0) == "260"
+    assert f.strike(262.5) == "262.50"

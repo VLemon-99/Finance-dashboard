@@ -4,7 +4,7 @@
 > Feature IDs (F1.4 etc.) refer to acceptance criteria in `docs/SPEC.md`.
 
 ## Current phase
-**Phase 3: Report v1 (news + SEC filings)**: done and merged. The owner ran it locally with real news (reports for two watchlists); SEC filings and Gemini summaries still need one real run once the owner adds their keys. Next: **Phase 4, Part A** (options browser), plan below, approved in outline by the owner; confirm the default choices before coding.
+**Phase 4: Options chain + virtual portfolio**. **Part A (options browser, F2)** is built on branch `claude/next-task-plan-5yfs0v` and waiting for the owner's check with real Yahoo data. **Part B (virtual portfolio, F3)** comes after that check. Phase 3 is merged; SEC filings and Gemini summaries still need one real run once the owner adds their keys.
 
 ## Phases
 Each phase ends with a working app, passing tests, and the docs updated.
@@ -27,7 +27,7 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - **Done when:** F4.1 (developments, rumors, insider part of F4.8, sentiment, sources), F4.2, F4.3 (news + filings), F4.4, F4.6, F4.10–F4.14 pass. AI calls are mocked in tests. *(All have automated tests; see "Done (recent)".)*
 
 - [ ] **Phase 4 — Options chain + virtual portfolio (F2, F3)**
-  - Option chain browser, Black-Scholes greeks, DTE, add contracts to watchlists.
+  - Option chain browser, Black-Scholes greeks, DTE, add contracts to watchlists. *(Part A built 2026-11-03: F2.1–F2.4, F2.5a, F2.6, F2.7 have automated tests; owner check pending.)*
   - Bought/Sold buttons with auto-filled prices, positions and P&L, annualized return for short options, spread linking, expiry handling.
   - **Done when:** F2.1–F2.7 and F3.1–F3.9 pass, including the F2.3 and F3.6 numeric test cases.
 
@@ -57,14 +57,24 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - **Done when:** F7.1–F7.3 pass and the security review has no open high-severity findings.
 
 ## Next up
-1. **Phase 4, split into two parts, each with its own pull request and an owner check in between** (proposed 2026-11-03):
-   - **Part A, options browser (F2):** (1) Yahoo adapter: expiration dates, option chain (bid, ask, last, volume, open interest, IV), and the risk-free rate from the 13-week T-bill (`^IRX`). (2) `app/services/options_math.py`: Black-Scholes price and greeks, plus DTE, with the F2.3 known answer (call 10.4506, delta 0.6368) and more. (3) Option chain page from any stock: pick an expiration, switch calls/puts, highlight the strike nearest the price, shade in-the-money strikes. (4) Add a contract to a watchlist; contract rows show F2.2 fields plus the underlying price; expired contracts are marked and no longer refreshed (F2.5a, F2.6, F2.7).
+1. **Owner: check Phase 4 part A with real data** (after merging and updating, see README "Updating to a new version"; the update adds two database changes). Ideally during market hours (9:30 AM–4 PM ET, weekdays), since bids/asks are often zero after hours:
+   - Click **Options** in the menu, type a ticker you know (e.g. AAPL), and look at a date a few weeks out. Do the expiration dates, bids/asks, volume and open interest match your broker or Yahoo's own options page? Are the greeks close to your broker's (they won't match exactly: brokers use their own IV and include dividends)?
+   - Switch to **Puts**. Is the outlined row the strike closest to the stock price, and are the in-the-money rows (shaded) the right ones?
+   - Choose a watchlist under "Add contracts to", click **Add** on a row, then open that watchlist. Is the contract there with the stock price, and does **Refresh prices** update it?
+   - Try a stock without options (or a typo ticker) and check the message makes sense.
+2. **Phase 4, part B, virtual portfolio (F3)**, after the owner's check (plan approved in outline 2026-11-03):
    - **Part B, virtual portfolio (F3):** (5) trades table + Bought/Sold forms with an auto-filled, editable price (F3.1, F3.2; also F2.5b). (6) Portfolio page: open positions with P&L, and DTE/IV/delta for options; realized P&L for closed ones (F3.3). (7) Capital at risk + annualized return, locked-in and remaining, with the F3.6 known answers; uncovered calls show "uncovered — no return figure" (F3.4, F3.5, F3.8). (8) Credit-spread linking and expiry handling: "expiring today", expired worthless or assigned (F3.7, F3.9).
-   - **Default choices to confirm with the owner first:** no dividends in Black-Scholes (as in the F2.3 test case); if `^IRX` can't be fetched, use a fallback rate from `config/settings.yaml` (4.0%) and say so on the page; option prices reused for 15 minutes like stocks, and Refresh always fetches; theta per day, vega per 1 percentage point of IV; no new libraries (built-in math only).
-2. Owner, whenever convenient: follow README "Setting up reports" (SEC contact, Gemini key, $10 budget alert), then generate one report. Check that real filings and AI summaries appear, the citation numbers jump to the right sources, and insider trades match the SEC's own Form 4 pages.
-3. Owner: after seeing which outlets show up, decide whether to switch on `trusted_outlets_only` in `config/sources.yaml`.
+   - Part B builds on part A: the "Bought/Sold" buttons go on the chain page rows (F2.5b) and reuse `option_quotes` prices for the auto-filled price; P&L, capital at risk and annualized return go in `options_math.py` with known-answer tests (F3.6).
+3. Owner, whenever convenient: follow README "Setting up reports" (SEC contact, Gemini key, $10 budget alert), then generate one report. Check that real filings and AI summaries appear, the citation numbers jump to the right sources, and insider trades match the SEC's own Form 4 pages.
+4. Owner: after seeing which outlets show up, decide whether to switch on `trusted_outlets_only` in `config/sources.yaml`.
 
 ## Done (recent)
+- 2026-11-03 Phase 4 part A, options browser (F2), in four commits, with the owner's confirmed defaults (no dividends, T-bill rate with a 4.0% fallback, 15-minute reuse, theta per day, vega per IV point, no new libraries):
+  1. `app/services/options_math.py`: Black-Scholes price and greeks, DTE, expiry at 4 PM ET, mid, in the money, nearest strike. Known answers: the SPEC F2.3 case (call 10.4506, delta 0.6368; put 5.5735) and two textbook examples (Hull), plus put-call parity (F2.3).
+  2. Yahoo adapter: expiration dates, option chains (bid, ask, last, volume, open interest, IV, stock price) and the 13-week T-bill rate (`^IRX`), behind the `MarketData` interface; hand-made sample `tests/fixtures/yahoo_options_AAPL.json`.
+  3. Option chain page (`/options/{ticker}`, **Options** in the menu, links on watchlist rows and the quote card): pick a date, Calls/Puts, Refresh; nearest strike outlined, in-the-money rows shaded; every strike stored in a new `option_quotes` table, stale/missing handling like stocks (F2.1, F2.2, F2.4, F1.5, F1.6). Settings: `options:` in `config/settings.yaml`.
+  4. Contracts in watchlists: Add from the chain page into a chosen list (F2.5a); an "Option contracts" table with the F2.2 fields plus the stock price (F2.6); expired contracts marked and not refreshed (F2.7). Contracts count toward the items limit; reports skip them. The home page now counts "items". Also fixed: a wide table could make the whole page scroll sideways.
+  Tests: 361 pass (up from 263), all offline. The two database changes were checked on a copy holding Phase 3 data (rows kept; undo works). No new libraries.
 - 2026-11-03 Owner ran Phase 3 locally (no keys yet): reports for two watchlists (8 tickers) built, news items collected, SEC and AI correctly listed as missing. Fixed from those screenshots: with SEC filings missing, the insider section said "no open-market buys or sales" / "none" as if it were a fact; it now says the data isn't available. Likewise the sentiment section says "AI ratings are off" instead of "no items were rated". Tests in `tests/test_web_reports.py` and `tests/test_reports.py`.
 - 2026-11-02 Fixed: after merging Phase 3 and running the four update commands, the browser showed "localhost refused to connect". The app wasn't broken (the same steps start cleanly here, with a Phase 2 database and the example `.env`); the README's update steps start with "stop the app" but never gave the command to start it again. The start command is now the last step, with what to look for (`Application startup complete.`). Test: `tests/test_readme.py`.
 - 2026-11-02 Phase 3 report v1, in five commits:
@@ -82,6 +92,12 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - 2026-11-01 Kickoff: interviewed owner; wrote SPEC, ARCHITECTURE, PLAN, DECISIONS; filled in stack and commands in CLAUDE.md. No application code yet.
 
 ## Known issues / bugs
+- **Phase 4 option samples are hand-made** (`tests/fixtures/yahoo_options_AAPL.json`, invented prices in yfinance's format) because the cloud build machine can't reach Yahoo. The owner's first real run is the real test of the chain parsing and the `^IRX` rate.
+- Greeks are Black-Scholes without dividends, so they'll differ a little from a broker's (most for high-dividend stocks and for deep in-the-money puts, which can be exercised early). `^IRX` is a T-bill discount yield used as-is; the difference from a true continuous rate is tiny.
+- Outside market hours Yahoo often shows bids/asks of 0, so mid shows "—" and IV may be a placeholder (shown as "—", no greeks). Expected.
+- A watchlist refreshes its option contracts one chain at a time (one Yahoo request per stock + expiration date). Fine for a few contracts; if lists hold many contracts across many dates, refresh could get slow.
+- The chain page asks Yahoo for the expiration-date list on every visit (not reused for 15 minutes like prices). It's a small request; cache it if Yahoo starts rate-limiting.
+- The risk-free rate is remembered only while the app runs; after a restart it's fetched again on the first chain page.
 - Without `SEC_USER_AGENT`, the company name isn't known, so Google News is searched by ticker only (`"MU stock"`), which finds fewer and less relevant stories. Fixed by setting up `.env`.
 - GOOG and GOOGL in the same list are researched twice (same company, same news). Harmless, but doubles the AI cost for that company. Could merge share classes later if it matters.
 - **Phase 3 test samples are hand-made** (the cloud build machine can't reach Google News, Yahoo or the SEC). They follow each site's published format, but the first real run on the owner's computer is the real test. Things to watch: Google News outlet names, Yahoo's feed still existing, and SEC filing times (we assume EDGAR's "acceptanceDateTime" is US Eastern clock time even though it's labelled UTC).
@@ -101,7 +117,9 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - *(Fixed in Phase 2: the day change was always labelled "today", and the quote page fetched from Yahoo on every lookup.)*
 
 ## Handoff note
-Phase 3 is merged into `main` (263 tests green) and confirmed by the owner with real news; SEC + Gemini are untested against the real services until the owner adds their keys. Next session: start Phase 4 Part A from the plan in "Next up". Confirm the default choices with the owner, then code. If the owner reports problems from their first run with keys, fix those first (prompt #3). After each merge, remind the owner to update their folder (README, "Updating to a new version").
+Phase 4 part A is on branch `claude/next-task-plan-5yfs0v` (361 tests green), not yet merged or checked by the owner with real Yahoo data. Next session: if the owner reports problems from that check (or from their first run with SEC/Gemini keys), fix those first (prompt #3); otherwise start Phase 4 part B from "Next up". After each merge, remind the owner to update their folder (README, "Updating to a new version").
+- Options code map: `app/services/options_math.py` (pure formulas), `app/services/options.py` (`option_chain()` for the chain page, `contract_rows()` for watchlists, `RiskFreeRate` kept on `app.state.risk_free_rate`), `app/web/option_routes.py`, templates `option_chain.html` / `options_start.html`, contracts table in `watchlist.html`. `watchlists.add_contract()` adds a contract; `watchlist_rows()` returns stocks only and `watchlist_contracts()` the contracts.
+- Option tests use the `options_clock` fixture (frozen at Tue Nov 3, 2026, 10:00 AM ET; move it with `options_clock.now = ...`). `FakeMarketData` serves the option sample for any ticker (contract symbols re-labelled), with `no_options`, `rate_down`, `chain_calls`, `expiration_calls` and `rate_calls`.
 - Report code map: `app/sources/` (plug-ins; `registry.py` builds them from `config/sources.yaml` + `.env`), `app/services/collect.py` → `summarize.py` → `reports.py` (+ `sentiment.py`, `insider.py`), `app/ai/` (interface + Gemini), pages in `app/web/report_routes.py` and `templates/_ticker_report.html`.
 - `create_app(..., report_services=, report_runner=)`: tests pass `ReportServices` wired to `FakeFetch` (fake internet, recorded samples in `tests/fixtures/sources/`) and `FakeLLM`, plus a `RecordingRunner` that runs reports immediately (or holds them, to test the progress page).
 - The `sources_now` fixture freezes "now" at 2026-11-02 12:00 UTC for the source and report modules, so the sample dates fall inside the report window.

@@ -1,7 +1,7 @@
 # Architecture
 
 > The bird's-eye view. Keep this short and current — it's what a fresh agent or reviewer reads to understand the whole system.
-> Status: **Phases 1–3 built**: quote lookup, watchlists, and research reports from news + SEC filings (Gemini summaries, "Generate now", history). Options, portfolio, calendar, macro, the 7:30am schedule and the later report sources are still the target design.
+> Status: **Phases 1–3 built, plus Phase 4 part A**: quote lookup, watchlists, research reports from news + SEC filings (Gemini summaries, "Generate now", history), and the option chain browser (greeks calculated by us, contracts in watchlists). The virtual portfolio, calendar, macro, the 7:30am schedule and the later report sources are still the target design.
 
 ## Overview
 A single Python web app runs on my computer and opens in the browser. Pages are built on
@@ -51,9 +51,9 @@ morning report. Each outside service sits behind a small "adapter", so one can b
 ## Data model (main tables)
 Every user-owned table has a `user_id` column from day one (one default user for now).
 - `users` — id, email (later: password hash).
-- `instruments` — one row per stock/ETF or option contract: kind (`stock` | `option`), symbol,
-  underlying, option type (call/put), strike, expiration, OCC symbol.
-- `quotes` — latest cached market data per instrument: price, previous close, trading-session date, day range, 52-week range, volume, market cap, next earnings date, fetched_at (for "stale" display and the 15-minute refresh window). Shared market data, so no `user_id`.
+- `instruments` — one row per stock/ETF or option contract: kind (`stock` | `option`), symbol (for options the OCC-style contract symbol, e.g. `AAPL261120C00260000`), and for options: underlying, option type (call/put), strike, expiration.
+- `option_quotes` — latest stored prices per option contract, for every strike of every chain fetched: contract symbol, underlying, expiration, call/put, strike, bid, ask, last, volume, open interest, IV, the stock price sent with the chain, fetched_at. Shared market data, so no `user_id`. Greeks, mid and DTE are not stored; they're calculated when shown.
+- `quotes` — latest cached market data per stock: price, previous close, trading-session date, day range, 52-week range, volume, market cap, next earnings date, fetched_at (for "stale" display and the 15-minute refresh window). Shared market data, so no `user_id`.
 - `watchlists` (user_id, name; names unique per user, ignoring upper/lower case) and `watchlist_items` (user_id, watchlist, instrument; a stock appears once per list but can be in several lists). Deleting a list deletes its items, not the stored prices.
 - `transactions` — user, instrument, side (bought/sold), quantity, price, trade date, price source (auto/manual).
 - `spreads` — links two option transactions into one credit spread position.
@@ -70,7 +70,14 @@ Every user-owned table has a `user_id` column from day one (one default user for
 3. Each stock that fails keeps its last stored values, marked "stale" (or "missing" if never fetched), with a note. The other rows are unaffected (F1.6).
 4. **Adding a stock:** search by ticker or company name (`services/search.py` → provider search, US-listed stocks/ETFs only), then click Add, or type a ticker. The limit is checked first (nothing fetched or saved if full). The ticker is then checked with the provider: unknown → "not found", not added (F1.7); source down and never seen before → not added, try again later.
 5. Changes (create, rename, delete, add, remove) are plain HTML form posts followed by a redirect, so everything works without JavaScript. HTMX only swaps in search results.
-6. Later, for options (Phase 4): `options_math` computes greeks and DTE from the cached chain data.
+6. Option contracts in the list (Phase 4) are refreshed through their option chain (one fetch per stock + expiration date) and shown in their own table with the chain fields plus the stock price. Expired contracts keep their last prices and aren't refreshed.
+
+**Option chain page** (Phase 4, `/options/{ticker}?expiration=…&type=call|put`)
+1. `services/options.py` asks the provider for the expiration dates (falling back to the dates we have stored prices for if it fails) and drops expired ones; the earliest is shown unless I pick another.
+2. The chain for that date is reused from `option_quotes` if younger than the refresh window; otherwise (or on **Refresh prices**) it's fetched and every strike is stored. If the fetch fails, the stored chain is shown "stale" (F1.6).
+3. The risk-free rate is the 13-week T-bill yield (`^IRX`), remembered in memory for the refresh window; if it can't be fetched, the fallback rate from `config/settings.yaml` is used and the page says so.
+4. `services/options_math.py` (pure functions) adds mid, DTE, greeks (Black-Scholes, from the stock price sent with the chain, the IV and the rate), in/out of the money and the nearest strike.
+5. **Add** on a row puts that contract into the chosen watchlist (`services/watchlists.add_contract`): only contracts we have stored prices for, not expired, within the list's item limit.
 
 **Recording a trade**
 1. I click Bought/Sold on a row → a small form with date (today), quantity and an auto-filled price (current mid, or that day's close).
@@ -118,14 +125,14 @@ app/
   config.py        settings from environment / .env, plus loading/checking config/settings.yaml
   tickers.py       ticker format rules (shared by services and adapters)
   timeutils.py     UTC storage ↔ US Eastern display
-  web/             routes, formatting.py (number/date display), assets.py (version codes on CSS/JS links), templates/ (HTML pages + HTMX partials), static/ (CSS, vendored htmx.min.js)
-  services/        business rules: watchlists, quotes, search, collect, summarize, reports, sentiment, insider (later portfolio, options_math, calendar, macro)
+  web/             routes (routes.py: watchlists + lookup; option_routes.py; report_routes.py), formatting.py (number/date display), assets.py (version codes on CSS/JS links), templates/ (HTML pages + HTMX partials), static/ (CSS, vendored htmx.min.js)
+  services/        business rules: watchlists, quotes, search, options (chains, contract rows, risk-free rate), options_math (pure formulas), collect, summarize, reports, sentiment, insider (later portfolio, calendar, macro)
   providers/       market data + calendar data adapters (yahoo, fred)
   sources/         research content plug-ins: base.py (interface), http.py (downloads), news_rss.py, edgar.py, registry.py; later youtube, blogs, x, reddit
   ai/              LLM interface (llm.py) + Gemini adapter with its prompts (gemini.py)
   db/              models.py, session.py, migrations/ (Alembic; alembic.ini is in the project root)
   scheduler.py     timed jobs
-config/            settings.yaml (limits, refresh window, report settings, sentiment weights, AI model), sources.yaml (sources on/off, Google News search, trusted outlets, SEC forms), later fomc_dates.yaml
+config/            settings.yaml (limits, refresh window, options fallback rate + minimum IV, report settings, sentiment weights, AI model), sources.yaml (sources on/off, Google News search, trusted outlets, SEC forms), later fomc_dates.yaml
 data/              app.db and caches (git-ignored)
 tests/             automated tests; fixtures/ holds sample responses (fixtures/sources/ for feeds and SEC files); conftest.py has the fake market data, fake internet (FakeFetch) and fake AI (FakeLLM)
 docs/              spec, architecture, decisions, prompts

@@ -1,11 +1,13 @@
 :root {
   --bg: #f7f7f8; --card: #fff; --text: #1d1d1f; --muted: #6b6b70; --border: #dedee3;
   --up: #137333; --down: #c5221f; --warn-bg: #fff4e5; --warn: #8a4b00; --err-bg: #fdecea;
+  --itm-bg: #eaf1fb;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #161618; --card: #1f1f22; --text: #ececf0; --muted: #a0a0a8; --border: #34343a;
     --up: #5bd17a; --down: #ff7a70; --warn-bg: #3a2a10; --warn: #ffc880; --err-bg: #3a1714;
+    --itm-bg: #1e2a3a;
   }
 }
 * { box-sizing: border-box; }
@@ -49,7 +51,7 @@ input { font: inherit; padding: 6px 10px; border: 1px solid var(--border); borde
 .list-cards { list-style: none; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 .list-cards li { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; display: flex; justify-content: space-between; gap: 8px; }
 .list-cards a { font-weight: 600; text-decoration: none; }
-.table-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+.table-wrap { position: relative; overflow-x: auto; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
 table.stocks { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
 .stocks th, .stocks td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; vertical-align: top; }
 .stocks th { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
@@ -90,3 +92,12 @@ a.cite:hover { color: var(--text); text-decoration: underline; }
 .stocks td.wrap { white-space: normal; min-width: 280px; }
 :target { scroll-margin-top: 16px; }
 .sources > li:target { background: var(--warn-bg); border-radius: 6px; }
+.stock-line { font-variant-numeric: tabular-nums; margin: 0 0 8px; }
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.segmented a { padding: 6px 14px; text-decoration: none; color: var(--muted); background: var(--card); }
+.segmented a[aria-current] { background: var(--text); color: var(--bg); }
+.chain tr.itm td { background: var(--itm-bg); }
+.chain tr.nearest td { border-top: 2px solid var(--text); border-bottom: 2px solid var(--text); }
+.stocks tr.expired td { color: var(--muted); }
+.note.success { background: var(--itm-bg); color: var(--text); }
+.row-actions a { color: var(--muted); }

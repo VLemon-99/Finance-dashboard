@@ -10,6 +10,8 @@ def test_shipped_settings_file_has_the_spec_defaults():
     assert cfg.watchlists.max_watchlists == 30
     assert cfg.watchlists.max_items_per_list == 25
     assert cfg.market_data.refresh_minutes == 15
+    assert cfg.options.fallback_risk_free_rate_percent == 4.0
+    assert cfg.options.min_implied_volatility_percent == 1.0
 
 
 def test_limits_can_be_raised_in_the_file(tmp_path):

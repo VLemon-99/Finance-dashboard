@@ -17,6 +17,7 @@ from app.config import AppConfig
 from app.db.session import get_session
 from app.providers.market_data import MarketData
 from app.services import watchlists as wl
+from app.services.options import contract_rows
 from app.services.quotes import QuoteView, lookup_quote
 from app.services.search import SearchOutcome, search_instruments
 from app.tickers import InvalidTicker
@@ -30,10 +31,15 @@ templates.env.filters.update(
     money=formatting.money,
     signed=formatting.signed,
     compact=formatting.compact,
+    number=formatting.number,
+    whole=formatting.whole,
+    percent=formatting.percent,
+    strike=formatting.strike,
     short_date=formatting.short_date,
     session_label=lambda d: formatting.session_label(d, today_eastern()),
 )
 templates.env.globals["price_range"] = formatting.price_range
+templates.env.globals["contract_label"] = formatting.contract_label
 templates.env.globals["asset_version"] = asset_version
 
 router = APIRouter()
@@ -132,12 +138,23 @@ def _watchlist_page(
         max_age=None if refresh else _refresh_window(config),
         max_parallel=config.market_data.max_parallel_fetches,
     )
+    contracts, rate = contract_rows(
+        session,
+        market_data,
+        request.app.state.risk_free_rate,
+        wl.watchlist_contracts(session, user_id, watchlist_id),
+        max_age=None if refresh else _refresh_window(config),
+        min_iv=config.options.min_implied_volatility_percent / 100,
+    )
     return templates.TemplateResponse(
         request,
         "watchlist.html",
         {
             "watchlist": watchlist,
             "rows": rows,
+            "contracts": contracts,
+            "rate": rate,
+            "contract_problems": sum(c.status in ("stale", "error") for c in contracts),
             "problem_count": sum(r.quote.status in ("stale", "error") for r in rows),
             "in_list": {r.quote.symbol for r in rows},
             "search": search or SearchOutcome(query=""),

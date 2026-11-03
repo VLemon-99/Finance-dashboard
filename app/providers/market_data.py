@@ -36,12 +36,43 @@ class SearchResult:
     kind: Literal["stock", "etf"]
 
 
+@dataclass(frozen=True)
+class OptionContractData:
+    """One strike of one option chain, as the source gave it (SPEC F2.2 raw fields)."""
+
+    contract_symbol: str  # OCC-style, e.g. AAPL261120C00150000
+    option_type: Literal["call", "put"]
+    strike: float
+    bid: float | None = None
+    ask: float | None = None
+    last_price: float | None = None
+    volume: int | None = None  # contracts traded today
+    open_interest: int | None = None
+    implied_volatility: float | None = None  # a fraction: 0.25 = 25%
+
+
+@dataclass(frozen=True)
+class OptionChainData:
+    """All calls and puts of one ticker for one expiration date."""
+
+    underlying: str  # the stock's ticker, e.g. AAPL
+    expiration: date
+    underlying_price: float | None  # the stock price the source sent with the chain
+    contracts: tuple[OptionContractData, ...]
+    fetched_at: datetime  # UTC
+    source: str
+
+
 class MarketDataError(Exception):
     """The data source failed (down, timed out, rate-limited, bad response)."""
 
 
 class TickerNotFound(MarketDataError):
     """The data source says this ticker doesn't exist."""
+
+
+class NoOptionChain(MarketDataError):
+    """The data source has no options for this ticker, or not for that expiration date."""
 
 
 class MarketData(Protocol):
@@ -51,4 +82,18 @@ class MarketData(Protocol):
 
     def search(self, query: str, max_results: int) -> list[SearchResult]:
         """US-listed stocks/ETFs matching a ticker or company name. Raises MarketDataError."""
+        ...
+
+    def get_option_expirations(self, symbol: str) -> list[date]:
+        """Expiration dates with listed options, earliest first. Empty if the ticker has no
+        options. Raises MarketDataError."""
+        ...
+
+    def get_option_chain(self, symbol: str, expiration: date) -> OptionChainData:
+        """Calls and puts for one expiration. Raises NoOptionChain / MarketDataError."""
+        ...
+
+    def get_risk_free_rate(self) -> float:
+        """Annual risk-free rate as a fraction (0.04 = 4%), from 13-week US T-bills.
+        Raises MarketDataError."""
         ...

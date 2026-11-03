@@ -7,7 +7,7 @@
 <ul class="list-cards">
   {% for w in watchlists %}
   <li><a href="/watchlists/{{ w.id }}">{{ w.name }}</a>
-      <span class="muted">{{ w.item_count }} stock{{ "" if w.item_count == 1 else "s" }}</span></li>
+      <span class="muted">{{ w.item_count }} item{{ "" if w.item_count == 1 else "s" }}</span></li>
   {% endfor %}
 </ul>
 {% else %}

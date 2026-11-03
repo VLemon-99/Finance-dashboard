@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Options · Finance Dashboard{% endblock %}
+{% block content %}
+<h1>Option chains</h1>
+{% if error %}<p class="note error" role="alert">{{ error }}</p>{% endif %}
+<form action="/options" method="get" class="quote-form">
+  <label for="ticker">Ticker</label>
+  <input id="ticker" name="ticker" value="{{ ticker }}" placeholder="e.g. AAPL" maxlength="12"
+         autocomplete="off" autocapitalize="characters" required autofocus>
+  <button type="submit">Show options</button>
+</form>
+<p class="muted small">You can also open a chain from the "Options" link on any watchlist row or quote.</p>
+{% endblock %}

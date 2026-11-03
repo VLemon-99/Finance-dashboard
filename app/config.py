@@ -67,6 +67,14 @@ class MarketDataConfig(_Section):
     max_parallel_fetches: int = Field(default=4, ge=1, le=10)
 
 
+class OptionsConfig(_Section):
+    # Risk-free rate (percent per year) used when the 13-week T-bill rate can't be fetched.
+    fallback_risk_free_rate_percent: float = Field(default=4.0, ge=0, le=20)
+    # Yahoo gives a tiny placeholder IV for strikes that barely trade. IVs below this
+    # (percent) are shown as missing and no greeks are calculated from them.
+    min_implied_volatility_percent: float = Field(default=1.0, ge=0, le=50)
+
+
 class SearchConfig(_Section):
     max_results: int = Field(default=10, ge=1, le=25)
 
@@ -104,6 +112,7 @@ class AIConfig(_Section):
 class AppConfig(_Section):
     watchlists: WatchlistLimits = WatchlistLimits()
     market_data: MarketDataConfig = MarketDataConfig()
+    options: OptionsConfig = OptionsConfig()
     search: SearchConfig = SearchConfig()
     reports: ReportsConfig = ReportsConfig()
     ai: AIConfig = AIConfig()

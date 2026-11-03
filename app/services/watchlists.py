@@ -1,25 +1,33 @@
-"""Watchlists: create, rename, delete, add/remove stocks, and the rows a list page shows.
+"""Watchlists: create, rename, delete, add/remove stocks and option contracts, and the rows
+a list page shows.
 
 F1.2: manage lists and items without typing any price data.
 F1.3: limits come from config/settings.yaml; over a limit -> clear message, nothing saved.
+      Stocks and option contracts both count as items.
 F1.7: an unknown ticker shows "not found" and is not added.
+F2.5a: add an option contract from the option chain page.
 
 Every function takes the user's id and only touches that user's lists.
 """
 
+import re
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 from app.config import WatchlistLimits
-from app.db.models import Instrument, Watchlist, WatchlistItem
+from app.db.models import Instrument, OptionQuote, Watchlist, WatchlistItem
 from app.providers.market_data import MarketData
+from app.services.options_math import is_expired
 from app.services.quotes import QuoteView, get_quotes, lookup_quote
 from app.tickers import InvalidTicker, normalize_ticker
 
 MAX_NAME_LENGTH = 60
+
+# OCC-style option symbol: root, YYMMDD, C or P, strike x 1000 in 8 digits.
+CONTRACT_SYMBOL_RE = re.compile(r"^[A-Z][A-Z0-9]{0,5}\d{6}[CP]\d{8}$")
 
 
 class WatchlistError(ValueError):
@@ -159,6 +167,57 @@ def add_ticker(
     return quote
 
 
+def add_contract(
+    session: Session,
+    user_id: int,
+    watchlist_id: int,
+    contract_symbol: str,
+    limits: WatchlistLimits,
+    now: datetime,
+) -> Instrument:
+    """Add an option contract seen on the option chain page (its prices are stored)."""
+    watchlist = get_watchlist(session, user_id, watchlist_id)
+    symbol = (contract_symbol or "").strip().upper()
+    stored = (
+        session.exec(select(OptionQuote).where(OptionQuote.contract_symbol == symbol)).first()
+        if CONTRACT_SYMBOL_RE.fullmatch(symbol)
+        else None
+    )
+    if stored is None:
+        raise WatchlistError(
+            "Couldn't find that option contract. Open the option chain again and retry."
+        )
+    if is_expired(stored.expiration, now):
+        raise WatchlistError(f"{symbol} has expired, so it wasn't added.")
+
+    items = _items(session, watchlist.id)
+    if any(symbol == s for _, s in items):
+        raise WatchlistError(f"{symbol} is already in {watchlist.name}.")
+    if len(items) >= limits.max_items_per_list:
+        raise WatchlistError(
+            f"{watchlist.name} already has {len(items)} items, the maximum. Remove one first, "
+            "or raise max_items_per_list in config/settings.yaml."
+        )
+
+    instrument = session.exec(select(Instrument).where(Instrument.symbol == symbol)).first()
+    if instrument is None:
+        instrument = Instrument(
+            kind="option",
+            symbol=symbol,
+            underlying=stored.underlying,
+            option_type=stored.option_type,
+            strike=stored.strike,
+            expiration=stored.expiration,
+        )
+        session.add(instrument)
+        session.flush()
+    session.add(
+        WatchlistItem(user_id=user_id, watchlist_id=watchlist.id, instrument_id=instrument.id)
+    )
+    session.commit()
+    return instrument
+
+
 def remove_item(session: Session, user_id: int, watchlist_id: int, item_id: int) -> None:
     watchlist = get_watchlist(session, user_id, watchlist_id)
     item = session.get(WatchlistItem, item_id)
@@ -176,13 +235,28 @@ def watchlist_rows(
     max_age: timedelta | None,
     max_parallel: int = 1,
 ) -> list[WatchlistRow]:
-    """One row per stock, in the order they were added. `max_age=None` forces a refresh."""
+    """One row per stock, in the order they were added. `max_age=None` forces a refresh.
+    Option contracts are in `watchlist_contracts`."""
     watchlist = get_watchlist(session, user_id, watchlist_id)
-    items = _items(session, watchlist.id)
+    items = _items(session, watchlist.id, kind="stock")
     quotes = get_quotes(
         session, market_data, [s for _, s in items], max_age=max_age, max_parallel=max_parallel
     )
     return [WatchlistRow(item_id=item_id, quote=quotes[symbol]) for item_id, symbol in items]
+
+
+def watchlist_contracts(
+    session: Session, user_id: int, watchlist_id: int
+) -> list[tuple[int, Instrument]]:
+    """(item id, contract) pairs for the list's option contracts, in the order added."""
+    watchlist = get_watchlist(session, user_id, watchlist_id)
+    statement = (
+        select(WatchlistItem.id, Instrument)
+        .join(Instrument, col(Instrument.id) == col(WatchlistItem.instrument_id))
+        .where(WatchlistItem.watchlist_id == watchlist.id, Instrument.kind == "option")
+        .order_by(col(WatchlistItem.id))
+    )
+    return [(item_id, instrument) for item_id, instrument in session.exec(statement)]
 
 
 def watchlist_symbols(session: Session, user_id: int, watchlist_id: int) -> set[str]:
@@ -191,19 +265,21 @@ def watchlist_symbols(session: Session, user_id: int, watchlist_id: int) -> set[
 
 
 def watchlist_tickers(session: Session, user_id: int, watchlist_id: int) -> list[str]:
-    """The list's tickers in the order they were added."""
+    """The list's stock tickers in the order they were added (contracts left out)."""
     watchlist = get_watchlist(session, user_id, watchlist_id)
-    return [symbol for _, symbol in _items(session, watchlist.id)]
+    return [symbol for _, symbol in _items(session, watchlist.id, kind="stock")]
 
 
-def _items(session: Session, watchlist_id: int) -> list[tuple[int, str]]:
-    """(item id, ticker) pairs in the order they were added."""
+def _items(session: Session, watchlist_id: int, kind: str | None = None) -> list[tuple[int, str]]:
+    """(item id, symbol) pairs in the order they were added; all kinds unless `kind` is given."""
     statement = (
         select(WatchlistItem.id, Instrument.symbol)
         .join(Instrument, col(Instrument.id) == col(WatchlistItem.instrument_id))
         .where(WatchlistItem.watchlist_id == watchlist_id)
         .order_by(col(WatchlistItem.id))
     )
+    if kind is not None:
+        statement = statement.where(Instrument.kind == kind)
     return list(session.exec(statement))
 
 
