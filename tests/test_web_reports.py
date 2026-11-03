@@ -177,3 +177,27 @@ def test_reports_belong_to_the_user(client, engine):
         report = session.exec(select(Report)).one()
         run = session.exec(select(ReportRun)).one()
         assert report.user_id == run.user_id is not None
+
+
+def test_without_sec_insider_section_says_not_available(client, report_services):
+    """Missing data must read as missing, not as "none" (F4.11)."""
+    edgar = report_services.sources.edgar
+    edgar._user_agent_ok = False  # as if SEC_USER_AGENT weren't set in .env
+    html = client.get(generate(client, ticker="AAPL")).text
+    insider = html.split("<h3>Institutional &amp; insider activity</h3>")[1].split("<h3>")[0]
+    assert "insider trades and 5%+ holder reports are not available" in insider
+    assert "no open-market buys or sales" not in insider
+    assert "none." not in insider
+
+
+def test_with_sec_insider_section_has_no_warning(client):
+    html = client.get(generate(client, ticker="AAPL")).text
+    assert "couldn&#39;t be collected for this report" not in html
+    assert "<strong>2 sales</strong>" in html
+
+
+def test_without_ai_sentiment_says_ratings_are_off(client, report_services):
+    report_services.llm = None
+    report_services.llm_problem = "AI summaries are off: set GEMINI_API_KEY in the .env file."
+    html = client.get(generate(client, ticker="AAPL")).text
+    assert "No score: AI ratings are off for this report" in html

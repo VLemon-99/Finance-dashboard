@@ -63,6 +63,7 @@ Each phase ends with a working app, passing tests, and the docs updated.
 4. Then Phase 4: options chain + virtual portfolio.
 
 ## Done (recent)
+- 2026-11-03 Owner ran Phase 3 locally (no keys yet): reports for two watchlists (8 tickers) built, news items collected, SEC and AI correctly listed as missing. Fixed from those screenshots: with SEC filings missing, the insider section said "no open-market buys or sales" / "none" as if it were a fact; it now says the data isn't available. Likewise the sentiment section says "AI ratings are off" instead of "no items were rated". Tests in `tests/test_web_reports.py` and `tests/test_reports.py`.
 - 2026-11-02 Fixed: after merging Phase 3 and running the four update commands, the browser showed "localhost refused to connect". The app wasn't broken (the same steps start cleanly here, with a Phase 2 database and the example `.env`); the README's update steps start with "stop the app" but never gave the command to start it again. The start command is now the last step, with what to look for (`Application startup complete.`). Test: `tests/test_readme.py`.
 - 2026-11-02 Phase 3 report v1, in five commits:
   1. Source plug-ins (`app/sources/`): Google News and Yahoo Finance RSS, SEC EDGAR (8-K with press-release exhibit, 10-Q, 10-K, Form 4, 13D/13G); Form 4 buys/sells read in code; `config/sources.yaml` (F4.3, F4.4).
@@ -79,6 +80,8 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - 2026-11-01 Kickoff: interviewed owner; wrote SPEC, ARCHITECTURE, PLAN, DECISIONS; filled in stack and commands in CLAUDE.md. No application code yet.
 
 ## Known issues / bugs
+- Without `SEC_USER_AGENT`, the company name isn't known, so Google News is searched by ticker only (`"MU stock"`), which finds fewer and less relevant stories. Fixed by setting up `.env`.
+- GOOG and GOOGL in the same list are researched twice (same company, same news). Harmless, but doubles the AI cost for that company. Could merge share classes later if it matters.
 - **Phase 3 test samples are hand-made** (the cloud build machine can't reach Google News, Yahoo or the SEC). They follow each site's published format, but the first real run on the owner's computer is the real test. Things to watch: Google News outlet names, Yahoo's feed still existing, and SEC filing times (we assume EDGAR's "acceptanceDateTime" is US Eastern clock time even though it's labelled UTC).
 - News summaries are based on headlines (plus Yahoo's one-line snippet), because we don't download article pages. Filing summaries use the full filing text.
 - Same-story merging only catches near-identical headlines. The same event in different words (e.g. "results beat estimates" vs. "record revenue") shows as two stories, and is counted twice in the sentiment score.
