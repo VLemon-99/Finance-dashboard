@@ -11,7 +11,11 @@ from datetime import UTC, date, datetime
 import pytest
 
 from app.services.options_math import (
+    annualized_return,
     black_scholes,
+    capital_at_risk_cash_secured_put,
+    capital_at_risk_covered_call,
+    capital_at_risk_credit_spread,
     days_to_expiry,
     expires_at,
     is_expired,
@@ -19,6 +23,8 @@ from app.services.options_math import (
     mid_price,
     nearest_strike,
     normal_cdf,
+    position_pnl,
+    premium_received,
     years_to_expiry,
 )
 
@@ -169,3 +175,59 @@ def test_f2_4_nearest_strike():
     assert nearest_strike(strikes, 500) == 105
     assert nearest_strike([], 100) is None
     assert nearest_strike(strikes, None) is None
+
+
+# --- portfolio formulas (SPEC F3.3-F3.6) -----------------------------------------------
+
+
+def test_f3_6_cash_secured_put():
+    premium = premium_received(2.00, contracts=1)
+    capital = capital_at_risk_cash_secured_put(strike=100, premium=premium, contracts=1)
+    assert premium == 200
+    assert capital == 9_800
+    assert annualized_return(premium, capital, dte=30) == pytest.approx(0.2483, abs=0.00005)
+
+
+def test_f3_6_covered_call():
+    premium = premium_received(3.00, contracts=1)
+    capital = capital_at_risk_covered_call(underlying_price_at_sale=150, contracts=1)
+    assert capital == 15_000
+    assert annualized_return(premium, capital, dte=45) == pytest.approx(0.1622, abs=0.00005)
+
+
+def test_f3_6_put_credit_spread():
+    premium = premium_received(1.00, contracts=1)
+    capital = capital_at_risk_credit_spread(
+        short_strike=100, long_strike=95, net_credit=1.00, contracts=1
+    )
+    assert capital == 400
+    assert annualized_return(premium, capital, dte=45) == pytest.approx(2.0278, abs=0.00005)
+
+
+def test_capital_scales_with_contracts():
+    premium = premium_received(2.00, contracts=3)
+    assert premium == 600
+    assert capital_at_risk_cash_secured_put(100, premium, 3) == 29_400
+    assert capital_at_risk_covered_call(150, 3) == 45_000
+    # Call credit spread: short 105, long 110 -> the order of strikes doesn't matter.
+    assert capital_at_risk_credit_spread(105, 110, 1.50, 3) == pytest.approx(1_050)
+
+
+def test_annualized_return_not_possible():
+    assert annualized_return(200, 9_800, dte=0) is None  # expiring today
+    assert annualized_return(200, 0, dte=30) is None
+    assert annualized_return(200, -50, dte=30) is None
+
+
+def test_position_pnl_long_and_short():
+    # Bought 10 shares at 50, now 55 -> +50 (+10%).
+    assert position_pnl(+1, 50, 55, 10) == (50, 10)
+    # Sold 2 put contracts at 2.00, now 0.50 -> +300 (+75%).
+    dollars, pct = position_pnl(-1, 2.00, 0.50, 2, size=100)
+    assert dollars == pytest.approx(300)
+    assert pct == pytest.approx(75)
+    # Short that went against me: sold at 1.00, now 3.00 -> -200 per contract (-200%).
+    dollars, pct = position_pnl(-1, 1.00, 3.00, 1, size=100)
+    assert dollars == pytest.approx(-200) and pct == pytest.approx(-200)
+    assert position_pnl(+1, 50, None, 10) == (None, None)
+    assert position_pnl(+1, 0, 0.05, 1, size=100)[1] is None  # free entry: no %

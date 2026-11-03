@@ -16,12 +16,15 @@ from app.db.session import database_is_set_up, database_is_up_to_date, make_engi
 from app.providers.market_data import MarketData
 from app.providers.yahoo import YahooMarketData
 from app.services.options import RiskFreeRate
+from app.services.portfolio import TradeNotFound
 from app.services.reports import ReportServices, execute_run, mark_interrupted_runs
 from app.services.users import ensure_default_user
 from app.services.watchlists import WatchlistNotFound
 from app.sources.registry import build_sources
 from app.web.assets import STATIC_DIR
 from app.web.option_routes import router as option_router
+from app.web.portfolio_routes import router as portfolio_router
+from app.web.portfolio_routes import trade_not_found
 from app.web.report_routes import ReportNotFound, report_not_found
 from app.web.report_routes import router as report_router
 from app.web.routes import router, watchlist_not_found
@@ -100,8 +103,10 @@ def create_app(
     app.include_router(router)
     app.include_router(report_router)
     app.include_router(option_router)
+    app.include_router(portfolio_router)
     app.add_exception_handler(WatchlistNotFound, watchlist_not_found)
     app.add_exception_handler(ReportNotFound, report_not_found)
+    app.add_exception_handler(TradeNotFound, trade_not_found)
     return app
 
 

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Record a trade · Finance Dashboard{% endblock %}
+{% block content %}
+<p class="small"><a href="/portfolio">← Portfolio</a></p>
+{% if not target %}
+<h1>Record a trade</h1>
+<p class="note error" role="alert">{{ error }}</p>
+{% else %}
+{% set label = instrument_label(target) %}
+{% set unit = "contracts" if target.kind == "option" else "shares" %}
+<h1>Record a trade: {{ label }}</h1>
+{% if error %}<p class="note error" role="alert">{{ error }}</p>{% endif %}
+<p class="muted small">Virtual portfolio only: nothing is sent to a broker.{% if target.kind == "option" %} Prices are per share, as quoted; one contract is 100 shares.{% endif %}</p>
+
+<form method="post" action="/portfolio/trades" class="trade-form">
+  <input type="hidden" name="symbol" value="{{ target.symbol }}">
+  <input type="hidden" name="suggested_price" value="{{ '%.2f' | format(suggestion.price) if suggestion.price is not none else '' }}">
+  <fieldset class="segmented-radio">
+    <legend>Trade</legend>
+    <label><input type="radio" name="side" value="bought"{% if side == 'bought' %} checked{% endif %}> Bought</label>
+    <label><input type="radio" name="side" value="sold"{% if side == 'sold' %} checked{% endif %}> Sold</label>
+  </fieldset>
+
+  <div class="field">
+    <label for="date">Trade date</label>
+    <input id="date" type="date" name="date" value="{{ trade_date.isoformat() }}" max="{{ today.isoformat() }}" required>
+    <button type="submit" formmethod="get" formaction="/portfolio/trade" formnovalidate class="secondary">Look up price for this date</button>
+  </div>
+
+  <div class="field">
+    <label for="quantity">Quantity ({{ unit }})</label>
+    <input id="quantity" name="quantity" value="{{ quantity }}" inputmode="numeric" maxlength="12" required>
+  </div>
+
+  <div class="field">
+    <label for="price">Price per share</label>
+    <input id="price" name="price" value="{{ price }}" inputmode="decimal" maxlength="20" placeholder="Enter the price">
+    <span class="muted small">
+      {% if suggestion.price is not none %}Filled in: {{ suggestion.source }}. You can change it.{% endif %}
+    </span>
+  </div>
+  {% if suggestion.note %}<p class="note warning" role="status">{{ suggestion.note }}</p>{% endif %}
+
+  {% if target.kind == "option" %}
+  <div class="field">
+    <label for="underlying_price">{{ target.underlying }} stock price at the time</label>
+    <input id="underlying_price" name="underlying_price" value="{{ underlying_price }}" inputmode="decimal" maxlength="20" placeholder="Enter the stock price">
+    <span class="muted small">Needed when selling a call: a covered call's return is based on it.</span>
+  </div>
+  {% endif %}
+
+  <button type="submit">Save trade</button>
+</form>
+{% endif %}
+{% endblock %}

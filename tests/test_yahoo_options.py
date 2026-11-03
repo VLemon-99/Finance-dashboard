@@ -180,3 +180,37 @@ def test_rate_network_failure_is_market_data_error(monkeypatch):
     use_fake(monkeypatch, error=ConnectionError("reset"))
     with pytest.raises(MarketDataError):
         YahooMarketData().get_risk_free_rate()
+
+
+# --- closing price on a past day (SPEC F3.2) -----------------------------------------
+
+
+def test_close_on_a_trading_day(monkeypatch):
+    from tests.conftest import load_yahoo_history
+
+    history, _ = load_yahoo_history()
+    use_fake(monkeypatch, history=history)
+    assert YahooMarketData().get_daily_close("AAPL", date(2026, 10, 30)) == pytest.approx(259.58)
+    assert YahooMarketData().get_daily_close("AAPL", date(2026, 10, 29)) == pytest.approx(258.04)
+
+
+def test_no_close_on_a_day_without_trading(monkeypatch):
+    from tests.conftest import load_yahoo_history
+
+    history, _ = load_yahoo_history()
+    use_fake(monkeypatch, history=history)
+    assert YahooMarketData().get_daily_close("AAPL", date(2026, 11, 1)) is None  # Sunday
+    assert yahoo.close_on(None, date(2026, 10, 30)) is None
+
+
+def test_yahoo_without_history_for_that_day_is_none(monkeypatch):
+    from yfinance.exceptions import YFPricesMissingError
+
+    use_fake(monkeypatch, error=YFPricesMissingError("AAPL261120C00260000", ""))
+    assert YahooMarketData().get_daily_close("AAPL261120C00260000", date(2026, 10, 30)) is None
+
+
+def test_close_network_failure_is_market_data_error(monkeypatch):
+    use_fake(monkeypatch, error=ConnectionError("reset"))
+    with pytest.raises(MarketDataError):
+        YahooMarketData().get_daily_close("AAPL", date(2026, 10, 30))

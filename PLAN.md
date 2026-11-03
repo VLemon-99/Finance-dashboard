@@ -4,7 +4,7 @@
 > Feature IDs (F1.4 etc.) refer to acceptance criteria in `docs/SPEC.md`.
 
 ## Current phase
-**Phase 4: Options chain + virtual portfolio**. **Part A (options browser, F2)** is built on branch `claude/next-task-plan-5yfs0v` and waiting for the owner's check with real Yahoo data. **Part B (virtual portfolio, F3)** comes after that check. Phase 3 is merged; SEC filings and Gemini summaries still need one real run once the owner adds their keys.
+**Phase 4: Options chain + virtual portfolio**: built. Part A (options browser, F2) is merged and the owner confirmed it after hours with real Yahoo data (market-hours check pending). Part B (virtual portfolio, F3) is on branch `claude/next-task-plan-5yfs0v`, waiting for the owner's check. Next: **Phase 5** (report v2: YouTube, blogs, 7:30am schedule). SEC filings and Gemini summaries still need one real run once the owner adds their keys.
 
 ## Phases
 Each phase ends with a working app, passing tests, and the docs updated.
@@ -27,8 +27,8 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - **Done when:** F4.1 (developments, rumors, insider part of F4.8, sentiment, sources), F4.2, F4.3 (news + filings), F4.4, F4.6, F4.10–F4.14 pass. AI calls are mocked in tests. *(All have automated tests; see "Done (recent)".)*
 
 - [ ] **Phase 4 — Options chain + virtual portfolio (F2, F3)**
-  - Option chain browser, Black-Scholes greeks, DTE, add contracts to watchlists. *(Part A built 2026-11-03: F2.1–F2.4, F2.5a, F2.6, F2.7 have automated tests; owner check pending.)*
-  - Bought/Sold buttons with auto-filled prices, positions and P&L, annualized return for short options, spread linking, expiry handling.
+  - Option chain browser, Black-Scholes greeks, DTE, add contracts to watchlists. *(Part A built and merged 2026-11-03; owner confirmed after hours, market-hours check pending.)*
+  - Bought/Sold buttons with auto-filled prices, positions and P&L, annualized return for short options, spread linking, expiry handling. *(Part B built 2026-11-03: F2.5b and F3.1–F3.9 have automated tests, including the three F3.6 known answers; owner check pending.)*
   - **Done when:** F2.1–F2.7 and F3.1–F3.9 pass, including the F2.3 and F3.6 numeric test cases.
 
 - [ ] **Phase 5 — Report v2: YouTube + blogs + morning schedule (F4)**
@@ -57,18 +57,23 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - **Done when:** F7.1–F7.3 pass and the security review has no open high-severity findings.
 
 ## Next up
-1. **Owner: check Phase 4 part A with real data** (after merging and updating, see README "Updating to a new version"; the update adds two database changes). Ideally during market hours (9:30 AM–4 PM ET, weekdays), since bids/asks are often zero after hours:
-   - Click **Options** in the menu, type a ticker you know (e.g. AAPL), and look at a date a few weeks out. Do the expiration dates, bids/asks, volume and open interest match your broker or Yahoo's own options page? Are the greeks close to your broker's (they won't match exactly: brokers use their own IV and include dividends)?
-   - Switch to **Puts**. Is the outlined row the strike closest to the stock price, and are the in-the-money rows (shaded) the right ones?
-   - Choose a watchlist under "Add contracts to", click **Add** on a row, then open that watchlist. Is the contract there with the stock price, and does **Refresh prices** update it?
-   - Try a stock without options (or a typo ticker) and check the message makes sense.
-2. **Phase 4, part B, virtual portfolio (F3)**, after the owner's check (plan approved in outline 2026-11-03):
-   - **Part B, virtual portfolio (F3):** (5) trades table + Bought/Sold forms with an auto-filled, editable price (F3.1, F3.2; also F2.5b). (6) Portfolio page: open positions with P&L, and DTE/IV/delta for options; realized P&L for closed ones (F3.3). (7) Capital at risk + annualized return, locked-in and remaining, with the F3.6 known answers; uncovered calls show "uncovered — no return figure" (F3.4, F3.5, F3.8). (8) Credit-spread linking and expiry handling: "expiring today", expired worthless or assigned (F3.7, F3.9).
-   - Part B builds on part A: the "Bought/Sold" buttons go on the chain page rows (F2.5b) and reuse `option_quotes` prices for the auto-filled price; P&L, capital at risk and annualized return go in `options_math.py` with known-answer tests (F3.6).
+1. **Owner: check Phase 4 with real data** (after merging and updating, see README "Updating to a new version"; part B adds two database changes). Ideally during market hours (9:30 AM–4 PM ET, weekdays), since bids/asks are often zero after hours:
+   - **Part A (option chains):** compare one chain with your broker (dates, bids/asks, volume, open interest; greeks close but not identical). Check the IV column: after hours, strikes with no bid/ask showed placeholder IVs (50%, 25%, 12.5%…). Do they still appear during market hours? If yes, we'll hide IV and greeks for strikes with no bid and no ask.
+   - **Part B (portfolio):** press **Sold** on a put in a chain you know. Is the price filled in with the mid? Save it, then open **Portfolio**: are the premium, capital at risk and the two annualized returns what you'd expect? Try a past date with **Look up price for this date** (stocks usually have one; options often don't, and it asks you to type it).
+   - Record a few real-looking trades you already know the answer for (e.g. a covered call against 100 shares, and a put credit spread you link with **Link a credit spread**) and compare with your own numbers.
+   - If you have a contract that expired recently, record it and try **Expired worthless** or **Assigned**.
+2. **Phase 5: Report v2** (YouTube + blogs + the weekday 7:30am schedule), after the owner's check. Propose a plan first; the YouTube channel and blog lists come from the owner (`config/sources.yaml`).
 3. Owner, whenever convenient: follow README "Setting up reports" (SEC contact, Gemini key, $10 budget alert), then generate one report. Check that real filings and AI summaries appear, the citation numbers jump to the right sources, and insider trades match the SEC's own Form 4 pages.
 4. Owner: after seeing which outlets show up, decide whether to switch on `trusted_outlets_only` in `config/sources.yaml`.
 
 ## Done (recent)
+- 2026-11-03 Phase 4 part B, virtual portfolio (F3, F2.5b), in four commits, with the owner's confirmed defaults (average cost, whole units, no fees, short puts cash-secured, shares cover the oldest calls, delete-not-edit, spread rules, assignment at the strike, no new libraries):
+  1. `options_math.py`: P&L, premium, capital at risk (cash-secured put, covered call, credit spread) and annualized return, with the SPEC F3.6 answers (24.83%, 16.22%, 202.78%). Also fixed "-0.000" in the greeks (seen in the owner's screenshots).
+  2. Recording trades: `transactions` table; Bought/Sold form with date, quantity and an automatic price you can change (today's mid/last, or a past day's close via the new `get_daily_close`), plus the stock price at the time for options; Bought/Sold links on chain rows, watchlist rows and the quote card; **Portfolio** in the menu with the trade list and Delete (F3.1, F3.2, F2.5b).
+  3. Portfolio page: `services/positions.py` (average-cost replay, known-answer tests); stocks and options with current price, P&L $ and %, DTE/IV/delta; cash-secured puts, covered calls (shares allocated oldest first) and "uncovered — no return figure"; premium, capital at risk, locked-in and remaining returns; closed positions with realized P&L; "expiring today" / "expired" (F3.3, F3.4, F3.5, F3.8).
+  4. `spreads` table: link/unlink a credit spread, shown and calculated as one position (SPEC F3.6 spread case checked end to end); expired positions ask "Expired worthless" or "Assigned / Exercised" (F3.7, F3.9). Tables fit a laptop screen.
+  Tests: 448 pass (up from 361), all offline. Both database changes checked on a copy with Phase 4A data (rows kept; undo works). No new libraries.
+- 2026-11-03 Owner confirmed Phase 4 part A after hours with real Yahoo data (SOFI chain, a put added to a watchlist). Seen in the screenshots: placeholder IVs for strikes with no bid/ask (see Known issues) and "-0.000" greeks (fixed in part B).
 - 2026-11-03 Phase 4 part A, options browser (F2), in four commits, with the owner's confirmed defaults (no dividends, T-bill rate with a 4.0% fallback, 15-minute reuse, theta per day, vega per IV point, no new libraries):
   1. `app/services/options_math.py`: Black-Scholes price and greeks, DTE, expiry at 4 PM ET, mid, in the money, nearest strike. Known answers: the SPEC F2.3 case (call 10.4506, delta 0.6368; put 5.5735) and two textbook examples (Hull), plus put-call parity (F2.3).
   2. Yahoo adapter: expiration dates, option chains (bid, ask, last, volume, open interest, IV, stock price) and the 13-week T-bill rate (`^IRX`), behind the `MarketData` interface; hand-made sample `tests/fixtures/yahoo_options_AAPL.json`.
@@ -92,6 +97,11 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - 2026-11-01 Kickoff: interviewed owner; wrote SPEC, ARCHITECTURE, PLAN, DECISIONS; filled in stack and commands in CLAUDE.md. No application code yet.
 
 ## Known issues / bugs
+- **Placeholder IVs after hours** (owner's SOFI screenshot, 2026-11-03): strikes with no bid and no ask show IVs of exactly 50%, 25%, 12.5%, 6.3%, 3.1% (Yahoo's dummy values), and a few with only an ask show 242% or 338%. The greeks from these are meaningless. The 1% minimum-IV filter doesn't catch them. Decide after the market-hours check: likely hide IV and greeks when a strike has no bid and no ask.
+- Past-date prices for option contracts come from Yahoo's daily history for the contract, which is often missing, so the form usually asks you to type the price. Stocks' past closes are reliable.
+- A stock's "today" price on the trade form is its last price (we don't store stock bids/asks).
+- The portfolio doesn't track cash: every short put outside a spread is treated as cash-secured. Assignment is all-or-nothing (no partial assignment). Trades can't be edited, only deleted and re-entered.
+- Positions are recalculated from all trades on every portfolio page view. Fine for hundreds of trades; revisit if it ever feels slow.
 - **Phase 4 option samples are hand-made** (`tests/fixtures/yahoo_options_AAPL.json`, invented prices in yfinance's format) because the cloud build machine can't reach Yahoo. The owner's first real run is the real test of the chain parsing and the `^IRX` rate.
 - Greeks are Black-Scholes without dividends, so they'll differ a little from a broker's (most for high-dividend stocks and for deep in-the-money puts, which can be exercised early). `^IRX` is a T-bill discount yield used as-is; the difference from a true continuous rate is tiny.
 - Outside market hours Yahoo often shows bids/asks of 0, so mid shows "—" and IV may be a placeholder (shown as "—", no greeks). Expected.
@@ -117,7 +127,9 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - *(Fixed in Phase 2: the day change was always labelled "today", and the quote page fetched from Yahoo on every lookup.)*
 
 ## Handoff note
-Phase 4 part A is on branch `claude/next-task-plan-5yfs0v` (361 tests green), not yet merged or checked by the owner with real Yahoo data. Next session: if the owner reports problems from that check (or from their first run with SEC/Gemini keys), fix those first (prompt #3); otherwise start Phase 4 part B from "Next up". After each merge, remind the owner to update their folder (README, "Updating to a new version").
+Phase 4 part B is on branch `claude/next-task-plan-5yfs0v` (448 tests green), not yet merged or checked by the owner. Part A is merged. Next session: if the owner reports problems from the market-hours check (including the placeholder-IV question in Known issues) or from their first run with SEC/Gemini keys, fix those first (prompt #3); otherwise plan Phase 5. After each merge, remind the owner to update their folder (README, "Updating to a new version").
+- Portfolio code map: `app/services/positions.py` (pure: `build_positions()` replays trades), `app/services/portfolio.py` (`resolve_target()`, `suggest_price()`, `record_trade()`, `portfolio_view()`, `link_spread()`, `settle_expired()`), `app/web/portfolio_routes.py`, templates `portfolio.html` / `trade_form.html`. Formulas in `options_math.py`. Option prices for pages come from `options.contract_quotes()` (shared with watchlists).
+- Portfolio tests: `tests/test_positions.py` (pure), `test_web_trades.py`, `test_web_portfolio.py`, `test_web_spreads_expiry.py`. They use `options_clock` and open the sample chain first (`client.get(CHAIN_URL)`), as the owner would. `FakeMarketData.get_daily_close` gives the stock sample's closes; set `option_closes[(symbol, date)]` for options.
 - Options code map: `app/services/options_math.py` (pure formulas), `app/services/options.py` (`option_chain()` for the chain page, `contract_rows()` for watchlists, `RiskFreeRate` kept on `app.state.risk_free_rate`), `app/web/option_routes.py`, templates `option_chain.html` / `options_start.html`, contracts table in `watchlist.html`. `watchlists.add_contract()` adds a contract; `watchlist_rows()` returns stocks only and `watchlist_contracts()` the contracts.
 - Option tests use the `options_clock` fixture (frozen at Tue Nov 3, 2026, 10:00 AM ET; move it with `options_clock.now = ...`). `FakeMarketData` serves the option sample for any ticker (contract symbols re-labelled), with `no_options`, `rate_down`, `chain_calls`, `expiration_calls` and `rate_calls`.
 - Report code map: `app/sources/` (plug-ins; `registry.py` builds them from `config/sources.yaml` + `.env`), `app/services/collect.py` → `summarize.py` → `reports.py` (+ `sentiment.py`, `insider.py`), `app/ai/` (interface + Gemini), pages in `app/web/report_routes.py` and `templates/_ticker_report.html`.

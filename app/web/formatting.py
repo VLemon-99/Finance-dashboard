@@ -14,8 +14,12 @@ def signed(value: float | None, decimals: int = 2) -> str:
 
 
 def number(value: float | None, decimals: int = 2) -> str:
-    """Plain number with a fixed number of decimals, e.g. greeks: 0.637, -0.018."""
-    return DASH if value is None else f"{value:,.{decimals}f}"
+    """Plain number with a fixed number of decimals, e.g. greeks: 0.637, -0.018.
+    Tiny negatives that round to zero show as 0.000, not -0.000."""
+    if value is None:
+        return DASH
+    text = f"{value:,.{decimals}f}"
+    return text[1:] if text.startswith("-") and float(text.replace(",", "")) == 0 else text
 
 
 def whole(value: int | None) -> str:
@@ -36,6 +40,14 @@ def strike(value: float) -> str:
 def contract_label(underlying: str, expiration: date, strike_price: float, option_type: str) -> str:
     """'AAPL Nov 20, 2026 260 call'."""
     return f"{underlying} {short_date(expiration)} {strike(strike_price)} {option_type}"
+
+
+def instrument_label(item) -> str:
+    """A stock's ticker, or an option contract as 'AAPL Nov 20, 2026 260 call'. Takes anything
+    with kind/symbol (and underlying/expiration/strike/option_type for options)."""
+    if getattr(item, "kind", "stock") == "option":
+        return contract_label(item.underlying, item.expiration, item.strike, item.option_type)
+    return item.symbol
 
 
 def compact(value: float | None) -> str:

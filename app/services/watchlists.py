@@ -10,7 +10,6 @@ F2.5a: add an option contract from the option chain page.
 Every function takes the user's id and only touches that user's lists.
 """
 
-import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -18,16 +17,14 @@ from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 from app.config import WatchlistLimits
-from app.db.models import Instrument, OptionQuote, Watchlist, WatchlistItem
+from app.db.models import Instrument, Watchlist, WatchlistItem
 from app.providers.market_data import MarketData
+from app.services.options import contract_instrument, stored_contract
 from app.services.options_math import is_expired
 from app.services.quotes import QuoteView, get_quotes, lookup_quote
 from app.tickers import InvalidTicker, normalize_ticker
 
 MAX_NAME_LENGTH = 60
-
-# OCC-style option symbol: root, YYMMDD, C or P, strike x 1000 in 8 digits.
-CONTRACT_SYMBOL_RE = re.compile(r"^[A-Z][A-Z0-9]{0,5}\d{6}[CP]\d{8}$")
 
 
 class WatchlistError(ValueError):
@@ -178,11 +175,7 @@ def add_contract(
     """Add an option contract seen on the option chain page (its prices are stored)."""
     watchlist = get_watchlist(session, user_id, watchlist_id)
     symbol = (contract_symbol or "").strip().upper()
-    stored = (
-        session.exec(select(OptionQuote).where(OptionQuote.contract_symbol == symbol)).first()
-        if CONTRACT_SYMBOL_RE.fullmatch(symbol)
-        else None
-    )
+    stored = stored_contract(session, symbol)
     if stored is None:
         raise WatchlistError(
             "Couldn't find that option contract. Open the option chain again and retry."
@@ -199,18 +192,7 @@ def add_contract(
             "or raise max_items_per_list in config/settings.yaml."
         )
 
-    instrument = session.exec(select(Instrument).where(Instrument.symbol == symbol)).first()
-    if instrument is None:
-        instrument = Instrument(
-            kind="option",
-            symbol=symbol,
-            underlying=stored.underlying,
-            option_type=stored.option_type,
-            strike=stored.strike,
-            expiration=stored.expiration,
-        )
-        session.add(instrument)
-        session.flush()
+    instrument = contract_instrument(session, stored)
     session.add(
         WatchlistItem(user_id=user_id, watchlist_id=watchlist.id, instrument_id=instrument.id)
     )

@@ -2,6 +2,27 @@
 
 > One entry per meaningful choice, newest at the top. This stops future sessions from quietly undoing past decisions.
 
+## 2026-11-03 — Phase 4 part B: virtual portfolio choices
+- **Decision** (items 1–9 were confirmed by the owner before coding):
+  1. **Average cost.** A position's entry price is the average of the trades that opened it. Trades the other way realize P&L against that average. Going past zero closes the position and opens the opposite one with the rest. A position that returns to zero is "closed"; a later trade starts a new one.
+  2. **Whole shares and contracts, no fees or commissions.**
+  3. **Short puts outside a spread count as cash-secured.** The app doesn't track cash, so it can't check.
+  4. **Covered calls:** shares held (long stock positions in the portfolio) cover short calls oldest first, 100 shares per contract. A call position is covered only if all its contracts are; otherwise "uncovered — no return figure" (F3.8). Calls inside a credit spread don't use shares. Short stock never covers.
+  5. **Return formula inputs:** premium = average sale price × 100 × contracts; "DTE at entry" counts from the first sale (for a spread, from the day its second leg was opened); on expiration day (0 DTE) the "remaining" return shows "—" because the formula would divide by zero.
+  6. **Assignment / exercise** closes the option at $0 (the premium stays as its profit or loss) and records 100 shares per contract bought or sold at the strike on the expiration date: short put assigned or long call exercised → shares bought; short call assigned or long put exercised → shares sold. "Expired worthless" closes the option at $0. All or nothing: partial assignment isn't offered.
+  7. **No trade editing:** delete a wrong trade and enter it again.
+  8. **Credit spreads link two open positions** (one sold, one bought): same stock, both calls or both puts, same expiration, same number of contracts, opened for a net credit, with the bought leg further out of the money. The link is to the contracts, not the trades; if the legs stop matching (e.g. one is partly closed) they're shown separately with a note, and linking those contracts again replaces the old link.
+  9. **No new libraries.**
+  - **The automatic price (F3.2):** for an option today, its mid (or last trade if there's no bid/ask), from the stored chain, refreshed with the usual 15-minute rule; for a stock today, its last price (we don't store stock bids/asks); for a past date, that day's closing price from Yahoo (`get_daily_close`), for the stock or for the option contract itself. If Yahoo has no price, the form asks for one. A price that matches the suggestion is stored as "auto", otherwise "manual" (shown as "typed in").
+  - **Option trades record the stock price at the time** (auto-filled the same way). It's required only when selling a call, since only the covered-call formula uses it.
+  - **Options can only be traded after their chain has been opened**, so the contract's details come from Yahoo, not from typing.
+  - **Bought/Sold buttons** are on option chain rows, watchlist rows (stocks and contracts), the quote card and the Portfolio page.
+  - **P&L % is relative to the entry value** (average entry × quantity × 100 for options); for a spread, relative to the premium received.
+  - **The portfolio page groups positions** into Stocks, Options, Credit spreads, Closed positions and the trade list, with "Expired: how did these end?" on top when needed. There's no grand-total row (not in the SPEC).
+- **Why:** The simplest rules that meet F3.1–F3.9 with the known answers in F3.6, keep every number in tested Python code, and stay explainable on the page.
+- **Alternatives considered:** first-in-first-out lots (more bookkeeping, mainly matters for taxes, which are out of scope); tracking cash so puts could be checked as cash-secured (more data entry for little gain now); storing spreads as a link between trades (breaks when trades are deleted or added); adjusting the share cost by the premium on assignment (brokers differ; keeping the premium on the option keeps both P&L lines honest).
+- **Revisit if:** the owner wants partial assignment, fees, cash tracking, totals, or editing trades; or pages get slow with many trades.
+
 ## 2026-11-03 — Phase 4 part A: option chain choices
 - **Decision** (the first five were confirmed by the owner before coding):
   - **Black-Scholes without dividends**, as in the SPEC F2.3 test case. Time is counted in calendar days over a 365-day year, up to **4:00 PM US Eastern on the expiration date**.

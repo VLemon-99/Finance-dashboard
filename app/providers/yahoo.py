@@ -17,7 +17,7 @@ per strike, plus the stock price at that moment. Yahoo has no greeks; we calcula
 import logging
 import math
 from dataclasses import replace
-from datetime import date
+from datetime import date, timedelta
 
 import pandas as pd
 import yfinance as yf
@@ -132,6 +132,23 @@ class YahooMarketData:
             ) from exc
         return chain_from_yahoo(symbol, expiration, chain.calls, chain.puts, chain.underlying)
 
+    def get_daily_close(self, symbol: str, day: date) -> float | None:
+        try:
+            history = yf.Ticker(symbol).history(
+                start=day.isoformat(),
+                end=(day + timedelta(days=1)).isoformat(),
+                interval="1d",
+                timeout=self.timeout_seconds,
+            )
+        except _NOT_FOUND_ERRORS:
+            return None  # no prices for that day (or Yahoo has no history for it)
+        except Exception as exc:
+            log.warning("Yahoo closing price failed for %s on %s: %s", symbol, day, exc)
+            raise MarketDataError(
+                f"Yahoo Finance did not respond properly ({type(exc).__name__})."
+            ) from exc
+        return close_on(history, day)
+
     def get_risk_free_rate(self) -> float:
         try:
             history = yf.Ticker(RISK_FREE_SYMBOL).history(
@@ -234,6 +251,17 @@ def chain_from_yahoo(
         fetched_at=utc_now(),
         source=YahooMarketData.source,
     )
+
+
+def close_on(history: pd.DataFrame | None, day: date) -> float | None:
+    """The closing price of the bar dated `day`, if there is one."""
+    if history is None or history.empty or "Close" not in history:
+        return None
+    for stamp, close in history["Close"].items():
+        if stamp.date() == day:
+            price = _number(close)
+            return price if price and price > 0 else None
+    return None
 
 
 def rate_from_history(history: pd.DataFrame | None) -> float:

@@ -50,6 +50,7 @@
       <td class="small">{% if q.fetched_at %}{{ q.fetched_at | eastern }}{% else %}Not fetched yet{% endif %}</td>
       <td><div class="row-actions">
         <a href="/options/{{ q.symbol }}" class="small" aria-label="Options for {{ q.symbol }}">Options</a>
+        <span class="small"><a href="/portfolio/trade?symbol={{ q.symbol }}&amp;side=bought" aria-label="Bought {{ q.symbol }}">Bought</a> · <a href="/portfolio/trade?symbol={{ q.symbol }}&amp;side=sold" aria-label="Sold {{ q.symbol }}">Sold</a></span>
         <form method="post" action="/reports/generate">
           <input type="hidden" name="ticker" value="{{ q.symbol }}">
           <button type="submit" class="link" aria-label="Generate report for {{ q.symbol }}">Report</button>
@@ -114,6 +115,7 @@
       <td class="small">Not fetched yet</td>
       {% endif %}
       <td><div class="row-actions">
+        <span class="small"><a href="/portfolio/trade?symbol={{ row.contract_symbol }}&amp;side=bought" aria-label="Bought {{ label }}">Bought</a> · <a href="/portfolio/trade?symbol={{ row.contract_symbol }}&amp;side=sold" aria-label="Sold {{ label }}">Sold</a></span>
         <form method="post" action="/watchlists/{{ watchlist.id }}/items/{{ row.item_id }}/delete">
           <button type="submit" class="link" aria-label="Remove {{ label }}">Remove</button>
         </form>

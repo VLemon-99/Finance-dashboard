@@ -9,6 +9,7 @@ always fetches (F1.5), and if the source fails the last stored prices are shown 
 """
 
 import logging
+import re
 import threading
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -36,6 +37,9 @@ from app.timeutils import EASTERN, as_utc, format_eastern, utc_now
 log = logging.getLogger(__name__)
 
 ChainStatus = Literal["ok", "stale", "error"]
+
+# OCC-style option symbol: root, YYMMDD, C or P, strike x 1000 in 8 digits.
+CONTRACT_SYMBOL_RE = re.compile(r"^[A-Z][A-Z0-9]{0,5}\d{6}[CP]\d{8}$")
 
 
 # --- the risk-free rate ---------------------------------------------------------------
@@ -268,6 +272,34 @@ def _stored_rows(
     return list(session.exec(statement))
 
 
+def stored_contract(session: Session, contract_symbol: str) -> OptionQuote | None:
+    """The stored prices of a contract seen on an option chain, or None (unknown or
+    malformed symbol). Contracts can only be saved or traded once we've seen them."""
+    symbol = (contract_symbol or "").strip().upper()
+    if not CONTRACT_SYMBOL_RE.fullmatch(symbol):
+        return None
+    return session.exec(select(OptionQuote).where(OptionQuote.contract_symbol == symbol)).first()
+
+
+def contract_instrument(session: Session, stored: OptionQuote) -> Instrument:
+    """The `instruments` row for a contract, created if needed. Committed by the caller."""
+    instrument = session.exec(
+        select(Instrument).where(Instrument.symbol == stored.contract_symbol)
+    ).first()
+    if instrument is None:
+        instrument = Instrument(
+            kind="option",
+            symbol=stored.contract_symbol,
+            underlying=stored.underlying,
+            option_type=stored.option_type,
+            strike=stored.strike,
+            expiration=stored.expiration,
+        )
+        session.add(instrument)
+        session.flush()
+    return instrument
+
+
 def get_expirations(
     session: Session, market_data: MarketData, symbol: str, now: datetime
 ) -> tuple[list[date], str | None]:
@@ -391,6 +423,59 @@ class ContractRow:
     note: str | None = None
 
 
+@dataclass(frozen=True)
+class ContractQuote:
+    """A contract's current prices for a page, with how fresh they are."""
+
+    status: Literal["ok", "stale", "error", "expired"]
+    view: ContractView | None = None  # None if no prices were ever stored
+    note: str | None = None
+
+
+def contract_quotes(
+    session: Session,
+    market_data: MarketData,
+    rates: RiskFreeRate,
+    instruments: Sequence[Instrument],
+    *,
+    max_age: timedelta | None,
+    min_iv: float,
+) -> tuple[dict[str, ContractQuote], RateView | None]:
+    """Current prices for option contracts (watchlists, portfolio), keyed by contract symbol,
+    plus the rate used for their greeks.
+
+    Contracts are refreshed through their chain (one fetch per stock and expiration date).
+    Expired contracts are not refreshed: they keep their last stored prices (F2.7).
+    """
+    now = utc_now()
+    chains: dict[tuple[str, date], StoredChain] = {}
+    for instrument in instruments:
+        key = (instrument.underlying or "", instrument.expiration)
+        if key not in chains and not is_expired(instrument.expiration, now):
+            chains[key] = load_chain(session, market_data, key[0], key[1], max_age)
+
+    rate = rates.get(market_data, max_age) if chains else None
+    quotes: dict[str, ContractQuote] = {}
+    for instrument in instruments:
+        stored = session.exec(
+            select(OptionQuote).where(OptionQuote.contract_symbol == instrument.symbol)
+        ).first()
+        view = contract_view(stored, rate.rate if rate else 0.0, now, min_iv) if stored else None
+        if is_expired(instrument.expiration, now):
+            quotes[instrument.symbol] = ContractQuote("expired", view)
+            continue
+        chain = chains[(instrument.underlying or "", instrument.expiration)]
+        if view is None:
+            note = chain.note or "No stored prices for this contract yet."
+            quotes[instrument.symbol] = ContractQuote("error", note=note)
+        elif stored.fetched_at is not None and as_utc(stored.fetched_at) != chain.fetched_at:
+            note = chain.note or "The data source no longer lists this contract."
+            quotes[instrument.symbol] = ContractQuote("stale", view, note)
+        else:
+            quotes[instrument.symbol] = ContractQuote(chain.status, view, chain.note)
+    return quotes, rate
+
+
 def contract_rows(
     session: Session,
     market_data: MarketData,
@@ -400,51 +485,29 @@ def contract_rows(
     max_age: timedelta | None,
     min_iv: float,
 ) -> tuple[list[ContractRow], RateView | None]:
-    """Rows for a watchlist's contracts, plus the rate used for their greeks.
-
-    Contracts are refreshed through their chain (one fetch per stock and expiration date).
-    Expired contracts are not refreshed: they keep their last stored prices (F2.7).
-    """
-    now = utc_now()
-    chains: dict[tuple[str, date], StoredChain] = {}
-    for _, instrument in items:
-        key = (instrument.underlying or "", instrument.expiration)
-        if key not in chains and not is_expired(instrument.expiration, now):
-            chains[key] = load_chain(session, market_data, key[0], key[1], max_age)
-
-    rate = rates.get(market_data, max_age) if chains else None
+    """Rows for a watchlist's contracts, plus the rate used for their greeks."""
+    quotes, rate = contract_quotes(
+        session,
+        market_data,
+        rates,
+        [instrument for _, instrument in items],
+        max_age=max_age,
+        min_iv=min_iv,
+    )
     rows = []
     for item_id, instrument in items:
-        stored = session.exec(
-            select(OptionQuote).where(OptionQuote.contract_symbol == instrument.symbol)
-        ).first()
-        row = _contract_row(item_id, instrument)
-        view = contract_view(stored, rate.rate if rate else 0.0, now, min_iv) if stored else None
-        if is_expired(instrument.expiration, now):
-            rows.append(row(status="expired", view=view))
-            continue
-        chain = chains[(instrument.underlying or "", instrument.expiration)]
-        if view is None:
-            note = chain.note or "No stored prices for this contract yet."
-            rows.append(row(status="error", note=note))
-        elif stored.fetched_at is not None and as_utc(stored.fetched_at) != chain.fetched_at:
-            note = chain.note or "The data source no longer lists this contract."
-            rows.append(row(status="stale", view=view, note=note))
-        else:
-            rows.append(row(status=chain.status, view=view, note=chain.note))
-    return rows, rate
-
-
-def _contract_row(item_id: int, instrument: Instrument):
-    def row(**kwargs) -> ContractRow:
-        return ContractRow(
-            item_id=item_id,
-            contract_symbol=instrument.symbol,
-            underlying=instrument.underlying or "",
-            option_type="put" if instrument.option_type == "put" else "call",
-            strike=instrument.strike or 0.0,
-            expiration=instrument.expiration,
-            **kwargs,
+        quote = quotes[instrument.symbol]
+        rows.append(
+            ContractRow(
+                item_id=item_id,
+                contract_symbol=instrument.symbol,
+                underlying=instrument.underlying or "",
+                option_type="put" if instrument.option_type == "put" else "call",
+                strike=instrument.strike or 0.0,
+                expiration=instrument.expiration,
+                status=quote.status,
+                view=quote.view,
+                note=quote.note,
+            )
         )
-
-    return row
+    return rows, rate
