@@ -14,8 +14,12 @@ def signed(value: float | None, decimals: int = 2) -> str:
 
 
 def number(value: float | None, decimals: int = 2) -> str:
-    """Plain number with a fixed number of decimals, e.g. greeks: 0.637, -0.018."""
-    return DASH if value is None else f"{value:,.{decimals}f}"
+    """Plain number with a fixed number of decimals, e.g. greeks: 0.637, -0.018.
+    Tiny negatives that round to zero show as 0.000, not -0.000."""
+    if value is None:
+        return DASH
+    text = f"{value:,.{decimals}f}"
+    return text[1:] if text.startswith("-") and float(text.replace(",", "")) == 0 else text
 
 
 def whole(value: int | None) -> str:

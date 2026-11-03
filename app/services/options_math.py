@@ -141,3 +141,55 @@ def nearest_strike(strikes: Iterable[float], spot: float | None) -> float | None
     if spot is None:
         return None
     return min(sorted(strikes), key=lambda k: abs(k - spot), default=None)
+
+
+# --- portfolio: P&L, capital at risk, annualized return (SPEC F3.3-F3.6) ---------------
+
+CONTRACT_SIZE = 100  # shares per US stock option contract
+
+
+def position_pnl(
+    direction: int, entry_price: float, current_price: float | None, quantity: int, size: int = 1
+) -> tuple[float | None, float | None]:
+    """Unrealized P&L in $ and % for an open position.
+
+    `direction` is +1 for long (bought) and -1 for short (sold). Prices are per share;
+    `size` is 1 for stocks and 100 for options. The % is relative to the entry value.
+    """
+    if current_price is None:
+        return None, None
+    dollars = direction * (current_price - entry_price) * quantity * size
+    cost = entry_price * quantity * size
+    return dollars, (dollars / cost * 100 if cost > 0 else None)
+
+
+def premium_received(price_per_share: float, contracts: int) -> float:
+    """Premium in dollars: price per share x 100 x contracts."""
+    return price_per_share * CONTRACT_SIZE * contracts
+
+
+def capital_at_risk_cash_secured_put(strike: float, premium: float, contracts: int) -> float:
+    """Strike x 100 x contracts - premium received (SPEC F3.5)."""
+    return strike * CONTRACT_SIZE * contracts - premium
+
+
+def capital_at_risk_covered_call(underlying_price_at_sale: float, contracts: int) -> float:
+    """Stock price when the call was sold x 100 x contracts, not the cost basis (SPEC F3.5)."""
+    return underlying_price_at_sale * CONTRACT_SIZE * contracts
+
+
+def capital_at_risk_credit_spread(
+    short_strike: float, long_strike: float, net_credit: float, contracts: int
+) -> float:
+    """(Difference between strikes - net credit per share) x 100 x contracts (SPEC F3.5)."""
+    return (abs(short_strike - long_strike) - net_credit) * CONTRACT_SIZE * contracts
+
+
+def annualized_return(premium: float, capital: float, dte: int) -> float | None:
+    """Premium / capital at risk x 365 / DTE, as a fraction (0.2483 = 24.83%) (SPEC F3.4).
+
+    None when it can't be calculated: no days left (DTE 0) or no capital at risk.
+    """
+    if dte <= 0 or capital <= 0:
+        return None
+    return premium / capital * DAYS_PER_YEAR / dte

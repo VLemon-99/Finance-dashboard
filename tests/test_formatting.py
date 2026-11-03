@@ -51,6 +51,8 @@ def test_option_number_formats():
     assert f.number(0.63683, 3) == "0.637"
     assert f.number(-0.017573, 3) == "-0.018"
     assert f.number(None, 3) == "—"
+    assert f.number(-0.00001, 3) == "0.000"  # seen on real chains: was "-0.000"
+    assert f.number(-0.0004, 4) == "-0.0004"
     assert f.whole(15230) == "15,230"
     assert f.whole(None) == "—"
     assert f.percent(0.2834) == "28.3%"
