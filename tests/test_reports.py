@@ -246,3 +246,11 @@ def test_runs_in_a_real_background_thread(session, engine, user_id, services):
     finished = session.get(ReportRun, run.id)
     assert finished.status == "done" and finished.done == 1
     assert latest_report(session).body["stories"]
+
+
+def test_insider_section_records_whether_sec_was_collected(session, engine, user_id, services):
+    run_for(session, engine, user_id, services)
+    assert latest_report(session).body["insider"]["available"] is True
+    services.sources.edgar._user_agent_ok = False
+    run_for(session, engine, user_id, services, tickers=("MSFT",))
+    assert latest_report(session, "MSFT").body["insider"]["available"] is False

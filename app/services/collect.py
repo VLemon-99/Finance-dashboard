@@ -29,6 +29,7 @@ class CollectResult:
     company: str | None = None  # short company name from the SEC, if known
     new_items: int = 0
     missing: list[str] = field(default_factory=list)  # "Google News: didn't answer in time."
+    failed_sources: set[str] = field(default_factory=set)  # plug-in names that failed outright
 
 
 def collect_for_ticker(
@@ -45,10 +46,12 @@ def collect_for_ticker(
             items = source.fetch(ticker, company, since)
         except SourceError as exc:
             result.missing.append(f"{source.label}: {exc}")
+            result.failed_sources.add(source.name)
             continue
         except Exception:  # a bug or surprise in one source must not stop the report
             log.exception("Source %s failed unexpectedly for %s", source.name, ticker)
             result.missing.append(f"{source.label}: unexpected error (details in the app log).")
+            result.failed_sources.add(source.name)
             continue
         result.new_items += _store_new(session, source, items, config, result)
     session.commit()

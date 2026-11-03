@@ -29,7 +29,7 @@ from app.services.collect import collect_for_ticker
 from app.services.insider import insider_summary
 from app.services.sentiment import sentiment_score
 from app.services.summarize import is_form4, summarize_pending
-from app.sources.edgar import base_form
+from app.sources.edgar import EdgarSource, base_form
 from app.sources.registry import SourceSet
 from app.timeutils import as_utc, format_eastern, utc_now
 
@@ -191,7 +191,12 @@ def build_ticker_report(
         "company": company,
         "developments": developments,
         "rumors": rumors,
-        "insider": insider_section(session, ticker, now, lookback),
+        "insider": {
+            **insider_section(session, ticker, now, lookback),
+            # False when SEC filings weren't collected this time (not set up, down, or
+            # switched off): the page then says "not available" instead of "none".
+            "available": _sec_collected(services, collected.failed_sources),
+        },
         "valuation": None,  # Phase 7 (F4.7)
         "sentiment": {
             "score": score.score,
@@ -216,6 +221,11 @@ def build_ticker_report(
     session.commit()
     session.refresh(report)
     return report
+
+
+def _sec_collected(services: ReportServices, failed_sources: set[str]) -> bool:
+    names = {source.name for source in services.sources.sources}
+    return EdgarSource.name in names and EdgarSource.name not in failed_sources
 
 
 def load_stories(

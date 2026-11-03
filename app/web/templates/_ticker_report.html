@@ -39,6 +39,11 @@
   <section>
     {% set ins = body.insider %}
     <h3>Institutional &amp; insider activity</h3>
+    {% set sec_off = ins.available is defined and not ins.available %}
+    {% if sec_off %}
+    <p class="note warning">SEC filings couldn't be collected for this report (see "Missing from this report" above), so insider trades and 5%+ holder reports are {% if ins.trades or ins.holder_filings %}shown only from earlier downloads and may be incomplete{% else %}not available{% endif %}.</p>
+    {% endif %}
+    {% if not sec_off or ins.trades or ins.holder_filings %}
     <p>Insider trades (Form 4, last {{ ins.lookback_days }} days):
       {% if ins.trades %}
       <strong>{{ ins.buys }} buy{{ "" if ins.buys == 1 else "s" }}</strong> ({{ "{:,.0f}".format(ins.shares_bought) }} shares, ${{ ins.value_bought | money }}),
@@ -68,6 +73,7 @@
       {% if ins.holder_filings %}</p>
     <ul>{% for h in ins.holder_filings %}<li><a href="{{ h.source.url }}" rel="noopener noreferrer" target="_blank">{{ h.source.title }}</a> <span class="muted small">{{ h.source.outlet }}, {{ h.source.published_at | from_iso | eastern }}</span></li>{% endfor %}</ul>
       {% else %}none.</p>{% endif %}
+    {% endif %}
     <p class="muted small">Top institutional holders and unusual options activity come in a later phase.</p>
   </section>
 
@@ -82,7 +88,7 @@
     {% if s.score is not none %}
     <p class="sentiment-score"><strong class="{{ 'up' if s.score > 0 else ('down' if s.score < 0 else 'flat') }}">{{ "{:+d}".format(s.score) }}</strong> <span class="muted">on a scale from −100 (all bearish) to +100 (all bullish)</span></p>
     {% else %}
-    <p class="muted">No score: no items were rated in this period.</p>
+    <p class="muted">{% if body.ai_model %}No score: no items were rated in this period.{% else %}No score: AI ratings are off for this report (see "Missing from this report" above).{% endif %}</p>
     {% endif %}
     <p>{{ s.counts.bullish }} bullish · {{ s.counts.neutral }} neutral · {{ s.counts.bearish }} bearish
       <span class="muted small">(each story counts once, however many outlets carried it)</span></p>

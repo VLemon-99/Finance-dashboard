@@ -4,7 +4,7 @@
 > Feature IDs (F1.4 etc.) refer to acceptance criteria in `docs/SPEC.md`.
 
 ## Current phase
-**Phase 3: Report v1 (news + SEC filings)**: built on branch `claude/next-task-plan-z90duy`, all automated tests pass. Waiting for the owner to set up `.env` (SEC contact + Gemini key) and try it with real data.
+**Phase 3: Report v1 (news + SEC filings)**: done and merged. The owner ran it locally with real news (reports for two watchlists); SEC filings and Gemini summaries still need one real run once the owner adds their keys. Next: **Phase 4, Part A** (options browser), plan below, approved in outline by the owner; confirm the default choices before coding.
 
 ## Phases
 Each phase ends with a working app, passing tests, and the docs updated.
@@ -20,7 +20,7 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - Simple dashboard home page listing my watchlists.
   - **Done when:** F1.1–F1.7 pass. *(All have automated tests. See "Done (recent)".)*
 
-- [ ] **Phase 3 — Report v1: news + SEC filings (F4 core)** (built 2026-11-02; waiting for the owner's check with real data)
+- [x] **Phase 3 — Report v1: news + SEC filings (F4 core)** (done 2026-11-03; owner confirmed locally with real news; SEC + Gemini real run pending the owner's keys)
   - Source plug-in framework (`sources/base.py`), Google News/Yahoo/press-release RSS, SEC EDGAR filings + Form 4.
   - Gemini adapter, per-item summaries + sentiment, report composition with citations, dedupe.
   - "Generate now" button, report history page.
@@ -57,12 +57,16 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - **Done when:** F7.1–F7.3 pass and the security review has no open high-severity findings.
 
 ## Next up
-1. Owner: merge the Phase 3 pull request, update your folder (README, "Updating to a new version"; this includes `uv sync` for the new libraries and `uv run alembic upgrade head` for the new tables), then follow README "Setting up reports" (SEC contact, Gemini key, $10 budget alert).
-2. Owner: generate a report for one ticker, then for a watchlist. Check: real headlines and filings appear; the citation numbers jump to the right sources; insider trades look plausible against the SEC's own Form 4 pages; the "Missing" box is empty (or explains itself). Tell Claude anything that looks off.
-3. Decide whether to switch on `trusted_outlets_only` in `config/sources.yaml` after seeing which outlets show up.
-4. Then Phase 4: options chain + virtual portfolio.
+1. **Phase 4, split into two parts, each with its own pull request and an owner check in between** (proposed 2026-11-03):
+   - **Part A, options browser (F2):** (1) Yahoo adapter: expiration dates, option chain (bid, ask, last, volume, open interest, IV), and the risk-free rate from the 13-week T-bill (`^IRX`). (2) `app/services/options_math.py`: Black-Scholes price and greeks, plus DTE, with the F2.3 known answer (call 10.4506, delta 0.6368) and more. (3) Option chain page from any stock: pick an expiration, switch calls/puts, highlight the strike nearest the price, shade in-the-money strikes. (4) Add a contract to a watchlist; contract rows show F2.2 fields plus the underlying price; expired contracts are marked and no longer refreshed (F2.5a, F2.6, F2.7).
+   - **Part B, virtual portfolio (F3):** (5) trades table + Bought/Sold forms with an auto-filled, editable price (F3.1, F3.2; also F2.5b). (6) Portfolio page: open positions with P&L, and DTE/IV/delta for options; realized P&L for closed ones (F3.3). (7) Capital at risk + annualized return, locked-in and remaining, with the F3.6 known answers; uncovered calls show "uncovered — no return figure" (F3.4, F3.5, F3.8). (8) Credit-spread linking and expiry handling: "expiring today", expired worthless or assigned (F3.7, F3.9).
+   - **Default choices to confirm with the owner first:** no dividends in Black-Scholes (as in the F2.3 test case); if `^IRX` can't be fetched, use a fallback rate from `config/settings.yaml` (4.0%) and say so on the page; option prices reused for 15 minutes like stocks, and Refresh always fetches; theta per day, vega per 1 percentage point of IV; no new libraries (built-in math only).
+2. Owner, whenever convenient: follow README "Setting up reports" (SEC contact, Gemini key, $10 budget alert), then generate one report. Check that real filings and AI summaries appear, the citation numbers jump to the right sources, and insider trades match the SEC's own Form 4 pages.
+3. Owner: after seeing which outlets show up, decide whether to switch on `trusted_outlets_only` in `config/sources.yaml`.
 
 ## Done (recent)
+- 2026-11-03 Owner ran Phase 3 locally (no keys yet): reports for two watchlists (8 tickers) built, news items collected, SEC and AI correctly listed as missing. Fixed from those screenshots: with SEC filings missing, the insider section said "no open-market buys or sales" / "none" as if it were a fact; it now says the data isn't available. Likewise the sentiment section says "AI ratings are off" instead of "no items were rated". Tests in `tests/test_web_reports.py` and `tests/test_reports.py`.
+- 2026-11-02 Fixed: after merging Phase 3 and running the four update commands, the browser showed "localhost refused to connect". The app wasn't broken (the same steps start cleanly here, with a Phase 2 database and the example `.env`); the README's update steps start with "stop the app" but never gave the command to start it again. The start command is now the last step, with what to look for (`Application startup complete.`). Test: `tests/test_readme.py`.
 - 2026-11-02 Phase 3 report v1, in five commits:
   1. Source plug-ins (`app/sources/`): Google News and Yahoo Finance RSS, SEC EDGAR (8-K with press-release exhibit, 10-Q, 10-K, Form 4, 13D/13G); Form 4 buys/sells read in code; `config/sources.yaml` (F4.3, F4.4).
   2. `source_items` table; each URL stored once per ticker; same-headline stories merged; failing sources listed, failed downloads retried next run (F4.11, F4.12).
@@ -78,6 +82,8 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - 2026-11-01 Kickoff: interviewed owner; wrote SPEC, ARCHITECTURE, PLAN, DECISIONS; filled in stack and commands in CLAUDE.md. No application code yet.
 
 ## Known issues / bugs
+- Without `SEC_USER_AGENT`, the company name isn't known, so Google News is searched by ticker only (`"MU stock"`), which finds fewer and less relevant stories. Fixed by setting up `.env`.
+- GOOG and GOOGL in the same list are researched twice (same company, same news). Harmless, but doubles the AI cost for that company. Could merge share classes later if it matters.
 - **Phase 3 test samples are hand-made** (the cloud build machine can't reach Google News, Yahoo or the SEC). They follow each site's published format, but the first real run on the owner's computer is the real test. Things to watch: Google News outlet names, Yahoo's feed still existing, and SEC filing times (we assume EDGAR's "acceptanceDateTime" is US Eastern clock time even though it's labelled UTC).
 - News summaries are based on headlines (plus Yahoo's one-line snippet), because we don't download article pages. Filing summaries use the full filing text.
 - Same-story merging only catches near-identical headlines. The same event in different words (e.g. "results beat estimates" vs. "record revenue") shows as two stories, and is counted twice in the sentiment score.
@@ -95,7 +101,7 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - *(Fixed in Phase 2: the day change was always labelled "today", and the quote page fetched from Yahoo on every lookup.)*
 
 ## Handoff note
-Phase 3 is built on `claude/next-task-plan-z90duy` (five commits plus docs), all tests green, not yet tried against the real sites. Next session: first ask the owner how the real-data check went and fix what they report (prompt #3), then start Phase 4 with prompt #2. After each merge, remind the owner to update their folder (README, "Updating to a new version").
+Phase 3 is merged into `main` (263 tests green) and confirmed by the owner with real news; SEC + Gemini are untested against the real services until the owner adds their keys. Next session: start Phase 4 Part A from the plan in "Next up". Confirm the default choices with the owner, then code. If the owner reports problems from their first run with keys, fix those first (prompt #3). After each merge, remind the owner to update their folder (README, "Updating to a new version").
 - Report code map: `app/sources/` (plug-ins; `registry.py` builds them from `config/sources.yaml` + `.env`), `app/services/collect.py` → `summarize.py` → `reports.py` (+ `sentiment.py`, `insider.py`), `app/ai/` (interface + Gemini), pages in `app/web/report_routes.py` and `templates/_ticker_report.html`.
 - `create_app(..., report_services=, report_runner=)`: tests pass `ReportServices` wired to `FakeFetch` (fake internet, recorded samples in `tests/fixtures/sources/`) and `FakeLLM`, plus a `RecordingRunner` that runs reports immediately (or holds them, to test the progress page).
 - The `sources_now` fixture freezes "now" at 2026-11-02 12:00 UTC for the source and report modules, so the sample dates fall inside the report window.
