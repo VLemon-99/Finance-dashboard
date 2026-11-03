@@ -16,8 +16,20 @@ from app.ai.llm import AIError, Claim, ItemSummary, PublicItem, PublicStory, Rep
 from app.config import PROJECT_ROOT, AppConfig
 from app.db.session import make_engine
 from app.main import create_app
-from app.providers.market_data import MarketDataError, QuoteData, SearchResult, TickerNotFound
-from app.providers.yahoo import quote_from_history, search_results_from_quotes
+from app.providers.market_data import (
+    MarketDataError,
+    NoOptionChain,
+    OptionChainData,
+    QuoteData,
+    SearchResult,
+    TickerNotFound,
+)
+from app.providers.yahoo import (
+    chain_from_yahoo,
+    expirations_from_yahoo,
+    quote_from_history,
+    search_results_from_quotes,
+)
 from app.sources.base import SourceError
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -42,6 +54,25 @@ def load_yahoo_search(name: str = "yahoo_search_amazon.json") -> list[dict]:
     return json.loads((FIXTURES / name).read_text())["quotes"]
 
 
+def load_yahoo_options(name: str = "yahoo_options_AAPL.json") -> dict:
+    """The recorded option sample: 'expirations' (strings), 'calls'/'puts' as the
+    DataFrames yfinance returns, and the 'underlying' quote dict."""
+    raw = json.loads((FIXTURES / name).read_text())
+    for side in ("calls", "puts"):
+        raw[side] = pd.DataFrame(raw[side])
+    return raw
+
+
+# Known answers for the option sample.
+FAKE_RISK_FREE_RATE = 0.043
+OPTION_EXPIRATION = date(2026, 11, 20)
+
+
+def fake_contract_symbol(symbol: str, expiration: date, option_type: str, strike: float) -> str:
+    """OCC-style symbol, e.g. AAPL261120C00260000."""
+    return f"{symbol}{expiration:%y%m%d}{option_type[0].upper()}{round(strike * 1000):08d}"
+
+
 class FakeMarketData:
     """Stands in for Yahoo. Uses the recorded sample, or simulates failures."""
 
@@ -51,6 +82,12 @@ class FakeMarketData:
         self.down_for: set[str] = set()  # tickers whose fetch fails, whatever the mode
         self.calls: list[str] = []
         self.searches: list[str] = []
+        # Options (Phase 4)
+        self.no_options: set[str] = set()  # tickers without listed options
+        self.rate_down = False  # the T-bill rate fetch fails
+        self.chain_calls: list[tuple[str, date]] = []
+        self.expiration_calls: list[str] = []
+        self.rate_calls = 0
 
     def get_quote(self, symbol: str) -> QuoteData:
         self.calls.append(symbol)
@@ -69,6 +106,45 @@ class FakeMarketData:
         if self.mode in ("down", "crash"):
             raise MarketDataError("Yahoo Finance search did not respond properly (Timeout).")
         return search_results_from_quotes(load_yahoo_search(), max_results)
+
+    def _check_options(self, symbol: str) -> None:
+        if self.mode == "down" or symbol in self.down_for:
+            raise MarketDataError("Yahoo Finance did not respond properly (ConnectionError).")
+        if self.mode == "crash":
+            raise RuntimeError("something unexpected")
+
+    def get_option_expirations(self, symbol: str) -> list[date]:
+        self.expiration_calls.append(symbol)
+        self._check_options(symbol)
+        if self.mode == "not_found" or symbol in self.not_found | self.no_options:
+            return []
+        return expirations_from_yahoo(load_yahoo_options()["expirations"])
+
+    def get_option_chain(self, symbol: str, expiration: date) -> OptionChainData:
+        """The sample chain, re-labelled for the ticker and date asked for."""
+        self.chain_calls.append((symbol, expiration))
+        self._check_options(symbol)
+        sample = load_yahoo_options()
+        if (
+            self.mode == "not_found"
+            or symbol in self.not_found | self.no_options
+            or expiration.isoformat() not in sample["expirations"]
+        ):
+            raise NoOptionChain(f"No {symbol} options expiring {expiration}.")
+        for side, option_type in (("calls", "call"), ("puts", "put")):
+            sample[side]["contractSymbol"] = [
+                fake_contract_symbol(symbol, expiration, option_type, k)
+                for k in sample[side]["strike"]
+            ]
+        return chain_from_yahoo(
+            symbol, expiration, sample["calls"], sample["puts"], sample["underlying"]
+        )
+
+    def get_risk_free_rate(self) -> float:
+        self.rate_calls += 1
+        if self.rate_down or self.mode in ("down", "crash"):
+            raise MarketDataError("Yahoo Finance did not respond properly (Timeout).")
+        return FAKE_RISK_FREE_RATE
 
 
 @pytest.fixture

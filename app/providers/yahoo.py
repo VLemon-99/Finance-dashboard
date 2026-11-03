@@ -8,6 +8,10 @@ Where each field comes from (see DECISIONS.md, "Phase 2: where the stock row com
 - Share count ("fast info") x price -> market cap.
 - Yahoo's company calendar -> next earnings date.
 Market cap and earnings are extras: if either fails, the rest of the row is still returned.
+
+Options (Phase 4): Yahoo's option chain gives bid, ask, last, volume, open interest and IV
+per strike, plus the stock price at that moment. Yahoo has no greeks; we calculate them
+(app/services/options_math.py). The risk-free rate is the 13-week T-bill yield (^IRX).
 """
 
 import logging
@@ -21,6 +25,9 @@ from yfinance.exceptions import YFPricesMissingError, YFTickerMissingError, YFTz
 
 from app.providers.market_data import (
     MarketDataError,
+    NoOptionChain,
+    OptionChainData,
+    OptionContractData,
     QuoteData,
     SearchResult,
     TickerNotFound,
@@ -49,6 +56,9 @@ US_EXCHANGES = {
     "BTS": "Cboe BZX",
 }
 _SEARCH_KINDS = {"EQUITY": "stock", "ETF": "etf"}
+
+# Yahoo's 13-week US Treasury bill yield, quoted in percent (4.25 = 4.25%).
+RISK_FREE_SYMBOL = "^IRX"
 
 
 class YahooMarketData:
@@ -96,6 +106,43 @@ class YahooMarketData:
                 f"Yahoo Finance search did not respond properly ({type(exc).__name__})."
             ) from exc
         return search_results_from_quotes(found, max_results)
+
+    def get_option_expirations(self, symbol: str) -> list[date]:
+        try:
+            raw = yf.Ticker(symbol).options
+        except Exception as exc:
+            log.warning("Yahoo option dates failed for %s: %s", symbol, exc)
+            raise MarketDataError(
+                f"Yahoo Finance did not respond properly ({type(exc).__name__})."
+            ) from exc
+        return expirations_from_yahoo(raw)
+
+    def get_option_chain(self, symbol: str, expiration: date) -> OptionChainData:
+        try:
+            chain = yf.Ticker(symbol).option_chain(expiration.isoformat())
+        except ValueError as exc:  # yfinance: "Expiration `...` cannot be found"
+            raise NoOptionChain(
+                f"Yahoo Finance has no {symbol} options expiring {expiration:%b} "
+                f"{expiration.day}, {expiration.year}."
+            ) from exc
+        except Exception as exc:
+            log.warning("Yahoo option chain failed for %s %s: %s", symbol, expiration, exc)
+            raise MarketDataError(
+                f"Yahoo Finance did not respond properly ({type(exc).__name__})."
+            ) from exc
+        return chain_from_yahoo(symbol, expiration, chain.calls, chain.puts, chain.underlying)
+
+    def get_risk_free_rate(self) -> float:
+        try:
+            history = yf.Ticker(RISK_FREE_SYMBOL).history(
+                period="5d", interval="1d", timeout=self.timeout_seconds
+            )
+        except Exception as exc:
+            log.warning("Yahoo T-bill rate failed: %s", exc)
+            raise MarketDataError(
+                f"Yahoo Finance did not respond properly ({type(exc).__name__})."
+            ) from exc
+        return rate_from_history(history)
 
 
 def quote_from_history(symbol: str, history: pd.DataFrame, currency: str | None) -> QuoteData:
@@ -150,6 +197,81 @@ def search_results_from_quotes(quotes: list[dict], max_results: int) -> list[Sea
         if len(results) >= max_results:
             break
     return results
+
+
+def expirations_from_yahoo(raw: object) -> list[date]:
+    """Yahoo gives 'YYYY-MM-DD' strings. Unreadable ones are skipped."""
+    dates: set[date] = set()
+    for text in raw or ():
+        try:
+            dates.add(date.fromisoformat(str(text)))
+        except ValueError:
+            log.info("Skipping unreadable option date from Yahoo: %r", text)
+    return sorted(dates)
+
+
+def chain_from_yahoo(
+    symbol: str,
+    expiration: date,
+    calls: pd.DataFrame | None,
+    puts: pd.DataFrame | None,
+    underlying: dict | None,
+) -> OptionChainData:
+    """Turn yfinance's two option tables into one OptionChainData, sorted by strike."""
+    if (calls is None or calls.empty) and (puts is None or puts.empty):
+        raise NoOptionChain(f"Yahoo Finance returned no {symbol} options for {expiration}.")
+    contracts = [
+        *_contracts_from_table(calls, "call"),
+        *_contracts_from_table(puts, "put"),
+    ]
+    contracts.sort(key=lambda c: (c.option_type, c.strike))
+    price = _number((underlying or {}).get("regularMarketPrice"))
+    return OptionChainData(
+        underlying=symbol,
+        expiration=expiration,
+        underlying_price=price if price and price > 0 else None,
+        contracts=tuple(contracts),
+        fetched_at=utc_now(),
+        source=YahooMarketData.source,
+    )
+
+
+def rate_from_history(history: pd.DataFrame | None) -> float:
+    """Latest ^IRX close (percent) as a fraction. Rejects missing or implausible values."""
+    if history is None or history.empty or "Close" not in history:
+        raise MarketDataError("Yahoo Finance returned no T-bill rate.")
+    closes = history["Close"].dropna()
+    if closes.empty:
+        raise MarketDataError("Yahoo Finance returned no T-bill rate.")
+    percent = float(closes.iloc[-1])
+    if not 0 <= percent < 25:
+        raise MarketDataError(f"Yahoo Finance returned an implausible T-bill rate ({percent}%).")
+    return percent / 100
+
+
+def _contracts_from_table(table: pd.DataFrame | None, option_type: str) -> list[OptionContractData]:
+    if table is None or table.empty:
+        return []
+    contracts = []
+    for row in table.to_dict("records"):
+        symbol = row.get("contractSymbol")
+        strike = _number(row.get("strike"))
+        if not isinstance(symbol, str) or not symbol or strike is None or strike <= 0:
+            continue
+        contracts.append(
+            OptionContractData(
+                contract_symbol=symbol,
+                option_type=option_type,  # type: ignore[arg-type]
+                strike=strike,
+                bid=_number(row.get("bid")),
+                ask=_number(row.get("ask")),
+                last_price=_number(row.get("lastPrice")),
+                volume=_whole_number(row.get("volume")),
+                open_interest=_whole_number(row.get("openInterest")),
+                implied_volatility=_number(row.get("impliedVolatility")),
+            )
+        )
+    return contracts
 
 
 # --- extras: never let one of these spoil an otherwise good quote ---
