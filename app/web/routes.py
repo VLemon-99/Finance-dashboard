@@ -30,6 +30,10 @@ templates.env.filters.update(
     money=formatting.money,
     signed=formatting.signed,
     compact=formatting.compact,
+    number=formatting.number,
+    whole=formatting.whole,
+    percent=formatting.percent,
+    strike=formatting.strike,
     short_date=formatting.short_date,
     session_label=lambda d: formatting.session_label(d, today_eastern()),
 )

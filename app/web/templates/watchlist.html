@@ -49,6 +49,7 @@
       <td>{{ q.next_earnings | short_date }}</td>
       <td class="small">{% if q.fetched_at %}{{ q.fetched_at | eastern }}{% else %}Not fetched yet{% endif %}</td>
       <td><div class="row-actions">
+        <a href="/options/{{ q.symbol }}" class="small" aria-label="Options for {{ q.symbol }}">Options</a>
         <form method="post" action="/reports/generate">
           <input type="hidden" name="ticker" value="{{ q.symbol }}">
           <button type="submit" class="link" aria-label="Generate report for {{ q.symbol }}">Report</button>

@@ -13,6 +13,26 @@ def signed(value: float | None, decimals: int = 2) -> str:
     return DASH if value is None else f"{value:+,.{decimals}f}"
 
 
+def number(value: float | None, decimals: int = 2) -> str:
+    """Plain number with a fixed number of decimals, e.g. greeks: 0.637, -0.018."""
+    return DASH if value is None else f"{value:,.{decimals}f}"
+
+
+def whole(value: int | None) -> str:
+    """15230 -> '15,230'."""
+    return DASH if value is None else f"{value:,}"
+
+
+def percent(fraction: float | None, decimals: int = 1) -> str:
+    """0.2834 -> '28.3%'."""
+    return DASH if fraction is None else f"{fraction * 100:.{decimals}f}%"
+
+
+def strike(value: float) -> str:
+    """260.0 -> '260', 262.5 -> '262.50'."""
+    return f"{value:,.0f}" if value == int(value) else f"{value:,.2f}"
+
+
 def compact(value: float | None) -> str:
     """36_540_100 -> '36.54M', 3.85e12 -> '3.85T'."""
     if value is None:

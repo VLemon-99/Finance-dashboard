@@ -1,11 +1,13 @@
 :root {
   --bg: #f7f7f8; --card: #fff; --text: #1d1d1f; --muted: #6b6b70; --border: #dedee3;
   --up: #137333; --down: #c5221f; --warn-bg: #fff4e5; --warn: #8a4b00; --err-bg: #fdecea;
+  --itm-bg: #eaf1fb;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #161618; --card: #1f1f22; --text: #ececf0; --muted: #a0a0a8; --border: #34343a;
     --up: #5bd17a; --down: #ff7a70; --warn-bg: #3a2a10; --warn: #ffc880; --err-bg: #3a1714;
+    --itm-bg: #1e2a3a;
   }
 }
 * { box-sizing: border-box; }
@@ -90,3 +92,9 @@ a.cite:hover { color: var(--text); text-decoration: underline; }
 .stocks td.wrap { white-space: normal; min-width: 280px; }
 :target { scroll-margin-top: 16px; }
 .sources > li:target { background: var(--warn-bg); border-radius: 6px; }
+.stock-line { font-variant-numeric: tabular-nums; margin: 0 0 8px; }
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.segmented a { padding: 6px 14px; text-decoration: none; color: var(--muted); background: var(--card); }
+.segmented a[aria-current] { background: var(--text); color: var(--bg); }
+.chain tr.itm td { background: var(--itm-bg); }
+.chain tr.nearest td { border-top: 2px solid var(--text); border-bottom: 2px solid var(--text); }

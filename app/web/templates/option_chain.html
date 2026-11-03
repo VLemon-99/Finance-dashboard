@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}{{ chain.symbol }} options · Finance Dashboard{% endblock %}
+{% block content %}
+{% set type_label = "Calls" if chain.option_type == "call" else "Puts" %}
+<p class="small"><a href="/options">← Option chains</a></p>
+<h1>{{ chain.symbol }} options</h1>
+
+{% if quote.status in ("ok", "stale") %}
+<p class="stock-line">
+  Stock <strong>{{ quote.last_price | money }}</strong>
+  {% if quote.change is not none %}<span class="{{ 'up' if quote.change > 0 else ('down' if quote.change < 0 else 'flat') }}">{{ quote.change | signed }} ({{ quote.change_pct | signed }}%)</span> <span class="muted small">{{ quote.session_date | session_label }}</span>{% endif %}
+  {% if quote.status == 'stale' %}<span class="badge">stale</span>{% endif %}
+</p>
+{% endif %}
+
+{% for note in chain.notes %}
+<p class="note {{ 'error' if chain.status in ('error', 'no_options') else 'warning' }}" role="status">{{ note }}</p>
+{% endfor %}
+
+{% if chain.expirations %}
+<div class="toolbar">
+  <form method="get" action="/options/{{ chain.symbol }}" class="inline-form">
+    <label for="expiration">Expiration</label>
+    <select id="expiration" name="expiration">
+      {% for d in chain.expirations %}
+      <option value="{{ d.isoformat() }}"{% if d == chain.expiration %} selected{% endif %}>{{ d | short_date }}</option>
+      {% endfor %}
+    </select>
+    <input type="hidden" name="type" value="{{ chain.option_type }}">
+    <button type="submit">Show</button>
+  </form>
+  <nav class="segmented" aria-label="Calls or puts">
+    <a href="/options/{{ chain.symbol }}?expiration={{ chain.expiration.isoformat() }}&amp;type=call"{% if chain.option_type == 'call' %} aria-current="page"{% endif %}>Calls</a>
+    <a href="/options/{{ chain.symbol }}?expiration={{ chain.expiration.isoformat() }}&amp;type=put"{% if chain.option_type == 'put' %} aria-current="page"{% endif %}>Puts</a>
+  </nav>
+  <form method="get" action="/options/{{ chain.symbol }}">
+    <input type="hidden" name="expiration" value="{{ chain.expiration.isoformat() }}">
+    <input type="hidden" name="type" value="{{ chain.option_type }}">
+    <input type="hidden" name="refresh" value="1">
+    <button type="submit" class="secondary">Refresh prices</button>
+  </form>
+</div>
+{% endif %}
+
+{% if chain.rows %}
+<p class="muted small">
+  {{ type_label }} expiring {{ chain.expiration | short_date }} ({{ chain.dte }} day{{ '' if chain.dte == 1 else 's' }} left).
+  Greeks use stock price {{ chain.underlying_price | money }} and a risk-free rate of {{ chain.rate.rate | percent(2) }}{% if chain.rate.is_fallback %} (fallback from settings){% else %} (13-week T-bill){% endif %}.
+  Shaded rows are in the money; the outlined row is the strike closest to the stock price.
+</p>
+<div class="table-wrap">
+<table class="stocks chain" data-type="{{ chain.option_type }}">
+  <thead>
+    <tr>
+      <th class="num">Strike</th><th class="num">Bid</th><th class="num">Ask</th><th class="num">Mid</th>
+      <th class="num">Last</th><th class="num">Volume</th><th class="num">Open int.</th><th class="num">IV</th>
+      <th class="num">Delta</th><th class="num">Gamma</th><th class="num" title="Change in price per day">Theta</th>
+      <th class="num" title="Change in price per 1 point of IV">Vega</th><th class="num">DTE</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for c in chain.rows %}{% set nearest = c.strike == chain.nearest_strike %}
+    <tr data-strike="{{ c.strike }}" data-itm="{{ 'yes' if c.in_the_money else 'no' }}"{% if nearest %} data-nearest="yes"{% endif %}
+        class="{{ 'itm' if c.in_the_money else 'otm' }}{{ ' nearest' if nearest }}">
+      <td class="num"><strong>{{ c.strike | strike }}</strong>{% if nearest %} <span class="badge plain">≈ stock</span>{% endif %}</td>
+      <td class="num">{{ c.bid | money }}</td>
+      <td class="num">{{ c.ask | money }}</td>
+      <td class="num">{{ c.mid | money }}</td>
+      <td class="num">{{ c.last_price | money }}</td>
+      <td class="num">{{ c.volume | whole }}</td>
+      <td class="num">{{ c.open_interest | whole }}</td>
+      <td class="num">{{ c.implied_volatility | percent }}</td>
+      {% if c.greeks %}
+      <td class="num">{{ c.greeks.delta | number(3) }}</td>
+      <td class="num">{{ c.greeks.gamma | number(4) }}</td>
+      <td class="num">{{ c.greeks.theta | number(3) }}</td>
+      <td class="num">{{ c.greeks.vega | number(3) }}</td>
+      {% else %}
+      <td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>
+      {% endif %}
+      <td class="num">{{ c.dte }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="muted small">
+  Prices {% if chain.status == 'stale' %}<span class="badge">stale</span> {% endif %}fetched {{ chain.fetched_at | eastern }}. Prices up to {{ refresh_minutes }} minutes old are reused.
+  "—" means not available; greeks need an IV from the data source.
+</p>
+{% elif chain.expirations and chain.status != 'error' %}
+<p>No {{ type_label | lower }} listed for this date.</p>
+{% endif %}
+{% endblock %}

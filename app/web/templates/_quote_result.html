@@ -21,7 +21,7 @@
       <dt>Market cap</dt><dd>{% if quote.market_cap is not none %}${{ quote.market_cap | compact }}{% else %}—{% endif %}</dd>
       <dt>Next earnings</dt><dd>{{ quote.next_earnings | short_date }}</dd>
     </dl>
-    <p class="fetched">Fetched {{ quote.fetched_at | eastern }}</p>
+    <p class="fetched">Fetched {{ quote.fetched_at | eastern }} · <a href="/options/{{ quote.symbol }}">Option chain</a></p>
     {% if quote.note %}<p class="note warning" role="status">{{ quote.note }}</p>{% endif %}
   </section>
   {% endif %}

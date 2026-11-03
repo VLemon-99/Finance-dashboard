@@ -73,6 +73,32 @@ def fake_contract_symbol(symbol: str, expiration: date, option_type: str, strike
     return f"{symbol}{expiration:%y%m%d}{option_type[0].upper()}{round(strike * 1000):08d}"
 
 
+# Pretend "now" for option tests: Tuesday Nov 3, 2026, 10:00 AM Eastern.
+OPTIONS_NOW = datetime(2026, 11, 3, 15, 0, tzinfo=UTC)
+
+
+class Clock:
+    """A clock tests can move forward: `clock.now += timedelta(minutes=16)`."""
+
+    def __init__(self, now: datetime) -> None:
+        self.now = now
+
+    def __call__(self) -> datetime:
+        return self.now
+
+
+@pytest.fixture
+def options_clock(monkeypatch):
+    """Freeze 'now' for option fetching, storing and expiry."""
+    import app.providers.yahoo
+    import app.services.options
+
+    clock = Clock(OPTIONS_NOW)
+    for module in (app.providers.yahoo, app.services.options):
+        monkeypatch.setattr(module, "utc_now", clock)
+    return clock
+
+
 class FakeMarketData:
     """Stands in for Yahoo. Uses the recorded sample, or simulates failures."""
 
