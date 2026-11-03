@@ -11,7 +11,7 @@ from typing import Literal
 
 from sqlmodel import Session, col, select
 
-from app.db.models import Instrument, Transaction
+from app.db.models import Instrument, Spread, Transaction
 from app.providers.market_data import MarketData
 from app.services.options import (
     CONTRACT_SYMBOL_RE,
@@ -29,6 +29,7 @@ from app.services.options_math import (
     annualized_return,
     capital_at_risk_cash_secured_put,
     capital_at_risk_covered_call,
+    capital_at_risk_credit_spread,
     days_to_expiry,
     is_expired,
     mid_price,
@@ -351,33 +352,68 @@ class ClosedRow:
 
 
 @dataclass(frozen=True)
+class SpreadRow:
+    """Two linked option positions shown and calculated as one credit spread (F3.7)."""
+
+    spread_id: int
+    short: OpenRow
+    long: OpenRow
+    contracts: int
+    net_credit: float  # per share: short entry - long entry
+    width: float  # difference between the strikes
+    cost_to_close: float | None  # per share now: short price - long price
+    pnl: float | None
+    pnl_pct: float | None  # of the premium received
+    premium: float  # $
+    capital: float  # $
+    dte: int
+    dte_at_entry: int  # from the day the second leg was opened
+    return_locked: float | None
+    return_remaining: float | None
+
+    @property
+    def expiring_today(self) -> bool:
+        return self.short.expiring_today
+
+    @property
+    def expired(self) -> bool:
+        return self.short.expired
+
+
+@dataclass(frozen=True)
 class PortfolioView:
     stocks: list[OpenRow]
-    options: list[OpenRow]
+    options: list[OpenRow]  # not part of a spread
+    spreads: list[SpreadRow]
+    expired: list[OpenRow]  # expired option positions waiting for their outcome (F3.9)
     closed: list[ClosedRow]
     rate: RateView | None
     has_trades: bool
+    link_shorts: list[OpenRow]  # choices for linking a credit spread
+    link_longs: list[OpenRow]
 
 
-def portfolio_view(
-    session: Session,
-    market_data: MarketData,
-    rates: RiskFreeRate,
-    user_id: int,
-    *,
-    now: datetime,
-    max_age: timedelta | None,
-    min_iv: float,
-    max_parallel: int = 1,
-) -> PortfolioView:
-    """Positions calculated from the user's trades, priced with current data."""
+@dataclass(frozen=True)
+class _Loaded:
+    """One user's positions, calculated from their trades."""
+
+    open: list[OpenPosition]
+    closed: list[ClosedPosition]
+    targets: dict[int, TradeTarget]
+    instruments: dict[int, Instrument]
+    has_trades: bool
+
+    def open_position(self, instrument_id: int) -> OpenPosition | None:
+        return next((p for p in self.open if p.instrument_id == instrument_id), None)
+
+
+def _load(session: Session, user_id: int) -> _Loaded:
     rows = session.exec(
         select(Transaction, Instrument)
         .join(Instrument, col(Instrument.id) == col(Transaction.instrument_id))
         .where(Transaction.user_id == user_id)
     ).all()
     targets = {instrument.id: _target(instrument) for _, instrument in rows}
-    instruments = {instrument.id: instrument for _, instrument in rows}
     open_positions, closed_positions = build_positions(
         TradeInput(
             id=trade.id,
@@ -392,9 +428,31 @@ def portfolio_view(
         )
         for trade, _ in rows
     )
+    return _Loaded(
+        open=open_positions,
+        closed=closed_positions,
+        targets=targets,
+        instruments={instrument.id: instrument for _, instrument in rows},
+        has_trades=bool(rows),
+    )
 
-    stock_positions = [p for p in open_positions if targets[p.instrument_id].kind == "stock"]
-    option_positions = [p for p in open_positions if targets[p.instrument_id].kind == "option"]
+
+def portfolio_view(
+    session: Session,
+    market_data: MarketData,
+    rates: RiskFreeRate,
+    user_id: int,
+    *,
+    now: datetime,
+    max_age: timedelta | None,
+    min_iv: float,
+    max_parallel: int = 1,
+) -> PortfolioView:
+    """Positions calculated from the user's trades, priced with current data."""
+    loaded = _load(session, user_id)
+    targets = loaded.targets
+    stock_positions = [p for p in loaded.open if targets[p.instrument_id].kind == "stock"]
+    option_positions = [p for p in loaded.open if targets[p.instrument_id].kind == "option"]
     quotes = get_quotes(
         session,
         market_data,
@@ -406,35 +464,64 @@ def portfolio_view(
         session,
         market_data,
         rates,
-        [instruments[p.instrument_id] for p in option_positions],
+        [loaded.instruments[p.instrument_id] for p in option_positions],
         max_age=max_age,
         min_iv=min_iv,
     )
+
+    # Credit spreads first: their short calls don't need shares to be covered.
+    active, spread_notes = _active_spreads(session, user_id, loaded)
+    in_spread = {i for sp in active for i in (sp.short_instrument_id, sp.long_instrument_id)}
 
     stocks = [_stock_row(targets[p.instrument_id], p, quotes) for p in stock_positions]
     shares_held = {
         row.target.symbol: row.position.quantity for row in stocks if not row.position.is_short
     }
-    covered = _covered_calls(option_positions, targets, shares_held)
+    covered = _covered_calls(
+        [p for p in option_positions if p.instrument_id not in in_spread], targets, shares_held
+    )
     today = eastern_date(now)
-    options = [
-        _option_row(
+    option_rows = {
+        p.instrument_id: _option_row(
             targets[p.instrument_id],
             p,
             contract_prices[targets[p.instrument_id].symbol],
             today,
             covered,
+            in_spread=p.instrument_id in in_spread,
+            note=spread_notes.get(p.instrument_id),
         )
         for p in option_positions
+    }
+    spreads = [
+        _spread_row(sp.id, option_rows[sp.short_instrument_id], option_rows[sp.long_instrument_id])
+        for sp in active
     ]
+    options = [r for i, r in option_rows.items() if i not in in_spread]
+    free = [r for r in options if not r.expired]
+
+    def by_contract(r):
+        return (r.target.underlying, r.target.expiration, r.target.option_type, r.target.strike)
+
     stocks.sort(key=lambda r: r.target.symbol)
-    options.sort(key=lambda r: (r.target.underlying, r.target.expiration, r.target.strike))
+    options.sort(key=by_contract)
+    spreads.sort(key=lambda r: by_contract(r.short))
     closed = sorted(
-        (ClosedRow(targets[c.instrument_id], c) for c in closed_positions),
+        (ClosedRow(targets[c.instrument_id], c) for c in loaded.closed),
         key=lambda r: r.position.closed_on,
         reverse=True,
     )
-    return PortfolioView(stocks, options, closed, rate, has_trades=bool(rows))
+    return PortfolioView(
+        stocks=stocks,
+        options=options,
+        spreads=spreads,
+        expired=sorted((r for r in option_rows.values() if r.expired), key=by_contract),
+        closed=closed,
+        rate=rate,
+        has_trades=loaded.has_trades,
+        link_shorts=sorted((r for r in free if r.position.is_short), key=by_contract),
+        link_longs=sorted((r for r in free if not r.position.is_short), key=by_contract),
+    )
 
 
 def _stock_row(target: TradeTarget, position: OpenPosition, quotes) -> OpenRow:
@@ -481,6 +568,9 @@ def _option_row(
     quote: ContractQuote,
     today: date,
     covered: set[int],
+    *,
+    in_spread: bool = False,
+    note: str | None = None,
 ) -> OpenRow:
     view = quote.view
     price, label = None, "mid"
@@ -502,13 +592,13 @@ def _option_row(
         fetched_at=view.fetched_at if view else None,
         pnl=pnl,
         pnl_pct=pct,
-        note=quote.note,
+        note=" ".join(filter(None, [note, quote.note])) or None,
         contract=view,
         dte=dte,
         expiring_today=dte == 0 and not expired,
         expired=expired,
     )
-    if not position.is_short:
+    if not position.is_short or in_spread:
         return row
 
     dte_at_entry = days_to_expiry(target.expiration, position.opened_on)
@@ -534,3 +624,221 @@ def _option_row(
         return_locked=annualized_return(premium, capital, dte_at_entry) if capital else None,
         return_remaining=annualized_return(premium, capital, dte) if capital else None,
     )
+
+
+# --- credit spreads (F3.7) ------------------------------------------------------------------
+
+
+def spread_problem(
+    short: OpenPosition, long: OpenPosition, targets: dict[int, TradeTarget]
+) -> str | None:
+    """Why two open positions can't be one credit spread, or None if they can."""
+    s, lg = targets[short.instrument_id], targets[long.instrument_id]
+    if s.kind != "option" or lg.kind != "option":
+        return "Both legs must be option contracts."
+    if not short.is_short or long.is_short:
+        return "Pick a contract you sold and a contract you bought."
+    if (s.underlying, s.option_type, s.expiration) != (
+        lg.underlying,
+        lg.option_type,
+        lg.expiration,
+    ):
+        return (
+            "Both legs must be on the same stock, both calls or both puts, with the same "
+            "expiration date."
+        )
+    if s.strike == lg.strike:
+        return "The two legs must have different strikes."
+    if short.quantity != long.quantity:
+        return (
+            f"The legs have different numbers of contracts ({short.quantity} sold, "
+            f"{long.quantity} bought)."
+        )
+    if short.avg_price - long.avg_price <= 0:
+        return "These legs were opened for a net debit, not a credit."
+    further_out = lg.strike < s.strike if s.option_type == "put" else lg.strike > s.strike
+    if not further_out:
+        side = "lower" if s.option_type == "put" else "higher"
+        return (
+            f"In a {s.option_type} credit spread, the {s.option_type} you bought has the "
+            f"{side} strike."
+        )
+    return None
+
+
+def _active_spreads(
+    session: Session, user_id: int, loaded: _Loaded
+) -> tuple[list[Spread], dict[int, str]]:
+    """Links whose legs are both open and still match, plus a note for the legs of links
+    that no longer match (they're shown as separate positions)."""
+    active, notes = [], {}
+    for spread in session.exec(select(Spread).where(Spread.user_id == user_id)):
+        short = loaded.open_position(spread.short_instrument_id)
+        long = loaded.open_position(spread.long_instrument_id)
+        if short is None and long is None:
+            continue  # both legs closed: the link has nothing left to show
+        problem = (
+            spread_problem(short, long, loaded.targets)
+            if short and long
+            else ("The other leg is closed.")
+        )
+        if problem is None:
+            active.append(spread)
+            continue
+        note = (
+            f"Linked as a credit spread, but the legs no longer match: {problem} Shown separately."
+        )
+        for position in (short, long):
+            if position is not None:
+                notes[position.instrument_id] = note
+    return active, notes
+
+
+def _spread_row(spread_id: int, short: OpenRow, long: OpenRow) -> SpreadRow:
+    target = short.target
+    contracts = short.position.quantity
+    net_credit = short.position.avg_price - long.position.avg_price
+    premium = premium_received(net_credit, contracts)
+    capital = capital_at_risk_credit_spread(
+        target.strike, long.target.strike, net_credit, contracts
+    )
+    opened = max(short.position.opened_on, long.position.opened_on)
+    dte_at_entry = days_to_expiry(target.expiration, opened)
+    cost = (
+        short.current_price - long.current_price
+        if short.current_price is not None and long.current_price is not None
+        else None
+    )
+    pnl = short.pnl + long.pnl if short.pnl is not None and long.pnl is not None else None
+    return SpreadRow(
+        spread_id=spread_id,
+        short=short,
+        long=long,
+        contracts=contracts,
+        net_credit=net_credit,
+        width=abs(target.strike - long.target.strike),
+        cost_to_close=cost,
+        pnl=pnl,
+        pnl_pct=pnl / premium * 100 if pnl is not None and premium > 0 else None,
+        premium=premium,
+        capital=capital,
+        dte=short.dte,
+        dte_at_entry=dte_at_entry,
+        return_locked=annualized_return(premium, capital, dte_at_entry),
+        return_remaining=annualized_return(premium, capital, short.dte),
+    )
+
+
+def link_spread(
+    session: Session, user_id: int, short_instrument_id: int, long_instrument_id: int, now: datetime
+) -> Spread:
+    """Link a sold and a bought option position as one credit spread (F3.7)."""
+    loaded = _load(session, user_id)
+    short = loaded.open_position(short_instrument_id)
+    long = loaded.open_position(long_instrument_id)
+    if short is None or long is None:
+        raise TradeError("Pick two open option positions to link.")
+    active, _ = _active_spreads(session, user_id, loaded)
+    in_use = {i for sp in active for i in (sp.short_instrument_id, sp.long_instrument_id)}
+    if short_instrument_id in in_use or long_instrument_id in in_use:
+        raise TradeError(
+            "One of these positions is already part of a credit spread. Unlink it first."
+        )
+    problem = spread_problem(short, long, loaded.targets)
+    if problem:
+        raise TradeError(problem)
+    if is_expired(loaded.targets[short_instrument_id].expiration, now):
+        raise TradeError("These contracts have expired.")
+    # Old links for these contracts (from positions closed since) are replaced.
+    for old in session.exec(
+        select(Spread).where(
+            Spread.user_id == user_id,
+            col(Spread.short_instrument_id).in_([short_instrument_id, long_instrument_id])
+            | col(Spread.long_instrument_id).in_([short_instrument_id, long_instrument_id]),
+        )
+    ):
+        session.delete(old)
+    session.flush()
+    spread = Spread(
+        user_id=user_id,
+        short_instrument_id=short_instrument_id,
+        long_instrument_id=long_instrument_id,
+    )
+    session.add(spread)
+    session.commit()
+    return spread
+
+
+def unlink_spread(session: Session, user_id: int, spread_id: int) -> None:
+    spread = session.get(Spread, spread_id)
+    if spread is None or spread.user_id != user_id:
+        raise TradeNotFound(spread_id)
+    session.delete(spread)
+    session.commit()
+
+
+# --- after expiration (F3.9) ------------------------------------------------------------------
+
+OUTCOMES = ("worthless", "assigned")
+
+
+def settle_expired(
+    session: Session, user_id: int, instrument_id: int, outcome: str, now: datetime
+) -> None:
+    """Record how an expired option position ended.
+
+    - "worthless": the option is closed at $0 on the expiration date.
+    - "assigned" (sold) / exercised (bought): the option is closed at $0, and 100 shares
+      per contract are bought or sold at the strike on the expiration date. The premium
+      stays as the option's profit or loss.
+    """
+    if outcome not in OUTCOMES:
+        raise TradeError("Please choose Expired worthless or Assigned / exercised.")
+    loaded = _load(session, user_id)
+    position = loaded.open_position(instrument_id)
+    target = loaded.targets.get(instrument_id)
+    if position is None or target is None or target.kind != "option":
+        raise TradeError("That option position isn't open.")
+    if not is_expired(target.expiration, now):
+        raise TradeError("This contract hasn't expired yet.")
+
+    closing_side = "bought" if position.is_short else "sold"
+    if outcome == "worthless":
+        reason = "expired"
+    else:
+        reason = "assigned" if position.is_short else "exercised"
+    session.add(
+        Transaction(
+            user_id=user_id,
+            instrument_id=instrument_id,
+            side=closing_side,
+            quantity=position.quantity,
+            price=0.0,
+            trade_date=target.expiration,
+            price_source="auto",
+            reason=reason,
+        )
+    )
+    if outcome == "assigned":
+        # Short put assigned / long call exercised -> shares bought; the other two -> sold.
+        buys_shares = (target.option_type == "put") == position.is_short
+        stock = session.exec(
+            select(Instrument).where(Instrument.symbol == target.underlying)
+        ).first()
+        if stock is None:
+            stock = Instrument(kind="stock", symbol=target.underlying)
+            session.add(stock)
+            session.flush()
+        session.add(
+            Transaction(
+                user_id=user_id,
+                instrument_id=stock.id,
+                side="bought" if buys_shares else "sold",
+                quantity=position.quantity * CONTRACT_SIZE,
+                price=target.strike,
+                trade_date=target.expiration,
+                price_source="auto",
+                reason=reason,
+            )
+        )
+    session.commit()

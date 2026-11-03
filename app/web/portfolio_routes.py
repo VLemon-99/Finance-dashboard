@@ -56,16 +56,17 @@ def _parse_whole(text: str) -> int | None:
 # --- the portfolio ----------------------------------------------------------------------
 
 
-@router.get("/portfolio", response_class=HTMLResponse)
-def portfolio_page(
+def _portfolio(
     request: Request,
-    session: SessionDep,
-    market_data: MarketDataDep,
-    user_id: UserDep,
-    config: ConfigDep,
+    session: Session,
+    market_data: MarketData,
+    user_id: int,
+    config: AppConfig,
+    *,
     refresh: bool = False,
+    error: str | None = None,
+    status_code: int = 200,
 ):
-    """`?refresh=1` is the Refresh button."""
     view = pf.portfolio_view(
         session,
         market_data,
@@ -83,8 +84,69 @@ def portfolio_page(
             "view": view,
             "trades": pf.list_trades(session, user_id),
             "refresh_minutes": config.market_data.refresh_minutes,
+            "error": error,
         },
+        status_code=status_code,
     )
+
+
+@router.get("/portfolio", response_class=HTMLResponse)
+def portfolio_page(
+    request: Request,
+    session: SessionDep,
+    market_data: MarketDataDep,
+    user_id: UserDep,
+    config: ConfigDep,
+    refresh: bool = False,
+):
+    """`?refresh=1` is the Refresh button."""
+    return _portfolio(request, session, market_data, user_id, config, refresh=refresh)
+
+
+@router.post("/portfolio/spreads", response_class=HTMLResponse)
+def link_spread(
+    request: Request,
+    session: SessionDep,
+    market_data: MarketDataDep,
+    user_id: UserDep,
+    config: ConfigDep,
+    short_id: Annotated[int, Form()] = 0,
+    long_id: Annotated[int, Form()] = 0,
+):
+    """Link a sold and a bought option position as one credit spread (F3.7)."""
+    try:
+        pf.link_spread(session, user_id, short_id, long_id, utc_now())
+    except pf.TradeError as exc:
+        return _portfolio(
+            request, session, market_data, user_id, config, error=str(exc), status_code=400
+        )
+    return _redirect("/portfolio")
+
+
+@router.post("/portfolio/spreads/{spread_id}/delete")
+def unlink_spread(spread_id: int, session: SessionDep, user_id: UserDep):
+    pf.unlink_spread(session, user_id, spread_id)
+    return _redirect("/portfolio")
+
+
+@router.post("/portfolio/positions/{instrument_id}/settle", response_class=HTMLResponse)
+def settle_expired(
+    request: Request,
+    instrument_id: int,
+    session: SessionDep,
+    market_data: MarketDataDep,
+    user_id: UserDep,
+    config: ConfigDep,
+    outcome: Annotated[str, Form(max_length=20)] = "",
+):
+    """Expired worthless, or assigned / exercised (F3.9)."""
+    try:
+        pf.settle_expired(session, user_id, instrument_id, outcome, utc_now())
+    except pf.TradeError as exc:
+        return _portfolio(
+            request, session, market_data, user_id, config, error=str(exc), status_code=400
+        )
+    return _redirect("/portfolio")
 
 
 @router.post("/portfolio/trades/{trade_id}/delete")

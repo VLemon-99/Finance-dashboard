@@ -1,8 +1,38 @@
 {% extends "base.html" %}
 {% block title %}Portfolio · Finance Dashboard{% endblock %}
+{% block main_class %}wide{% endblock %}
 {% block content %}
 <h1>Portfolio</h1>
 <p class="muted small">A virtual portfolio for tracking performance. Nothing here is linked to a broker.</p>
+{% if error %}<p class="note error" role="alert">{{ error }}</p>{% endif %}
+
+{% if view.expired %}
+<section class="expired-box" aria-labelledby="expired-title">
+  <h2 id="expired-title">Expired: how did these end?</h2>
+  <ul class="plain-list">
+  {% for r in view.expired %}{% set label = instrument_label(r.target) %}
+    <li data-symbol="{{ r.target.symbol }}">
+      <strong>{{ "Short" if r.position.is_short else "Long" }} {{ r.position.quantity | whole }} {{ label }}</strong>
+      {% if r.contract and r.contract.underlying_price is not none %}
+      <span class="muted small">Last stock price seen: {{ r.contract.underlying_price | money }} ({{ "in the money" if r.contract.in_the_money else "out of the money" }}).</span>
+      {% endif %}
+      <span class="row-links">
+        <form method="post" action="/portfolio/positions/{{ r.target.instrument_id }}/settle">
+          <input type="hidden" name="outcome" value="worthless">
+          <button type="submit" class="secondary" aria-label="{{ label }} expired worthless">Expired worthless</button>
+        </form>
+        <form method="post" action="/portfolio/positions/{{ r.target.instrument_id }}/settle"
+              onsubmit="return confirm('Record {{ r.position.quantity * 100 }} shares {{ 'bought' if (r.target.option_type == 'put') == r.position.is_short else 'sold' }} at {{ r.target.strike | money }}?');">
+          <input type="hidden" name="outcome" value="assigned">
+          <button type="submit" class="secondary" aria-label="{{ label }} {{ 'assigned' if r.position.is_short else 'exercised' }}">{{ "Assigned" if r.position.is_short else "Exercised" }}</button>
+        </form>
+      </span>
+    </li>
+  {% endfor %}
+  </ul>
+  <p class="muted small">Expired worthless closes the option at $0. Assigned / exercised also records 100 shares per contract bought or sold at the strike on the expiration date.</p>
+</section>
+{% endif %}
 
 <form method="get" action="/portfolio/trade" class="inline-form">
   <label for="symbol">Record a stock trade</label>
@@ -12,13 +42,18 @@
 </form>
 <p class="muted small">For option trades, open the stock's <a href="/options">option chain</a> and press Bought or Sold on a row.</p>
 
-{% macro pnl_cells(r) %}
-  <td class="num">{% if r.pnl is not none %}<span class="{{ 'up' if r.pnl > 0 else ('down' if r.pnl < 0 else 'flat') }}">{{ r.pnl | signed }}</span>{% else %}—{% endif %}</td>
-  <td class="num">{% if r.pnl_pct is not none %}<span class="{{ 'up' if r.pnl_pct > 0 else ('down' if r.pnl_pct < 0 else 'flat') }}">{{ r.pnl_pct | signed }}%</span>{% else %}—{% endif %}</td>
+{% macro pnl_cell(pnl, pct) %}
+  <td class="num">{% if pnl is not none %}<span class="{{ 'up' if pnl > 0 else ('down' if pnl < 0 else 'flat') }}">{{ pnl | signed }}</span>{% if pct is not none %}<span class="muted small block">{{ pct | signed }}%</span>{% endif %}{% else %}—{% endif %}</td>
 {% endmacro %}
 {% macro position_cell(r) %}
   {{ "Short" if r.position.is_short else "Long" }} {{ r.position.quantity | whole }}
   {% if r.position.realized %}<span class="muted small block">realized so far {{ r.position.realized | signed }}</span>{% endif %}
+{% endmacro %}
+{% macro returns_cell(locked, remaining, dte_at_entry) %}
+  <td class="num" data-col="returns">
+    <span class="block">{{ locked | percent(2) }} <span class="muted small">locked-in{% if dte_at_entry is not none %} ({{ dte_at_entry }} DTE at entry){% endif %}</span></span>
+    <span class="block">{{ remaining | percent(2) }} <span class="muted small">remaining</span></span>
+  </td>
 {% endmacro %}
 {% macro trade_links(r) %}
   <span class="small"><a href="/portfolio/trade?symbol={{ r.target.symbol }}&amp;side=bought" aria-label="Bought {{ instrument_label(r.target) }}">Bought</a> · <a href="/portfolio/trade?symbol={{ r.target.symbol }}&amp;side=sold" aria-label="Sold {{ instrument_label(r.target) }}">Sold</a></span>
@@ -39,7 +74,7 @@
 <div class="table-wrap">
 <table class="stocks positions">
   <thead>
-    <tr><th>Ticker</th><th class="num">Position</th><th class="num">Avg entry</th><th class="num">Current</th><th class="num">P&amp;L $</th><th class="num">P&amp;L %</th><th>Since</th><th>Price fetched</th><th><span class="visually-hidden">Actions</span></th></tr>
+    <tr><th>Ticker</th><th class="num">Position</th><th class="num">Avg entry</th><th class="num">Current</th><th class="num">P&amp;L</th><th>Since</th><th>Price fetched</th><th><span class="visually-hidden">Actions</span></th></tr>
   </thead>
   <tbody>
   {% for r in view.stocks %}
@@ -48,12 +83,12 @@
       <td class="num">{{ position_cell(r) }}</td>
       <td class="num">{{ r.position.avg_price | money }}</td>
       <td class="num">{{ r.current_price | money }}</td>
-      {{ pnl_cells(r) }}
+      {{ pnl_cell(r.pnl, r.pnl_pct) }}
       <td>{{ r.position.opened_on | short_date }}</td>
       <td class="small">{% if r.fetched_at %}{{ r.fetched_at | eastern }}{% else %}Not fetched yet{% endif %}</td>
       <td>{{ trade_links(r) }}</td>
     </tr>
-    {% if r.note %}<tr class="row-note"><td colspan="9">{{ r.target.symbol }}: {{ r.note }}</td></tr>{% endif %}
+    {% if r.note %}<tr class="row-note"><td colspan="8">{{ r.target.symbol }}: {{ r.note }}</td></tr>{% endif %}
   {% endfor %}
   </tbody>
 </table>
@@ -69,10 +104,9 @@
   <thead>
     <tr>
       <th>Contract</th><th class="num">Position</th><th class="num">Avg entry</th><th class="num">Current</th>
-      <th class="num">P&amp;L $</th><th class="num">P&amp;L %</th><th class="num">DTE</th><th class="num">IV</th><th class="num">Delta</th>
+      <th class="num">P&amp;L</th><th class="num">DTE</th><th class="num">IV</th><th class="num">Delta</th>
       <th class="num">Premium</th><th class="num">Capital at risk</th>
-      <th class="num" title="Premium ÷ capital at risk × 365 ÷ days to expiration when opened">Return locked-in</th>
-      <th class="num" title="Premium ÷ capital at risk × 365 ÷ days to expiration left today">Return remaining</th>
+      <th class="num" title="Premium ÷ capital at risk × 365 ÷ days to expiration: at entry (locked-in) and left today (remaining)">Annualized return</th>
       <th><span class="visually-hidden">Actions</span></th>
     </tr>
   </thead>
@@ -85,21 +119,22 @@
       <td class="num">{{ position_cell(r) }}</td>
       <td class="num">{{ r.position.avg_price | money }}</td>
       <td class="num">{{ r.current_price | money }}{% if r.current_price is not none %}<span class="muted small block">{{ r.price_label }}</span>{% endif %}</td>
-      {{ pnl_cells(r) }}
+      {{ pnl_cell(r.pnl, r.pnl_pct) }}
       <td class="num">{{ 'expired' if r.expired else r.dte }}</td>
       <td class="num">{{ c.implied_volatility | percent if c else '—' }}</td>
       <td class="num">{{ c.greeks.delta | number(3) if c and c.greeks else '—' }}</td>
       <td class="num">{% if r.premium is not none %}{{ r.premium | money }}{% else %}—{% endif %}</td>
       {% if r.strategy == 'uncovered call' %}
-      <td class="num" colspan="3"><span class="uncovered">uncovered — no return figure</span></td>
-      {% else %}
+      <td class="num" colspan="2"><span class="uncovered">uncovered — no return figure</span></td>
+      {% elif r.position.is_short %}
       <td class="num">{% if r.capital is not none %}{{ r.capital | money }}{% else %}—{% endif %}</td>
-      <td class="num">{{ r.return_locked | percent(2) }}{% if r.dte_at_entry is not none and r.position.is_short %}<span class="muted small block">{{ r.dte_at_entry }} DTE at entry</span>{% endif %}</td>
-      <td class="num">{{ r.return_remaining | percent(2) }}</td>
+      {{ returns_cell(r.return_locked, r.return_remaining, r.dte_at_entry) }}
+      {% else %}
+      <td class="num">—</td><td class="num">—</td>
       {% endif %}
       <td>{{ trade_links(r) }}</td>
     </tr>
-    {% if r.note %}<tr class="row-note"><td colspan="14">{{ instrument_label(r.target) }}: {{ r.note }}</td></tr>{% endif %}
+    {% if r.note %}<tr class="row-note"><td colspan="12">{{ instrument_label(r.target) }}: {{ r.note }}</td></tr>{% endif %}
   {% endfor %}
   </tbody>
 </table>
@@ -112,6 +147,61 @@
 </p>
 {% else %}
 <p class="muted">No open option positions.</p>
+{% endif %}
+
+{% if view.spreads %}
+<h2>Credit spreads</h2>
+<div class="table-wrap">
+<table class="stocks positions spreads">
+  <thead>
+    <tr>
+      <th>Spread</th><th class="num">Contracts</th><th class="num">Net credit</th><th class="num">Cost to close</th>
+      <th class="num">P&amp;L</th><th class="num">DTE</th>
+      <th class="num">Premium</th><th class="num">Capital at risk</th>
+      <th class="num" title="Premium ÷ capital at risk × 365 ÷ days to expiration: at entry (locked-in) and left today (remaining)">Annualized return</th>
+      <th><span class="visually-hidden">Actions</span></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for sp in view.spreads %}{% set t = sp.short.target %}
+    <tr data-spread="{{ sp.spread_id }}"{% if sp.expired %} class="expired"{% endif %}>
+      <td><strong>{{ t.underlying }} {{ t.strike | strike }}/{{ sp.long.target.strike | strike }} {{ t.option_type }} credit spread</strong>
+        <span class="muted small block">{{ t.expiration | short_date }} · sold {{ t.strike | strike }} at {{ sp.short.position.avg_price | money }}, bought {{ sp.long.target.strike | strike }} at {{ sp.long.position.avg_price | money }}</span>
+        {% if sp.expiring_today %}<span class="badge">expiring today</span>{% elif sp.expired %}<span class="badge plain">expired</span>{% endif %}</td>
+      <td class="num">{{ sp.contracts | whole }}</td>
+      <td class="num">{{ sp.net_credit | money }}</td>
+      <td class="num">{{ sp.cost_to_close | money }}</td>
+      {{ pnl_cell(sp.pnl, sp.pnl_pct) }}
+      <td class="num">{{ 'expired' if sp.expired else sp.dte }}</td>
+      <td class="num">{{ sp.premium | money }}</td>
+      <td class="num">{{ sp.capital | money }}</td>
+      {{ returns_cell(sp.return_locked, sp.return_remaining, sp.dte_at_entry) }}
+      <td>
+        <form method="post" action="/portfolio/spreads/{{ sp.spread_id }}/delete">
+          <button type="submit" class="link" aria-label="Unlink spread {{ sp.spread_id }}">Unlink</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="muted small">Capital at risk = (difference between strikes − net credit) × 100 × contracts. P&amp;L % is of the premium received.</p>
+{% endif %}
+
+{% if view.link_shorts and view.link_longs %}
+<form method="post" action="/portfolio/spreads" class="inline-form">
+  <span>Link a credit spread:</span>
+  <label for="short_id" class="visually-hidden">Leg you sold</label>
+  <select id="short_id" name="short_id">
+    {% for r in view.link_shorts %}<option value="{{ r.target.instrument_id }}">Sold {{ r.position.quantity }} × {{ instrument_label(r.target) }}</option>{% endfor %}
+  </select>
+  <label for="long_id" class="visually-hidden">Leg you bought</label>
+  <select id="long_id" name="long_id">
+    {% for r in view.link_longs %}<option value="{{ r.target.instrument_id }}">Bought {{ r.position.quantity }} × {{ instrument_label(r.target) }}</option>{% endfor %}
+  </select>
+  <button type="submit" class="secondary">Link</button>
+</form>
 {% endif %}
 
 {% if view.closed %}

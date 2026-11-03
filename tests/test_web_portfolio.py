@@ -63,8 +63,8 @@ def page(web, **params):
 def test_f3_3_long_stock_position(web):
     trade(web, "AAPL", "bought", 10, 250, day="2026-10-29")
     values = cells(row(page(web), "AAPL"))
-    # Position, avg entry, current, P&L $, P&L %
-    assert values[:5] == ["Long 10", "250.00", "259.58", "+95.80", "+3.83%"]
+    # Position, avg entry, current, P&L ($ and %)
+    assert values[:4] == ["Long 10", "250.00", "259.58", "+95.80 +3.83%"]
 
 
 def test_f3_3_average_entry_over_several_buys(web):
@@ -76,7 +76,7 @@ def test_f3_3_average_entry_over_several_buys(web):
 
 def test_f3_1_short_stock_position(web):
     trade(web, "AAPL", "sold", 10, 270)
-    assert cells(row(page(web), "AAPL"))[:4] == ["Short 10", "270.00", "259.58", "+104.20"]
+    assert cells(row(page(web), "AAPL"))[:4] == ["Short 10", "270.00", "259.58", "+104.20 +3.86%"]
 
 
 def test_f3_3_short_put_with_dte_iv_delta(web):
@@ -86,10 +86,10 @@ def test_f3_3_short_put_with_dte_iv_delta(web):
     assert values[0] == "Short 2"
     assert values[1] == "3.00"
     assert values[2] == "2.73 mid"
-    assert values[3:5] == ["+54.00", "+9.00%"]  # (3.00 - 2.73) x 2 x 100; 54 / 600
-    assert values[5] == "17"  # DTE
-    assert values[6] == "30.0%"  # IV
-    assert re.fullmatch(r"-0\.\d{3}", values[7])  # put delta is negative
+    assert values[3] == "+54.00 +9.00%"  # (3.00 - 2.73) x 2 x 100; 54 / 600
+    assert values[4] == "17"  # DTE
+    assert values[5] == "30.0%"  # IV
+    assert re.fullmatch(r"-0\.\d{3}", values[6])  # put delta is negative
 
 
 def test_f3_3_closed_position_shows_realized_pnl(web):
@@ -111,7 +111,7 @@ def test_long_option_has_no_return_figures(web):
     trade(web, C260, "bought", 1, 6.00)
     values = cells(row(page(web), C260))
     assert values[0] == "Long 1"
-    assert values[8:12] == ["—", "—", "—", "—"]  # premium, capital, returns
+    assert values[7:10] == ["—", "—", "—"]  # premium, capital, returns
 
 
 # --- F3.4 / F3.5: capital at risk and annualized returns -------------------------------------
@@ -124,10 +124,10 @@ def test_f3_4_cash_secured_put_locked_in_and_remaining(web):
     r = row(html, P250)
     assert "cash-secured put" in r
     values = cells(r)
-    assert values[8] == "600.00"  # premium: 3.00 x 100 x 2
-    assert values[9] == "49,400.00"  # 250 x 100 x 2 - 600
-    assert values[10] == "21.11% 21 DTE at entry"  # 600 / 49,400 x 365 / 21
-    assert values[11] == "26.08%"  # 600 / 49,400 x 365 / 17
+    assert values[7] == "600.00"  # premium: 3.00 x 100 x 2
+    assert values[8] == "49,400.00"  # 250 x 100 x 2 - 600
+    # 600 / 49,400 x 365 / 21 days, then x 365 / 17 days
+    assert values[9] == "21.11% locked-in (21 DTE at entry) 26.08% remaining"
 
 
 def test_f3_5_covered_call_uses_stock_price_at_sale(web):
@@ -136,9 +136,9 @@ def test_f3_5_covered_call_uses_stock_price_at_sale(web):
     r = row(page(web), C260)
     assert "covered call" in r
     values = cells(r)
-    assert values[8:10] == ["600.00", "25,958.00"]  # 259.58 x 100 x 1
-    assert values[10].startswith("49.63%")  # 600 / 25,958 x 365 / 17
-    assert values[11] == "49.63%"
+    assert values[7:9] == ["600.00", "25,958.00"]  # 259.58 x 100 x 1
+    # 600 / 25,958 x 365 / 17 (opened today, so both are the same)
+    assert values[9] == "49.63% locked-in (17 DTE at entry) 49.63% remaining"
 
 
 # --- F3.8: uncovered calls -------------------------------------------------------------------
@@ -152,7 +152,7 @@ def test_f3_8_short_call_without_enough_shares_is_uncovered(web, shares):
     r = row(page(web), C260)
     assert "uncovered — no return figure" in r
     assert "uncovered call" in r
-    assert "%" not in "".join(cells(r)[9:])  # no return figure at all
+    assert "%" not in "".join(cells(r)[8:])  # no return figure at all
 
 
 def test_shares_cover_the_oldest_calls_first(web):
@@ -179,8 +179,8 @@ def test_expiring_today_flag(web, options_clock):
     r = row(page(web), P250)
     assert "expiring today" in r
     values = cells(r)
-    assert values[5] == "0"
-    assert values[11] == "—"  # no remaining return on the last day (would divide by 0)
+    assert values[4] == "0"
+    assert values[9].endswith("— remaining")  # none on the last day (would divide by 0)
 
 
 def test_expired_position_is_marked_and_not_refreshed(web, options_clock, fake_market_data):
@@ -189,7 +189,7 @@ def test_expired_position_is_marked_and_not_refreshed(web, options_clock, fake_m
     calls = len(fake_market_data.chain_calls)
     r = row(page(web, refresh=1), P250)
     assert fake_market_data.chain_calls[calls:] == []
-    assert 'data-status="expired"' in r and "expired" in cells(r)[5]
+    assert 'data-status="expired"' in r and "expired" in cells(r)[4]
 
 
 # --- freshness (F1.5, F1.6) ----------------------------------------------------------------

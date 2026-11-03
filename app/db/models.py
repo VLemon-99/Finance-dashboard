@@ -139,6 +139,26 @@ class Transaction(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now)
 
 
+class Spread(SQLModel, table=True):
+    """Two option positions the user linked as one credit spread (SPEC F3.7).
+
+    Links instruments, not trades: while both legs are open with the same number of
+    contracts, the portfolio shows and calculates them as one position.
+    """
+
+    __tablename__ = "spreads"
+    __table_args__ = (
+        UniqueConstraint("user_id", "short_instrument_id", name="uq_spreads_user_short"),
+        UniqueConstraint("user_id", "long_instrument_id", name="uq_spreads_user_long"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    short_instrument_id: int = Field(foreign_key="instruments.id")  # the leg sold
+    long_instrument_id: int = Field(foreign_key="instruments.id")  # the leg bought
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 class SourceItemRow(SQLModel, table=True):
     """One piece of public research content about one ticker (an article, a filing...).
 

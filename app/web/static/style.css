@@ -111,3 +111,9 @@ a.cite:hover { color: var(--text); text-decoration: underline; }
 .row-links a { color: var(--muted); font-size: 0.875rem; }
 .row-links form { display: inline; }
 .uncovered { color: var(--warn); font-weight: 600; white-space: nowrap; }
+.expired-box { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 10px; padding: 12px 16px; margin: 12px 0; }
+.expired-box h2 { margin: 0 0 8px; font-size: 1.1rem; }
+.plain-list { list-style: none; padding: 0; margin: 0; }
+.plain-list li { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 6px 0; }
+main.wide { max-width: 1400px; }
+.stocks td[data-col=returns] { white-space: normal; min-width: 8.5em; }
