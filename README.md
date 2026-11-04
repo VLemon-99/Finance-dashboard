@@ -93,6 +93,17 @@ Reports use only the channels and blogs you list in `config/sources.yaml` (open 
 
 A video or post is used when its title or description mentions the ticker (e.g. `AMZN` or `$AMZN`) or the company's name. If a company goes by another name (Alphabet → Google), add it under `also_known_as`. The AI watches each new video once (never twice, even for another ticker), at most 10 per run; the rest wait for the next run. Change the limit in `config/settings.yaml` → `ai: max_videos_per_run`. Each 20-minute video costs roughly 4–6 cents of AI credit.
 
+**Setting up the calendar** (one time, about 2 minutes)
+
+The Calendar page (and the "Coming up" box on the home page) shows your stocks' earnings dates, Fed meetings, and the dates of CPI, the jobs report, PCE and GDP. Those four come from FRED, the St. Louis Fed's free data service, which needs a free key. Without it they show as missing; everything else works.
+
+1. Go to https://fredaccount.stlouisfed.org and create a free account (or sign in).
+2. Open **My Account → API Keys** and click **Request API Key**. For the description, something like "Personal research dashboard, release dates" is fine. Agree to the terms.
+3. Copy the key (32 letters and digits) and put it in `.env`: `FRED_API_KEY=` followed by the key (no spaces or quotes).
+4. Restart the app and open **Calendar**.
+
+Fed meeting dates are in `config/fomc_dates.yaml` (2026 only for now). When the Fed publishes next year's dates (usually in the summer, at https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm), add them the same way as the ones already there; the calendar reminds you once no future meeting is listed. Release times and the high/medium impact levels are in `config/settings.yaml` under `calendar:`.
+
 **Automatic morning reports** (off for now)
 
 To have every watchlist reported on weekdays at 7:30am Eastern while the app is running, open `config/settings.yaml`, find `schedule:`, change `enabled: false` to `enabled: true`, and restart the app. The Reports page then shows when the next run is. If your computer is asleep or the app is closed at 7:30, that day's run happens only if the app is back by 8:00.

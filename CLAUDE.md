@@ -14,11 +14,11 @@ I'm tech-savvy but not a programmer. Explain choices in plain language, avoid ja
 If my request conflicts with these documents, point it out and ask before proceeding.
 
 ## Tech stack
-Status: Phases 1–3 (walking skeleton, watchlists, report v1), Phase 4 (option chains, virtual portfolio) and Phase 5 (blogs, YouTube, optional schedule) built; the commands below work. Reasons for each choice are in `docs/DECISIONS.md`.
+Status: Phases 1–3 (walking skeleton, watchlists, report v1), Phase 4 (option chains, virtual portfolio), Phase 5 (blogs, YouTube, optional schedule) and Phase 6 (calendar) built; the commands below work. Reasons for each choice are in `docs/DECISIONS.md`.
 - Language/framework: Python 3.12 + FastAPI, server-rendered pages with Jinja2 templates + HTMX, Chart.js for charts
 - Database/storage: SQLite (`data/app.db`, git-ignored) via SQLModel/SQLAlchemy, Alembic migrations; Postgres-compatible for later
 - Background jobs: APScheduler (weekday 7:30am US Eastern report; off by default, `schedule.enabled` in `config/settings.yaml`)
-- Data sources: Yahoo Finance via `yfinance` (market data), SEC EDGAR, news/blog/YouTube RSS via `feedparser`, FRED API; X and Reddit later
+- Data sources: Yahoo Finance via `yfinance` (market data, earnings calendar), SEC EDGAR, news/blog/YouTube RSS via `feedparser`, FRED API (release dates), Fed meeting dates in `config/fomc_dates.yaml`; X and Reddit later
 - AI: Gemini API via `google-genai`, behind `app/ai/llm.py` interface
 - Tooling: `uv` (dependencies + running), `ruff` (lint + format), `pytest`, GitHub Actions CI
 - Hosting/deployment: none yet. Runs locally at http://localhost:8000; cloud + login planned for the last phase
