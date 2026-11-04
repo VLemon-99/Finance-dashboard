@@ -7,14 +7,21 @@ from app.config import (
     PROJECT_ROOT,
     BenchmarksConfig,
     DamodaranConfig,
+    FollowedFund,
     TickerBenchmarks,
     load_benchmarks_config,
 )
 from app.providers.damodaran import DamodaranClient
 from app.services.market_facts import MarketFacts
-from tests.conftest import FakeMarketData
+from tests.conftest import (
+    FUND_ROUTES,
+    TEST_SEC_USER_AGENT,
+    FakeFetch,
+    FakeMarketData,
+)
 from tests.test_damodaran import PageFetch
 
+BERKSHIRE = FollowedFund(name="Berkshire Hathaway", cik=1067983)
 OWNER_CONFIG = load_benchmarks_config(PROJECT_ROOT / "config" / "benchmarks.yaml")
 
 
@@ -116,7 +123,8 @@ def test_groups_and_peers_are_fetched_once_and_reused(market, pages):
     calls = len(market.research_calls)
     facts.gather(["AAPL"])  # a later run the same day
     new = market.research_calls[calls:]
-    assert new == ["figures:AAPL"]  # yearly figures are asked again; groups and peers reused
+    # Its own yearly figures and holders are asked again; groups and peers are reused.
+    assert sorted(new) == ["figures:AAPL", "ownership:AAPL"]
     assert len(pages.calls) == 3
 
 
@@ -169,3 +177,69 @@ def test_owner_config_maps_every_yahoo_industry_in_the_sample(market):
     assert damodaran_name(OWNER_CONFIG, "oil-gas-ep") == "Oil/Gas (Production and Exploration)"
     assert damodaran_name(OWNER_CONFIG, "banks-regional") == "Banks (Regional)"
     assert damodaran_name(OWNER_CONFIG, "shell-companies") is None
+
+
+# --- institutional holders and followed funds (SPEC F4.8) ----------------------------
+
+
+def with_funds(market, funds, user_agent=TEST_SEC_USER_AGENT):
+    from app.config import FollowedFundsConfig, InstitutionalConfig
+    from app.providers.sec_13f import ThirteenFClient
+
+    config = InstitutionalConfig(followed_funds=FollowedFundsConfig(funds=funds))
+    client = ThirteenFClient(FakeFetch(FUND_ROUTES), user_agent)
+    return MarketFacts(market, OWNER_CONFIG, None, client, config, max_parallel=2)
+
+
+def test_top_institutional_holders(market, pages):
+    inst = facts_for(market, pages).gather(["AAPL"])["AAPL"].institutional
+    own = inst["ownership"]
+    assert (own["institutions_pct"], own["institutions_count"]) == (0.6231, 6512)
+    assert own["as_of"] == "2025-06-30"
+    assert [h["name"] for h in own["top"]][:2] == ["Vanguard Group Inc", "Blackrock Inc."]
+    assert own["top"][1]["pct_change"] == -0.0081
+    assert inst["funds"] is None  # no funds followed in this setup
+
+
+def test_followed_funds_in_the_report(market):
+    result = with_funds(market, [BERKSHIRE]).gather(["AMZN", "AAPL"])
+    funds = result["AMZN"].institutional["funds"]
+    assert (funds["checked"], funds["period"]) == (1, "2026-06-30")
+    [amzn] = funds["positions"]
+    assert (amzn["fund"], amzn["status"]) == ("Berkshire Hathaway", "reduced")
+    assert result["AAPL"].institutional["funds"]["positions"][0]["status"] == "unchanged"
+    assert result["AMZN"].missing == []
+
+
+def test_sec_company_name_helps_find_the_stock(market):
+    result = with_funds(market, [BERKSHIRE]).gather(
+        ["OXY"], company_names=lambda t: "OCCIDENTAL PETROLEUM CORP /DE/"
+    )
+    [oxy] = result["OXY"].institutional["funds"]["positions"]
+    assert oxy["shares"] == 260_000_000
+
+
+def test_one_fund_failing_is_listed_and_others_still_shown(market):
+    broken = FollowedFund(name="Wrong Fund", cik=123)
+    facts = with_funds(market, [broken, BERKSHIRE]).gather(["AMZN"])["AMZN"]
+    assert facts.institutional["funds"]["checked"] == 1
+    assert any(m.startswith("Funds you follow (Wrong Fund): ") for m in facts.missing)
+
+
+def test_funds_without_the_sec_contact_give_one_note(market):
+    two = [BERKSHIRE, FollowedFund(name="Other", cik=1336528)]
+    facts = with_funds(market, two, user_agent="").gather(["AMZN"])["AMZN"]
+    assert facts.institutional["funds"] is None
+    assert [m for m in facts.missing if "Funds" in m] == [
+        "Funds you follow: SEC filings need your contact details: set SEC_USER_AGENT in the "
+        ".env file."
+    ]
+
+
+def test_holders_down(market, pages):
+    market.research_down.add("ownership:AAPL")
+    facts = facts_for(market, pages).gather(["AAPL"])["AAPL"]
+    assert facts.institutional["ownership"] is None
+    assert facts.missing == [
+        "Top institutional holders: Yahoo Finance did not respond properly (Timeout)."
+    ]

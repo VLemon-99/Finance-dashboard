@@ -9,6 +9,8 @@ Everything is fetched for all of a run's tickers together, a few at a time:
    once per run and reused for `refresh_hours` (24), so tickers sharing an industry cost
    nothing extra.
 3. Damodaran's industry averages (one download a day).
+4. Each ticker's institutional ownership (Yahoo), and the latest two 13F reports of each
+   fund the owner follows (SEC; once per run for all tickers, each report kept for good).
 Each part that fails is listed in the report's "missing" notes; the rest is still shown
 (SPEC F4.11).
 """
@@ -22,7 +24,14 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
-from app.config import YAHOO_SECTORS, BenchmarksConfig, TickerBenchmarks, slug
+from app.config import (
+    YAHOO_SECTORS,
+    BenchmarksConfig,
+    FollowedFund,
+    InstitutionalConfig,
+    TickerBenchmarks,
+    slug,
+)
 from app.providers.damodaran import DamodaranClient, DamodaranError, IndustryAverages
 from app.providers.market_data import (
     AnnualFigures,
@@ -30,8 +39,10 @@ from app.providers.market_data import (
     GroupMembers,
     MarketData,
     MarketDataError,
+    OwnershipData,
     TickerNotFound,
 )
+from app.providers.sec_13f import FundReport, ThirteenFClient, holding, matching_cusips
 from app.services.valuation import (
     METRICS,
     fiscal_label,
@@ -40,6 +51,7 @@ from app.services.valuation import (
     metric_rows,
     target_section,
 )
+from app.sources.base import SourceError
 from app.timeutils import utc_now
 
 log = logging.getLogger(__name__)
@@ -79,7 +91,7 @@ def attempt[T](fn: Callable[[], T]) -> Attempt[T]:
         return Attempt(value=fn())
     except TickerNotFound:
         return Attempt(error="Yahoo Finance has no data for this ticker.")
-    except (MarketDataError, DamodaranError) as exc:
+    except (MarketDataError, DamodaranError, SourceError) as exc:
         return Attempt(error=str(exc))
     except Exception:
         log.exception("Market facts request failed unexpectedly")
@@ -91,6 +103,7 @@ class TickerFacts:
     """What a ticker's report gets: sections (None = not available) and missing notes."""
 
     valuation: dict[str, Any] | None = None
+    institutional: dict[str, Any] | None = None
     missing: list[str] = field(default_factory=list)
 
 
@@ -114,6 +127,8 @@ class MarketFacts:
     market_data: MarketData
     benchmarks: BenchmarksConfig
     damodaran: DamodaranClient | None = None
+    funds: ThirteenFClient | None = None
+    institutional: InstitutionalConfig = field(default_factory=InstitutionalConfig)
     max_parallel: int = 4
 
     def __post_init__(self) -> None:
@@ -123,7 +138,11 @@ class MarketFacts:
 
     # --- the whole run ------------------------------------------------------------
 
-    def gather(self, tickers: Sequence[str]) -> dict[str, TickerFacts]:
+    def gather(
+        self, tickers: Sequence[str], company_names: Callable[[str], str | None] | None = None
+    ) -> dict[str, TickerFacts]:
+        """Everything for these tickers. `company_names` gives a ticker's SEC company name
+        (it helps recognize the stock in funds' 13F reports)."""
         tickers = list(dict.fromkeys(tickers))
         facts = {t: TickerFacts() for t in tickers}
         profiles = self._parallel(tickers, self._profile)
@@ -151,6 +170,18 @@ class MarketFacts:
         for t, plan in plans.items():
             facts[t].valuation = self._valuation(
                 plan, figures[t], groups, damodaran, facts[t].missing
+            )
+
+        ownership = self._parallel(
+            tickers, lambda t: attempt(lambda: self.market_data.get_ownership(t))
+        )
+        funds = self._fund_reports()
+        for t in tickers:
+            names = [profiles[t].value.name if profiles[t].value else None]
+            if company_names is not None:
+                names.append(_safe_name(company_names, t))
+            facts[t].institutional = self._institutional(
+                t, ownership[t], funds, names, facts[t].missing
             )
         return facts
 
@@ -363,6 +394,131 @@ class MarketFacts:
             "updated": averages.value.updated,
             "bench": {key: {"value": getattr(multiples, key), "count": None} for key, _ in METRICS},
         }
+
+    # --- holders and followed funds (F4.8) ------------------------------------------
+
+    def _fund_reports(self) -> list[tuple[FollowedFund, Attempt]] | None:
+        cfg = self.institutional.followed_funds
+        if self.funds is None or not cfg.enabled or not cfg.funds:
+            return None
+        # One fund after another: the SEC asks for a gentle pace.
+        return [(f, attempt(lambda f=f: self.funds.latest_reports(f.cik))) for f in cfg.funds]
+
+    def _institutional(
+        self,
+        ticker: str,
+        ownership: Attempt[OwnershipData],
+        funds: list[tuple[FollowedFund, Attempt]] | None,
+        names: list[str | None],
+        missing: list[str],
+    ) -> dict[str, Any]:
+        if ownership.error:
+            missing.append(f"Top institutional holders: {ownership.error}")
+        section: dict[str, Any] = {
+            "ownership": ownership_section(ownership.value) if ownership.value else None,
+            "funds": None,
+        }
+        if funds is None:
+            return section
+        problems: dict[str, list[str]] = {}
+        reports = []
+        for fund, got in funds:
+            if got.error:
+                problems.setdefault(got.error, []).append(fund.name)
+            else:
+                reports.append((fund, *got.value))
+        for message, failed in problems.items():
+            if len(failed) == len(funds):
+                missing.append(f"Funds you follow: {message}")
+            else:
+                missing.append(f"Funds you follow ({', '.join(failed)}): {message}")
+        if reports:
+            cusip = self.institutional.followed_funds.cusips.get(ticker)
+            positions = fund_positions(reports, names, cusip)
+            periods = [latest.period for _, latest, _ in reports if latest]
+            section["funds"] = {
+                "checked": len(reports),
+                "period": max(periods).isoformat() if periods else None,
+                "positions": positions,
+            }
+        return section
+
+
+def ownership_section(own: OwnershipData) -> dict[str, Any]:
+    """% held by institutions and the top holders with the change in their stakes."""
+    dates = [h.reported for h in own.top_institutions if h.reported]
+    return {
+        "institutions_pct": own.institutions_pct,
+        "institutions_count": own.institutions_count,
+        "as_of": max(dates).isoformat() if dates else None,
+        "top": [
+            {
+                "name": h.name,
+                "pct_held": h.pct_held,
+                "pct_change": h.pct_change,
+                "shares": h.shares,
+                "value": h.value,
+            }
+            for h in own.top_institutions
+        ],
+    }
+
+
+# A stake that changed by less than this (fraction) counts as unchanged.
+UNCHANGED_BELOW = 0.005
+
+
+def fund_positions(
+    reports: Iterable[tuple[FollowedFund, FundReport | None, FundReport | None]],
+    names: Iterable[str | None],
+    cusip: str | None = None,
+) -> list[dict[str, Any]]:
+    """The followed funds that hold the stock, or sold it in their latest quarter.
+
+    status: "new" (bought since the previous report), "added", "reduced", "unchanged",
+    "sold" (all of it), or "held" (the fund's first report: nothing to compare with).
+    change: the change in its share count since the previous report (0.1 = +10%).
+    portfolio_pct: the stake's share of everything the fund reported (conviction)."""
+    names = list(names)
+    found = []
+    for fund, latest, previous in reports:
+        cusips = matching_cusips([latest, previous], names, cusip)
+        now, before = holding(latest, cusips), holding(previous, cusips)
+        if now is None and before is None:
+            continue
+        change = None
+        if now and before:
+            change = now[0] / before[0] - 1 if before[0] else None
+            if change is None or abs(change) < UNCHANGED_BELOW:
+                status = "unchanged"
+            else:
+                status = "added" if change > 0 else "reduced"
+        elif now:
+            status = "new" if previous is not None else "held"
+        else:
+            status, change = "sold", -1.0
+        total = latest.total_value if latest else 0
+        found.append(
+            {
+                "fund": fund.name,
+                "status": status,
+                "shares": now[0] if now else 0.0,
+                "value": now[1] if now else 0.0,
+                "change": change,
+                "portfolio_pct": now[1] / total if now and total else None,
+                "period": latest.period.isoformat() if latest else None,
+                "url": latest.url if latest else None,
+            }
+        )
+    found.sort(key=lambda f: (f["status"] == "sold", -f["value"]))
+    return found
+
+
+def _safe_name(company_names: Callable[[str], str | None], ticker: str) -> str | None:
+    try:
+        return company_names(ticker)
+    except Exception:  # e.g. the SEC isn't set up: Yahoo's name is still used
+        return None
 
 
 def has_valuation(profile: CompanyProfile | None) -> bool:

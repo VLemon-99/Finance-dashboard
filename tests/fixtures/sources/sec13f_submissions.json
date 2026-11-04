@@ -1,0 +1,9 @@
+{"_note": "Hand-made sample in the format of the SEC's submissions file for a 13F filer (Phase 7). Accession numbers and dates are INVENTED.",
+ "cik": "1067983", "name": "BERKSHIRE HATHAWAY INC",
+ "filings": {"recent": {
+   "accessionNumber": ["0000950123-26-009001", "0000950123-26-008001", "0000950123-26-007001", "0000950123-26-005001", "0000950123-26-002001"],
+   "form": ["13F-HR/A", "13F-HR", "4", "13F-HR", "13F-HR"],
+   "filingDate": ["2026-08-20", "2026-08-14", "2026-06-02", "2026-05-15", "2026-02-14"],
+   "reportDate": ["2026-06-30", "2026-06-30", "2026-05-29", "2026-03-31", "2025-12-31"],
+   "primaryDocument": ["primary_doc.xml", "primary_doc.xml", "form4.xml", "primary_doc.xml", "primary_doc.xml"]
+ }}}

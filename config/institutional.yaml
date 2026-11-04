@@ -1,0 +1,54 @@
+# The "Institutional & insider activity" part of reports (SPEC F4.8). Restart the app after editing.
+
+# Funds you follow. Each quarter, every fund managing over $100 million in US stocks files a
+# 13F report with the SEC listing what it held at the quarter's end (filed up to 45 days
+# later). Reports show which of these funds hold the stock and whether they bought or sold
+# since their previous report. Free; uses the same SEC contact (SEC_USER_AGENT in .env).
+#
+# Each fund needs a name (shown in reports) and its SEC id number ("CIK"). To find a CIK:
+# search the fund's name at https://www.sec.gov/edgar/search and copy the number shown as
+# "CIK" next to it (leading zeros don't matter).
+# Starter list of well-known investors; edit freely (up to 50).
+followed_funds:
+  enabled: true
+  funds:
+    - name: Berkshire Hathaway
+      cik: 1067983
+    - name: Pershing Square (Bill Ackman)
+      cik: 1336528
+    - name: Baupost Group (Seth Klarman)
+      cik: 1061768
+    - name: Duquesne Family Office (Stanley Druckenmiller)
+      cik: 1536411
+    - name: Appaloosa (David Tepper)
+      cik: 1656456
+    - name: Third Point (Dan Loeb)
+      cik: 1040273
+    - name: Greenlight Capital (David Einhorn)
+      cik: 1079114
+    - name: Tiger Global
+      cik: 1167483
+    - name: Coatue Management
+      cik: 1135730
+    - name: Viking Global
+      cik: 1103804
+  # 13F reports name stocks by company name and CUSIP (a 9-character code), not by ticker.
+  # Stocks are recognized by name; if a fund's holding of a stock is missed, add the stock's
+  # CUSIP here (it's on the fund's 13F report on the SEC's site). Example:
+  #   OXY: "674599105"
+  cusips: {}
+
+# Unusual options activity: contracts traded far more than usual today.
+unusual_options:
+  enabled: true
+  # Unusual = today's volume is more than this many times the open interest
+  # (the contracts already open at the start of the day)...
+  volume_to_open_interest: 2.0
+  # ...and at least this many contracts traded.
+  min_volume: 500
+  # Only expiration dates in the next this-many days, at most this many dates per stock
+  # (each date is one more request to Yahoo).
+  days_ahead: 60
+  max_expirations: 6
+  # Most contracts listed per stock (biggest volume first).
+  max_rows: 10

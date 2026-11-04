@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     # What each stock's valuation is compared with (see BenchmarksConfig below, SPEC F4.7).
     benchmarks_file: Path = PROJECT_ROOT / "config" / "benchmarks.yaml"
 
+    # Funds followed and unusual options thresholds (see InstitutionalConfig, SPEC F4.8).
+    institutional_file: Path = PROJECT_ROOT / "config" / "institutional.yaml"
+
 
 @lru_cache
 def get_settings() -> Settings:
@@ -293,6 +296,59 @@ class BenchmarksConfig(_Section):
 def load_benchmarks_config(path: Path) -> BenchmarksConfig:
     """Read config/benchmarks.yaml."""
     return _load_yaml(path, BenchmarksConfig, "Valuation benchmarks")
+
+
+# --- config/institutional.yaml (funds followed, unusual options, SPEC F4.8) ---------
+
+
+class FollowedFund(_Section):
+    name: str = Field(min_length=1, max_length=100)  # shown in reports
+    cik: int = Field(ge=1, le=9_999_999_999)  # the SEC's id number for the fund
+
+
+class FollowedFundsConfig(_Section):
+    """Funds whose quarterly 13F holdings are shown in reports (SPEC F4.8)."""
+
+    enabled: bool = True
+    funds: list[FollowedFund] = Field(default=[], max_length=50)
+    # Ticker -> CUSIP, for a stock the 13F reports don't name the way Yahoo/the SEC do.
+    cusips: dict[str, str] = {}
+
+    @field_validator("cusips")
+    @classmethod
+    def _cusips(cls, value: dict[str, str]) -> dict[str, str]:
+        checked = {}
+        for ticker, cusip in value.items():
+            if not re.fullmatch(r"[0-9A-Za-z]{9}", str(cusip)):
+                raise ValueError(f"'{cusip}' isn't a CUSIP (9 letters and digits)")
+            checked[(_tickers([ticker]) or [ticker])[0]] = str(cusip).upper()
+        return checked
+
+
+class UnusualOptionsConfig(_Section):
+    """Option contracts traded far more than usual today (SPEC F4.8)."""
+
+    enabled: bool = True
+    # A contract is unusual when today's volume is more than this many times its open
+    # interest (contracts open at the start of the day)...
+    volume_to_open_interest: float = Field(default=2.0, ge=0.5, le=100)
+    # ...and at least this many contracts traded.
+    min_volume: int = Field(default=500, ge=1)
+    # Only expiration dates within this many days, at most this many of them per stock.
+    days_ahead: int = Field(default=60, ge=1, le=730)
+    max_expirations: int = Field(default=6, ge=1, le=30)
+    # Most contracts listed per stock (the biggest volume first).
+    max_rows: int = Field(default=10, ge=1, le=50)
+
+
+class InstitutionalConfig(_Section):
+    followed_funds: FollowedFundsConfig = FollowedFundsConfig()
+    unusual_options: UnusualOptionsConfig = UnusualOptionsConfig()
+
+
+def load_institutional_config(path: Path) -> InstitutionalConfig:
+    """Read config/institutional.yaml."""
+    return _load_yaml(path, InstitutionalConfig, "Institutional activity")
 
 
 # --- config/fomc_dates.yaml (Fed meetings, SPEC F5.2) ---------------------------------

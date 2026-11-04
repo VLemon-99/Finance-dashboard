@@ -338,7 +338,19 @@ SOURCE_FIXTURES = FIXTURES / "sources"
 SOURCES_NOW = datetime(2026, 11, 2, 12, 0, tzinfo=UTC)
 
 # Address (or the start of one) -> sample file. Checked in order; first match wins.
+# A followed fund's 13F reports (Phase 7): the latest and the previous quarter.
+FUND_CIK = 1067983
+_FUND_FOLDER = "https://www.sec.gov/Archives/edgar/data/1067983/"
+FUND_ROUTES = {
+    "https://data.sec.gov/submissions/CIK0001067983.json": "sec13f_submissions.json",
+    _FUND_FOLDER + "000095012326008001/index.json": "sec13f_index_latest.json",
+    _FUND_FOLDER + "000095012326008001/46994.xml": "sec13f_infotable_latest.xml",
+    _FUND_FOLDER + "000095012326005001/index.json": "sec13f_index_previous.json",
+    _FUND_FOLDER + "000095012326005001/infotable.xml": "sec13f_infotable_previous.xml",
+}
+
 DEFAULT_ROUTES = {
+    **FUND_ROUTES,
     "https://news.google.com/rss/search": "google_news_aapl.xml",
     "https://www.youtube.com/feeds/videos.xml?channel_id=UCsampleChannelAAAAAAAAA": (
         "youtube_channel.xml"
