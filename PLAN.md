@@ -4,7 +4,7 @@
 > Feature IDs (F1.4 etc.) refer to acceptance criteria in `docs/SPEC.md`.
 
 ## Current phase
-**Phase 7: Report v3 (F4.7, F4.8)**: in progress on branch `claude/eloquent-darwin-gy85ct`. Plan agreed with the owner 2026-11-04: valuation compared with the stock's own history, automatic industry peers, its sector's largest companies and Damodaran's industry averages (no hand-made peer lists; overrides in a config file, AMZN compared with Technology); top institutional holders from Yahoo plus "funds I follow" from the SEC's 13F filings; unusual options activity (next 60 days, up to 6 expiration dates). Keep the page compact; the owner will prune metrics later. Phases 1–6 and the 7-day report period (PR #17) are merged; the owner confirmed Phase 5 with real YouTube data.
+**Phase 7: Report v3 (F4.7, F4.8)**: built on branch `claude/eloquent-darwin-gy85ct` (not merged yet). Valuation compared with the stock's own past years, its industry's largest companies, its sector's largest companies and Damodaran's industry average (all automatic; overrides in `config/benchmarks.yaml`, AMZN → Technology); top institutional holders (Yahoo) and the funds you follow (SEC 13F, `config/institutional.yaml`); unusual options activity. Next: the owner merges it and checks it with real data (see Next up), then **Phase 8** (X/Twitter + Reddit).
 
 ## Phases
 Each phase ends with a working app, passing tests, and the docs updated.
@@ -40,8 +40,8 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - Watchlist earnings dates, macro releases from FRED, FOMC dates file, week/list views, filters, top-3 on home page.
   - **Done when:** F5.1–F5.6 pass.
 
-- [ ] **Phase 7 — Report v3: valuation + institutional + unusual options (F4.7, F4.8)**
-  - Multiples vs. own history and per-ticker peer list, analyst targets, top holders and changes, 13D/G, unusual options volume.
+- [ ] **Phase 7 — Report v3: valuation + institutional + unusual options (F4.7, F4.8)** *(built 2026-11-04 on `claude/eloquent-darwin-gy85ct`; F4.7 and F4.8 have automated tests; owner's real-data check pending)*
+  - Multiples vs. own history, automatic industry peers, sector and Damodaran's industry average (owner 2026-11-04: no hand-made peer lists), analyst targets, top holders and changes, funds followed (13F), 13D/G, unusual options volume.
   - **Done when:** F4.7 and F4.8 pass in full.
 
 - [ ] **Phase 8 — X/Twitter + Reddit (F4.3, F4.6)**
@@ -57,17 +57,29 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - **Done when:** F7.1–F7.3 pass and the security review has no open high-severity findings.
 
 ## Next up
-1. **Owner: Phase 5 timing:** note how long a report for your largest watchlist takes (start and finish times on the run page). Goal: under 10 minutes.
-2. **Owner: still open from Phase 4:**
+1. **Owner: merge Phase 7, update your folder, then check it** (README "Updating to a new version"; no database change, no new libraries; two new settings files). Generate an AMZN report and look at:
+   - **Valuation snapshot:** the P/E etc. in the "Now" column should match Yahoo's "Statistics" tab for AMZN; the sector column should say "Technology's 25 largest (your setting)"; open "Peers and yearly figures" and check the peers look like Amazon's competitors and the yearly P/Es look plausible. The "Industry avg" column needs Damodaran's site: if it's missing, the report says why.
+   - **Institutional & insider activity:** % held by institutions and the top holders should match Yahoo's "Holders" tab; "Funds you follow" should list the funds from `config/institutional.yaml` that hold Amazon (check one against the fund's 13F on the SEC site, e.g. via the "13F" link). Review the starter fund list and edit it to taste.
+   - **Unusual options activity:** during market hours, a busy stock should show some contracts; compare one with Yahoo's options page (volume and open interest).
+   - Note how long the run takes (start and finish times on the run page), compared with before.
+2. **Owner: Phase 5 timing:** note how long a report for your largest watchlist takes. Goal: under 10 minutes (Phase 7 adds about 12 Yahoo requests per ticker, 4 at a time, plus peers shared between tickers).
+3. **Owner: still open from Phase 4:**
    - **Expiry (after Friday Nov 6, 4 PM ET):** record a contract expiring Friday before then; afterwards the Portfolio page should ask "Expired worthless" or "Assigned".
    - **After 4 PM ET**, refresh a watchlist: prices should be that day's close, with the change labelled "today".
    - Optional: in an AMZN report, check that an insider trade matches the SEC's own Form 4 page (click "Form 4").
-3. **Phase 7: Report v3 (valuation, institutional, unusual options; F4.7, F4.8)**. Propose a plan first (peer lists per ticker come from the owner).
-4. Later (owner's suggestion): a proper "what's new since my last report" view or an "update this report" button, so frequent reports don't repeat the week's stories.
-5. Owner: when the Fed publishes its 2027 meeting dates, add them to `config/fomc_dates.yaml` (or ask Claude to).
-6. Owner: after seeing which outlets show up, decide whether to switch on `trusted_outlets_only` in `config/sources.yaml`.
+4. **Phase 8: X/Twitter + Reddit (F4.3, F4.6)**. Propose a plan first (the X provider decision is still open).
+5. Later (owner's suggestion): a proper "what's new since my last report" view or an "update this report" button, so frequent reports don't repeat the week's stories.
+6. Later (owner): prune and polish the report's metrics and layout once all features are built.
+7. Owner: when the Fed publishes its 2027 meeting dates, add them to `config/fomc_dates.yaml` (or ask Claude to).
+8. Owner: after seeing which outlets show up, decide whether to switch on `trusted_outlets_only` in `config/sources.yaml`.
 
 ## Done (recent)
+- 2026-11-04 **Phase 7 report v3**, in five commits on `claude/eloquent-darwin-gy85ct`, with the owner's answers (peers picked automatically, AMZN against Technology, funds-I-follow and Damodaran now, options 60 days / 6 dates, keep the page minimal):
+  1. **Valuation data and formulas** (F4.7): Yahoo multiples, sector/industry, analyst targets, yearly figures with year-end prices; yearly P/E, P/S, EV/EBITDA, own range, medians, ±% and target gaps in `app/services/valuation.py`, each with known answers.
+  2. **Automatic benchmarks:** industry's 10 and sector's 25 largest companies (Yahoo's sector/industry pages), Damodaran's industry averages (`app/providers/damodaran.py`), overrides and the Yahoo → Damodaran industry map in `config/benchmarks.yaml`; shared and reused for 24 hours.
+  3. **Holders and funds you follow** (F4.8): top 10 institutions from Yahoo; each followed fund's latest two 13F reports from the SEC (`app/providers/sec_13f.py`), matched by company name or a CUSIP set in `config/institutional.yaml` (starter list of 10 funds).
+  4. **Unusual options:** volume > 2× open interest and ≥ 500, next 60 days, ≤ 6 dates (`app/services/unusual_options.py`).
+  5. **In the reports:** fetched for the whole run together (`app/services/market_facts.py`), stored in the report JSON (no database change), compact page with details folded away; failures listed; nothing sent to the AI. Layout checked with screenshots (laptop and phone, no sideways scrolling). Tests: 683 pass.
 - 2026-11-04 Owner merged the 7-day report period (PR #17) and confirmed it: the AMZN report now includes the Brian Stoffel video with its points (Phase 5 real-data check passed).
 - 2026-11-04 **Every report covers the last 7 days** (owner's request; branch `claude/wonderful-clarke-pr4ane`). The owner's AMZN report missed a 5-day-old video from a newly added channel because it covered only the 11 hours since the previous AMZN report. Now the period is always the last 7 days; nothing is downloaded, summarized or watched twice, only the written statements are rebuilt. A test replays the owner's case (new channel added between two reports). Replaces the "since the last report with AI" rule (DECISIONS). Tests: 601 pass (4 tests of the old rule removed, 2 added).
 - 2026-11-04 Owner checked with real data: **calendar** (FRED key set up; CPI and jobs dates right; earnings dates and before/after-the-open timing match Yahoo for 3 stocks), **far out-of-the-money IVs** during market hours (AMZN Dec 18 calls 300–410 match Yahoo's page, so no change needed), **reports with Gemini** working (AMZN: developments with citations, 25 insider sales, sentiment +53), **YouTube channels** added (one video missed: fixed above).
@@ -126,6 +138,11 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - 2026-11-01 Kickoff: interviewed owner; wrote SPEC, ARCHITECTURE, PLAN, DECISIONS; filled in stack and commands in CLAUDE.md. No application code yet.
 
 ## Known issues / bugs
+- **Phase 7 samples are hand-made** (`tests/fixtures/yahoo_research.json`, `tests/fixtures/damodaran/*.html`, `tests/fixtures/sources/sec13f_*`): the cloud build machine can't reach Yahoo, the SEC or Damodaran's site. The first real run is the real test of: Yahoo's sector/industry pages (`yf.Sector` / `yf.Industry` top companies), the yearly statements' row names, Damodaran's page layout and industry names (a renamed industry shows as "no industry called …" and is fixed in `config/benchmarks.yaml`), and the 13F file layout.
+- The Yahoo → Damodaran industry map was written by Claude from memory of Damodaran's industry list; some names may need correcting after the first real run (the report says which).
+- Followed funds: a stock is found in a 13F report by company name. Unusual 13F abbreviations can still be missed (add the stock's CUSIP in `config/institutional.yaml`). GOOG and GOOGL both show the fund's whole Alphabet stake (all share classes). The starter fund list's CIK numbers are from Claude's memory; a wrong one shows as "the SEC lists no 13F reports for it".
+- Yearly valuation history uses each fiscal year's results and the price at the year's end (about 4 years from Yahoo). Forward P/E has no history. Years straddling an unadjusted stock split are skipped.
+- The sector benchmark uses the 25 largest companies, so it reflects big companies (e.g. Technology is dominated by the megacaps).
 - **Phase 6 samples are hand-made** (`tests/fixtures/yahoo_earnings_calendar.json`, `fred_release_dates_cpi.json`): the cloud build machine can't reach Yahoo or FRED. The first real run is the real test of: Yahoo's earnings-calendar answer (we call yfinance's internal request function with our own ticker filter; a yfinance update could break it, which shows as "earnings dates missing"), FRED returning future release dates, and the FRED release ids (10 CPI, 50 jobs, 54 PCE, 53 GDP).
 - Release times are the usual ones (8:30 AM ET) from the settings, not FRED's (FRED gives dates only). A release moved to another hour would show the usual time.
 - Fed minutes default to three weeks after the decision when the dates file doesn't give the minutes date; the Fed sometimes shifts them around holidays.
@@ -167,7 +184,8 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - *(Fixed in Phase 2: the day change was always labelled "today", and the quote page fetched from Yahoo on every lookup.)*
 
 ## Handoff note
-Phases 1–6 and the 7-day report period (PR #17) are merged into `main`. Phase 7 is being built on `claude/eloquent-darwin-gy85ct` (see Current phase). After each merge, remind the owner to update their folder (README, "Updating to a new version").
+Phases 1–6 and the 7-day report period (PR #17) are merged into `main`. Phase 7 is built on `claude/eloquent-darwin-gy85ct` (683 tests green), waiting for the owner to merge and check it. New settings go in new config files, never in `config/settings.yaml` or `config/sources.yaml`, which the owner edits locally (`git pull` would refuse).
+- Phase 7 code map: `app/services/market_facts.py` (`MarketFacts.gather()` for a run; `TickerFacts`; `fund_positions()`, `ownership_section()`), `valuation.py` (formulas), `unusual_options.py`, `app/providers/yahoo.py` (`get_profile`, `get_annual_figures`, `get_group_members`, `get_ownership`), `damodaran.py`, `sec_13f.py`; `gather_facts()` in `reports.py`; template sections in `_ticker_report.html`. Settings: `config/benchmarks.yaml`, `config/institutional.yaml`. After each merge, remind the owner to update their folder (README, "Updating to a new version").
 - Calendar code map: `app/services/calendar.py` (`my_tickers()`, `refresh_if_due()`, `load_events()`, `fomc_events()`, `filtered()`, `by_day()`, `upcoming()`, `notes()`, `prepare()`, `next_high_impact()`; `CalendarSetup` on `app.state.calendar`), `app/providers/fred.py`, `YahooMarketData.get_earnings()` + `earnings_from_calendar()`, `app/web/calendar_routes.py`, templates `calendar.html` and the "Coming up" box in `home.html`. Settings: `calendar:` in `config/settings.yaml`, `config/fomc_dates.yaml`, `FRED_API_KEY` in `.env`.
 - Calendar tests: `tests/test_calendar.py` (adapters + service, clock passed in as `NOW`), `tests/test_web_calendar.py` (`clock` fixture patches `utc_now` in `calendar_routes` and `routes`). Fakes: `FakeMarketData.earnings` / `earnings_down` / `earnings_calls`, `FakeFred` (`fake_fred` fixture: CPI Nov 12 + Dec 10, jobs Nov 6 + Dec 4, PCE and GDP Nov 25; `down`, `is_set_up`), `fomc` fixture (`TEST_FOMC`); `create_app(..., fred=, fomc=)`.
 - Video code map: `app/sources/youtube.py` (finds videos, `watch_url()`, `at_time()`), `app/sources/blogs.py`, `app/sources/feeds.py` (`CachedFeed`: one download per 10 minutes), `app/sources/mentions.py`, `app/services/videos.py` (`watch_new_videos()`: reuse kept answers, budget, parallel watching; answers in `SourceItemRow.data["points"]` / `["watch_error"]`), `GeminiLLM.watch_video()`. `reports.execute_run` = `prepare_ticker()` for all → `watch_videos()` → `finish_ticker_report()` each; `build_ticker_report()` does all three for one ticker.
