@@ -132,6 +132,7 @@ app/
   config.py        settings from environment / .env, plus loading/checking config/settings.yaml
   tickers.py       ticker format rules (shared by services and adapters)
   timeutils.py     UTC storage ↔ US Eastern display
+  market_calendar.py  US trading days: weekends + NYSE holidays (one-off closures from config/settings.yaml)
   web/             routes (routes.py: watchlists + lookup; option_routes.py; portfolio_routes.py; report_routes.py), formatting.py (number/date display), assets.py (version codes on CSS/JS links), templates/ (HTML pages + HTMX partials), static/ (CSS, vendored htmx.min.js)
   services/        business rules: watchlists, quotes, search, options (chains, contract prices, risk-free rate), options_math (pure formulas), portfolio (trades, prices, portfolio page, spreads, expiry), positions (pure: positions from trades), collect, summarize, reports, sentiment, insider (later calendar, macro)
   providers/       market data + calendar data adapters (yahoo, fred)
