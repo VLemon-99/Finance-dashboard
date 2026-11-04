@@ -4,7 +4,7 @@
 > Feature IDs (F1.4 etc.) refer to acceptance criteria in `docs/SPEC.md`.
 
 ## Current phase
-**Phase 6: Calendar (F5)**: merged (PR #16) and confirmed by the owner with real data (FRED key set up; CPI and jobs report dates correct; earnings dates and times match Yahoo for the 3 stocks checked). On branch `claude/wonderful-clarke-pr4ane`, waiting to be merged: **every report now covers the last 7 days** (owner's request after a new channel's 5-day-old video was missed). Earnings for "my tickers" (watchlists + portfolio) from Yahoo, CPI/jobs/PCE/GDP dates from FRED (needs the owner's free FRED key; missing until then), Fed meetings from `config/fomc_dates.yaml` (2026 only). Phase 5 is merged (PR #15); its real-data check waits until the owner adds YouTube channels. Next: the owner's checks, then **Phase 7** (report v3: valuation, institutional, unusual options).
+**Phase 7: Report v3 (F4.7, F4.8)**: in progress on branch `claude/eloquent-darwin-gy85ct`. Plan agreed with the owner 2026-11-04: valuation compared with the stock's own history, automatic industry peers, its sector's largest companies and Damodaran's industry averages (no hand-made peer lists; overrides in a config file, AMZN compared with Technology); top institutional holders from Yahoo plus "funds I follow" from the SEC's 13F filings; unusual options activity (next 60 days, up to 6 expiration dates). Keep the page compact; the owner will prune metrics later. Phases 1–6 and the 7-day report period (PR #17) are merged; the owner confirmed Phase 5 with real YouTube data.
 
 ## Phases
 Each phase ends with a working app, passing tests, and the docs updated.
@@ -31,7 +31,7 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - Bought/Sold buttons with auto-filled prices, positions and P&L, annualized return for short options, spread linking, expiry handling. *(Part B built 2026-11-03: F2.5b and F3.1–F3.9 have automated tests, including the three F3.6 known answers; owner check pending.)*
   - **Done when:** F2.1–F2.7 and F3.1–F3.9 pass, including the F2.3 and F3.6 numeric test cases.
 
-- [ ] **Phase 5 — Report v2: YouTube + blogs + morning schedule (F4)** *(built and merged 2026-11-04, PR #15; owner's real-data check waits for the YouTube channel list)*
+- [x] **Phase 5 — Report v2: YouTube + blogs + morning schedule (F4)** (built and merged 2026-11-04, PR #15; owner confirmed with real YouTube data after the 7-day fix, PR #17)
   - YouTube plug-in (trusted channels' RSS feeds → Gemini summarizes the video), blog RSS plug-in, starter `config/sources.yaml` for me to edit.
   - Weekday 7:30am ET scheduler (off by default, owner 2026-11-04).
   - **Done when:** F4.5 and F4.9 pass; a 25-ticker run completes in < 10 minutes. *(F4.5 and F4.9 have automated tests. Speed: offline, a 25-ticker run downloads each blog/channel feed once and watches 3 videos at a time; the real time can only be measured on the owner's computer, estimate 5–9 minutes, see Known issues.)*
@@ -57,18 +57,18 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - **Done when:** F7.1–F7.3 pass and the security review has no open high-severity findings.
 
 ## Next up
-1. **Owner: merge the 7-day report fix, then check it** (README "Updating to a new version"; no database change, no new libraries): generate an AMZN report. It should cover the last 7 days and include the Brian Stoffel Amazon video with 3–5 points and time links. Generate it again: it should be quick, and the video shouldn't be watched again (same points). If the video is still missing, check that its title or description says "Amazon" or "AMZN" (that's how videos are matched), and that the channel id in `config/sources.yaml` is right.
-2. **Owner: Phase 5 timing:** note how long a report for your largest watchlist takes (start and finish times on the run page). Goal: under 10 minutes.
-3. **Owner: still open from Phase 4:**
+1. **Owner: Phase 5 timing:** note how long a report for your largest watchlist takes (start and finish times on the run page). Goal: under 10 minutes.
+2. **Owner: still open from Phase 4:**
    - **Expiry (after Friday Nov 6, 4 PM ET):** record a contract expiring Friday before then; afterwards the Portfolio page should ask "Expired worthless" or "Assigned".
    - **After 4 PM ET**, refresh a watchlist: prices should be that day's close, with the change labelled "today".
    - Optional: in an AMZN report, check that an insider trade matches the SEC's own Form 4 page (click "Form 4").
-4. **Phase 7: Report v3 (valuation, institutional, unusual options; F4.7, F4.8)**. Propose a plan first (peer lists per ticker come from the owner).
-5. Later (owner's suggestion): a proper "what's new since my last report" view or an "update this report" button, so frequent reports don't repeat the week's stories.
-6. Owner: when the Fed publishes its 2027 meeting dates, add them to `config/fomc_dates.yaml` (or ask Claude to).
-7. Owner: after seeing which outlets show up, decide whether to switch on `trusted_outlets_only` in `config/sources.yaml`.
+3. **Phase 7: Report v3 (valuation, institutional, unusual options; F4.7, F4.8)**. Propose a plan first (peer lists per ticker come from the owner).
+4. Later (owner's suggestion): a proper "what's new since my last report" view or an "update this report" button, so frequent reports don't repeat the week's stories.
+5. Owner: when the Fed publishes its 2027 meeting dates, add them to `config/fomc_dates.yaml` (or ask Claude to).
+6. Owner: after seeing which outlets show up, decide whether to switch on `trusted_outlets_only` in `config/sources.yaml`.
 
 ## Done (recent)
+- 2026-11-04 Owner merged the 7-day report period (PR #17) and confirmed it: the AMZN report now includes the Brian Stoffel video with its points (Phase 5 real-data check passed).
 - 2026-11-04 **Every report covers the last 7 days** (owner's request; branch `claude/wonderful-clarke-pr4ane`). The owner's AMZN report missed a 5-day-old video from a newly added channel because it covered only the 11 hours since the previous AMZN report. Now the period is always the last 7 days; nothing is downloaded, summarized or watched twice, only the written statements are rebuilt. A test replays the owner's case (new channel added between two reports). Replaces the "since the last report with AI" rule (DECISIONS). Tests: 601 pass (4 tests of the old rule removed, 2 added).
 - 2026-11-04 Owner checked with real data: **calendar** (FRED key set up; CPI and jobs dates right; earnings dates and before/after-the-open timing match Yahoo for 3 stocks), **far out-of-the-money IVs** during market hours (AMZN Dec 18 calls 300–410 match Yahoo's page, so no change needed), **reports with Gemini** working (AMZN: developments with citations, 25 insider sales, sentiment +53), **YouTube channels** added (one video missed: fixed above).
 - 2026-11-04 **Phase 6 calendar**, in four commits on `claude/wonderful-clarke-pr4ane` (restarted from `main` after PR #15), with the owner's answers (my tickers = watchlists + portfolio; impact levels as proposed, earnings high; FRED key later; 2027 Fed dates left empty):
@@ -167,7 +167,7 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - *(Fixed in Phase 2: the day change was always labelled "today", and the quote page fetched from Yahoo on every lookup.)*
 
 ## Handoff note
-Phases 1–6 are merged into `main`. The 7-day report period change is on branch `claude/wonderful-clarke-pr4ane` (601 tests green), not merged yet. Next session: fix anything from the owner's check of it (AMZN report with the Brian Stoffel video) or the Phase 4 expiry check; otherwise plan Phase 7. After each merge, remind the owner to update their folder (README, "Updating to a new version").
+Phases 1–6 and the 7-day report period (PR #17) are merged into `main`. Phase 7 is being built on `claude/eloquent-darwin-gy85ct` (see Current phase). After each merge, remind the owner to update their folder (README, "Updating to a new version").
 - Calendar code map: `app/services/calendar.py` (`my_tickers()`, `refresh_if_due()`, `load_events()`, `fomc_events()`, `filtered()`, `by_day()`, `upcoming()`, `notes()`, `prepare()`, `next_high_impact()`; `CalendarSetup` on `app.state.calendar`), `app/providers/fred.py`, `YahooMarketData.get_earnings()` + `earnings_from_calendar()`, `app/web/calendar_routes.py`, templates `calendar.html` and the "Coming up" box in `home.html`. Settings: `calendar:` in `config/settings.yaml`, `config/fomc_dates.yaml`, `FRED_API_KEY` in `.env`.
 - Calendar tests: `tests/test_calendar.py` (adapters + service, clock passed in as `NOW`), `tests/test_web_calendar.py` (`clock` fixture patches `utc_now` in `calendar_routes` and `routes`). Fakes: `FakeMarketData.earnings` / `earnings_down` / `earnings_calls`, `FakeFred` (`fake_fred` fixture: CPI Nov 12 + Dec 10, jobs Nov 6 + Dec 4, PCE and GDP Nov 25; `down`, `is_set_up`), `fomc` fixture (`TEST_FOMC`); `create_app(..., fred=, fomc=)`.
 - Video code map: `app/sources/youtube.py` (finds videos, `watch_url()`, `at_time()`), `app/sources/blogs.py`, `app/sources/feeds.py` (`CachedFeed`: one download per 10 minutes), `app/sources/mentions.py`, `app/services/videos.py` (`watch_new_videos()`: reuse kept answers, budget, parallel watching; answers in `SourceItemRow.data["points"]` / `["watch_error"]`), `GeminiLLM.watch_video()`. `reports.execute_run` = `prepare_ticker()` for all → `watch_videos()` → `finish_ticker_report()` each; `build_ticker_report()` does all three for one ticker.
