@@ -278,3 +278,25 @@ def test_25_ticker_run_downloads_each_blog_and_channel_once(
     channel_feed = "https://www.youtube.com/feeds/videos.xml?channel_id=UCsampleChannelAAAAAAAAA"
     assert fake_fetch.calls.count(channel_feed) == 1
     assert len(fake_llm.video_calls) == 2  # video 2 serves both AAPL and MSFT
+
+
+def test_a_channel_added_after_a_report_still_gets_its_recent_videos(
+    session, engine, user_id, fake_fetch, fake_llm, sources_now, monkeypatch
+):
+    """Owner, 2026-11-04: a channel was added, the next report (made hours after the last)
+    missed its 5-day-old Amazon video because the report only covered the hours since the
+    previous one. Every report now covers the last 7 days."""
+    import app.services.reports as reports_service
+
+    services = make_services(fake_fetch, fake_llm)
+    channel = services.sources.sources.pop()  # the YouTube channel isn't listed yet
+    run_for(session, engine, user_id, services)
+    assert fake_llm.video_calls == []
+
+    services.sources.sources.append(channel)  # owner adds the channel
+    later = sources_now + timedelta(hours=11)
+    monkeypatch.setattr(reports_service, "utc_now", lambda: later)
+    run_for(session, engine, user_id, services)
+    titles = [s["title"] for s in latest_report(session).body["stories"] if s["kind"] == "video"]
+    assert "Apple earnings: what the iPhone numbers really say" in titles  # from Nov 1
+    assert sorted(v.url for v in fake_llm.video_calls) == [VID1, VID2]

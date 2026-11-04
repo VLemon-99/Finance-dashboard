@@ -44,8 +44,8 @@ search:
   max_results: 10
 
 reports:
-  # A report covers the time since the previous report, but never more than this many
-  # days (SPEC F4.14).
+  # Every report covers this many days back from when it's made (SPEC F4.14). Items
+  # already summarized in an earlier report are reused, not sent to the AI again.
   max_days: 7
   # Headlines at least this similar (0 to 1, where 1 = identical) are treated as the same
   # story and shown once with all their sources (SPEC F4.12)...

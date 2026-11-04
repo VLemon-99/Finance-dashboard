@@ -4,8 +4,8 @@ Owner's rules (2026-11-04):
 - A video is never watched twice. Its summary is kept with the stored item; when the same
   video turns up for another ticker, or again in a later run, the kept summary is reused.
 - At most `ai.max_videos_per_run` new videos per run (default 10), newest first across the
-  whole run. The rest wait for the next run: they stay "not yet processed", so the next
-  report's period reaches back to them (see reports.report_period).
+  whole run. The rest wait for the next run (still within its 7 days, see
+  reports.report_period).
 
 Watching takes a while per video, so a few are watched at the same time
 (`ai.parallel_videos`). Only the AI calls run in parallel; the database work stays here.

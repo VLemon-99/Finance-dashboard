@@ -17,7 +17,7 @@
   <input id="gen-ticker" name="ticker" maxlength="12" required placeholder="e.g. AAPL" autocapitalize="characters" class="ticker-input">
   <button type="submit">Generate report</button>
 </form>
-<p class="muted small">A report covers the time since that ticker's previous report (at most 7 days). A whole watchlist can take a few minutes.</p>
+<p class="muted small">A report covers the last 7 days. News, filings and videos already summarized in an earlier report are reused, not sent to the AI again. A whole watchlist can take a few minutes.</p>
 {% set clock = (schedule.time.hour % 12 or 12) ~ ":" ~ "%02d" | format(schedule.time.minute) ~ (" AM" if schedule.time.hour < 12 else " PM") %}
 {% if schedule.on %}
 <p class="small" id="schedule">Automatic reports: <strong>on</strong>, every weekday at {{ clock }} ET for every watchlist, while the app is running. Next: {{ schedule.next | eastern }}.</p>

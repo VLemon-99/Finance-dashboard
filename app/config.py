@@ -92,7 +92,7 @@ class SearchConfig(_Section):
 
 
 class ReportsConfig(_Section):
-    # A report covers the time since the previous one, but never more than this (F4.14).
+    # Every report covers this many days back (F4.14, owner 2026-11-04).
     max_days: int = Field(default=7, ge=1, le=31)
     # Headlines at least this similar (0 to 1) count as the same story (F4.12).
     duplicate_headline_similarity: float = Field(default=0.85, ge=0.5, le=1.0)

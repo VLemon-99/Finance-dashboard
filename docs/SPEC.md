@@ -98,7 +98,7 @@ Acceptance criteria:
 - [ ] F4.11 If a source fails or hits its limit, the report is still produced and says which sources were missing.
 - [ ] F4.12 The same story from several outlets appears once, with all of its sources listed.
 - [ ] F4.13 Only public content (articles, filings, transcripts, video links) is sent to the AI service. My portfolio and watchlist positions are never sent.
-- [ ] F4.14 Each report shows when it was generated and the date range it covers (default: since the previous report, max 7 days).
+- [ ] F4.14 Each report shows when it was generated and the date range it covers (default: the last 7 days, owner 2026-11-04; items already summarized earlier are reused, not sent to the AI again).
 
 ### F5 — Market events calendar
 Upcoming events that can move my stocks or the market.

@@ -131,16 +131,30 @@ def test_valuation_is_left_for_a_later_phase(session, engine, user_id, services)
     assert latest_report(session).body["valuation"] is None
 
 
-def test_next_report_covers_the_time_since_the_previous_one(
-    session, engine, user_id, services, sources_now, monkeypatch
+def test_every_report_covers_the_last_seven_days_without_paying_twice(
+    session, engine, user_id, services, sources_now, monkeypatch, fake_llm, fake_fetch
 ):
+    """Owner, 2026-11-04: a report made soon after another covered only the hours between
+    them, so a video from a channel added since (published days earlier) was missed. Every
+    report now covers the last 7 days; what was already downloaded or summarized is reused."""
     run_for(session, engine, user_id, services)
+    first = latest_report(session)
+    summaries_sent = sum(len(items) for _, _, items in fake_llm.item_calls)
+    downloads = len(fake_fetch.calls)
     later = sources_now + timedelta(hours=20)
     monkeypatch.setattr(reports_service, "utc_now", lambda: later)
     run_for(session, engine, user_id, services)
     report = latest_report(session)
-    assert report.period_start.replace(tzinfo=None) == sources_now.replace(tzinfo=None)
-    assert report.body["stories"] == []  # nothing new was published in those 20 hours
+    assert report.period_start == later - timedelta(days=7)
+    assert report.period_end - report.period_start == timedelta(days=7)
+    # The same week's stories, with their summaries...
+    assert [s["ref"] for s in report.body["stories"]] == [s["ref"] for s in first.body["stories"]]
+    assert all(s["summary"] for s in report.body["stories"] if s["source_type"] == "news")
+    # ...without sending any item to the AI again or downloading any filing again (only the
+    # feeds and the SEC's filing list are checked for new items).
+    assert sum(len(items) for _, _, items in fake_llm.item_calls) == summaries_sent
+    new_downloads = fake_fetch.calls[downloads:]
+    assert not any("/Archives/" in url for url in new_downloads)
 
 
 def test_a_report_without_ai_does_not_use_up_the_period(
@@ -159,64 +173,13 @@ def test_a_report_without_ai_does_not_use_up_the_period(
     monkeypatch.setattr(reports_service, "utc_now", lambda: later)
     run_for(session, engine, user_id, services)
     report = latest_report(session)
-    # The failed report didn't use up the period: the new one reaches back the full 7 days
-    # (there's no earlier report with AI), not just the 7 minutes since the failed run.
+    # The new one reaches back the full 7 days, not just the 7 minutes since the failed run.
     assert report.period_start < failed.period_end
     assert report.period_start == later - timedelta(days=7)
     assert report.body["ai_complete"] is True
     assert len(report.body["stories"]) == 8
     assert all(s["summary"] for s in report.body["stories"] if s["source_type"] == "news")
     assert report.body["developments"]
-
-
-def test_next_report_after_one_with_ai_starts_where_it_ended(
-    session, engine, user_id, services, sources_now, monkeypatch, fake_fetch
-):
-    """A source being down doesn't extend the next period: only the AI matters."""
-    fake_fetch.down.add("https://news.google.com")
-    run_for(session, engine, user_id, services)
-    first = latest_report(session)
-    assert first.missing and first.body["ai_complete"] is True
-    later = sources_now + timedelta(hours=3)
-    monkeypatch.setattr(reports_service, "utc_now", lambda: later)
-    run_for(session, engine, user_id, services)
-    assert latest_report(session).period_start == first.period_end
-
-
-def test_reports_made_before_the_flag_are_judged_by_their_notes():
-    from app.services.reports import had_ai
-
-    assert had_ai(
-        Report(
-            user_id=1,
-            run_id=1,
-            ticker="AAPL",
-            period_start=datetime.now(UTC),
-            period_end=datetime.now(UTC),
-            body={},
-            missing=[],
-        )
-    )
-    old_failed = Report(
-        user_id=1,
-        run_id=1,
-        ticker="AAPL",
-        period_start=datetime.now(UTC),
-        period_end=datetime.now(UTC),
-        body={},
-        missing=["AI summaries: AI summaries are off: set GEMINI_API_KEY."],
-    )
-    assert not had_ai(old_failed)
-    source_down = Report(
-        user_id=1,
-        run_id=1,
-        ticker="AAPL",
-        period_start=datetime.now(UTC),
-        period_end=datetime.now(UTC),
-        body={},
-        missing=["Google News: The site didn't answer in time."],
-    )
-    assert had_ai(source_down)
 
 
 def test_never_any_ai_means_the_full_seven_days(
@@ -348,49 +311,11 @@ def test_insider_section_records_whether_sec_was_collected(session, engine, user
     assert latest_report(session, "MSFT").body["insider"]["available"] is False
 
 
-def test_after_a_failed_run_the_period_starts_at_the_last_report_with_ai(session, user_id):
+def test_report_period_is_always_the_last_seven_days():
     from app.services.reports import report_period
 
-    t0 = datetime(2026, 11, 2, 12, 0, tzinfo=UTC)
-    stored = [
-        (t0, []),  # a good report
-        (t0 + timedelta(hours=10), ["AI summaries: The AI service answered with an error (402)."]),
-        (t0 + timedelta(hours=11), ["AI report writing: The AI service didn't respond properly."]),
-    ]
-    for end, missing in stored:
-        session.add(
-            Report(
-                user_id=user_id,
-                run_id=0,
-                ticker="AMZN",
-                period_start=end - timedelta(days=1),
-                period_end=end,
-                body={},
-                missing=missing,
-            )
-        )
-    session.commit()
-    start, end = report_period(session, user_id, "AMZN", t0 + timedelta(hours=12), max_days=7)
-    assert start == t0  # both failed reports are covered again
-    # Other tickers and users are unaffected.
-    start, _ = report_period(session, user_id, "AAPL", t0 + timedelta(hours=12), max_days=7)
-    assert start == t0 + timedelta(hours=12) - timedelta(days=7)
-
-
-def test_a_run_that_needed_no_ai_counts_as_complete(
-    session, engine, user_id, services, sources_now, monkeypatch, fake_llm
-):
-    """If nothing new needed summarizing, a broken AI didn't cost anything: the period moves on."""
-    run_for(session, engine, user_id, services)
-    fake_llm.fail = "The AI service answered with an error (402)."
-    monkeypatch.setattr(reports_service, "utc_now", lambda: sources_now + timedelta(hours=10))
-    run_for(session, engine, user_id, services)
-    quiet = latest_report(session)
-    assert quiet.missing == [] and quiet.body["ai_complete"] is True
-    fake_llm.fail = None
-    monkeypatch.setattr(reports_service, "utc_now", lambda: sources_now + timedelta(hours=11))
-    run_for(session, engine, user_id, services)
-    assert latest_report(session).period_start == quiet.period_end
+    now = datetime(2026, 11, 4, 16, 52, tzinfo=UTC)
+    assert report_period(now, max_days=7) == (now - timedelta(days=7), now)
 
 
 def test_news_left_without_ai_is_caught_up_even_after_a_quiet_report(
