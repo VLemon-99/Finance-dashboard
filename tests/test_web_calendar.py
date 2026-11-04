@@ -25,9 +25,10 @@ class Clock:
 @pytest.fixture
 def clock(monkeypatch):
     import app.web.calendar_routes
+    import app.web.routes
 
     clock = Clock(NOW)
-    for module in (app.web.calendar_routes,):
+    for module in (app.web.calendar_routes, app.web.routes):
         monkeypatch.setattr(module, "utc_now", clock)
     return clock
 
@@ -194,3 +195,50 @@ def test_no_tickers_yet(client, clock):
     assert "My tickers: none yet" in html
     with Session(client.app.state.engine) as session:
         assert session.exec(select(Instrument)).all() == []
+
+
+# --- home page (F5.6) --------------------------------------------------------------------
+
+
+def home_events(html: str) -> list[str]:
+    section = html.split('aria-labelledby="coming-up"')[1].split("</section>")[0]
+    return titles(section)
+
+
+def test_f5_6_home_shows_the_next_3_high_impact_events(setup):
+    html = setup.get("/").text
+    assert "Coming up: high-impact events" in html
+    # Jobs (Nov 6), NVDA (Nov 10), TSLA (Nov 12, before the open); CPI the same day is 4th.
+    assert home_events(html) == [
+        "Jobs report (employment situation)",
+        "NVDA earnings",
+        "TSLA earnings",
+    ]
+    assert "Fri, Nov 6, 2026" in html and '<a href="/calendar">Full calendar</a>' in html
+
+
+def test_home_skips_medium_impact_and_past_events(setup, clock, fake_market_data):
+    fake_market_data.earnings = []
+    clock.now = datetime(2026, 11, 20, 15, 0, tzinfo=UTC)  # after Nov's CPI and minutes
+    # No earnings scheduled; PCE and GDP (Nov 25) are medium impact, so they're skipped.
+    assert home_events(setup.get("/").text) == [
+        "Jobs report (employment situation)",  # Dec 4
+        "Fed rate decision (FOMC statement)",  # Dec 9
+        "CPI (consumer prices)",  # Dec 10
+    ]
+
+
+def test_home_still_loads_when_sources_fail(setup, fake_market_data, fake_fred):
+    fake_market_data.earnings_down = True
+    fake_fred.down = True
+    response = setup.get("/")
+    assert response.status_code == 200
+    assert "some dates may be missing" in response.text
+    assert "Watchlists" in response.text
+
+
+def test_home_with_nothing_yet(client, clock, fake_fred):
+    fake_fred.is_set_up = False
+    html = client.get("/").text
+    # Only the Fed meetings file is left: the Dec 9 decision is high impact.
+    assert home_events(html) == ["Fed rate decision (FOMC statement)"]

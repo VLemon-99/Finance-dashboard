@@ -473,3 +473,24 @@ def test_settings_have_the_owners_impact_levels():
     )
     impacts = {r.fred_release_id: r.impact for r in config.macro_releases}
     assert impacts == {10: "high", 50: "high", 54: "medium", 53: "medium"}
+
+
+def test_saved_date_is_not_shown_next_to_a_calendar_entry_in_another_week(session, market, fred):
+    """Seen in the layout check (2026-11-04): AMZN's calendar entry was on Nov 12, and the
+    week of Nov 16 still showed the older date saved with the watchlist price (Nov 19)."""
+    nvda = instrument(session, "NVDA")
+    session.add(
+        Quote(
+            instrument_id=nvda.id,
+            last_price=180.0,
+            previous_close=179.0,
+            currency="USD",
+            fetched_at=NOW,
+            source="yahoo",
+            next_earnings=date(2026, 11, 25),  # out of date: Yahoo's calendar says Nov 18
+        )
+    )
+    session.commit()
+    cal.refresh_if_due(session, market, fred, ["NVDA"], CONFIG, NOW)
+    week = events(session, tickers=["NVDA"], start=date(2026, 11, 23), end=date(2026, 11, 29))
+    assert [e for e in week if e.kind == "earnings"] == []

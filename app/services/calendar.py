@@ -238,15 +238,22 @@ def load_events(
             CalendarEvent.event_date >= start, CalendarEvent.event_date <= end
         )
     ).all()
-    with_calendar_entry = set()
     for row in stored:
         if row.kind == "earnings":
             if row.ticker not in tickers:
                 continue  # no longer one of my tickers
-            with_calendar_entry.add(row.ticker)
             events.append(_earnings_view(row, config))
         elif row.source_key in releases:  # a release taken out of the settings is hidden
             events.append(_macro_view(row, releases[row.source_key]))
+    # The backup date only for tickers Yahoo's earnings calendar has nothing for at all
+    # (any date), or it would show a second, older date next to the calendar's.
+    with_calendar_entry = set(
+        session.exec(
+            select(CalendarEvent.ticker).where(
+                CalendarEvent.kind == "earnings", col(CalendarEvent.ticker).in_(list(tickers))
+            )
+        ).all()
+    )
     events += _saved_earnings_dates(session, set(tickers) - with_calendar_entry, start, end, config)
     events += [e for e in fomc_events(fomc, config) if start <= e.day <= end]
     return sorted(events, key=lambda e: e.sort_key)

@@ -16,12 +16,13 @@ from sqlmodel import Session
 from app.config import AppConfig
 from app.db.session import get_session
 from app.providers.market_data import MarketData
+from app.services import calendar as cal
 from app.services import watchlists as wl
 from app.services.options import contract_rows
 from app.services.quotes import QuoteView, lookup_quote
 from app.services.search import SearchOutcome, search_instruments
 from app.tickers import InvalidTicker
-from app.timeutils import format_eastern, today_eastern
+from app.timeutils import format_eastern, today_eastern, utc_now
 from app.web import formatting
 from app.web.assets import asset_version
 
@@ -82,10 +83,16 @@ async def watchlist_not_found(request: Request, exc: Exception) -> HTMLResponse:
 
 
 def _home(request, session, user_id, config, error=None, name="", status_code=200):
+    # The next high-impact events (SPEC F5.6). Never breaks the page (see services/calendar).
+    events, calendar_notes = cal.next_high_impact(
+        session, request.app.state.calendar, user_id, utc_now()
+    )
     return templates.TemplateResponse(
         request,
         "home.html",
         {
+            "events": events,
+            "calendar_notes": calendar_notes,
             "watchlists": wl.list_watchlists(session, user_id),
             "limits": config.watchlists,
             "error": error,
