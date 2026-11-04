@@ -4,6 +4,7 @@ Changes are plain form posts followed by a redirect, like the watchlist pages.
 """
 
 from datetime import date
+from html import escape
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Query, Request
@@ -14,6 +15,7 @@ from app.config import AppConfig
 from app.providers.market_data import MarketData
 from app.services import portfolio as pf
 from app.timeutils import utc_now
+from app.web.formatting import short_date
 from app.web.routes import (
     ConfigDep,
     MarketDataDep,
@@ -171,6 +173,7 @@ def _trade_form(
     price: str | None = None,
     underlying_price: str | None = None,
     error: str | None = None,
+    notice: str | None = None,
     status_code: int = 200,
 ):
     """The form, with the price filled in for the chosen date (unless one was typed)."""
@@ -183,29 +186,45 @@ def _trade_form(
             request, "trade_form.html", {"target": None, "error": str(exc)}, status_code=400
         )
     when = trade_date or pf.eastern_date(now)
-    suggestion = pf.suggest_price(session, market_data, target, when, now, max_age)
-
-    def shown(value: float | None) -> str:
-        return "" if value is None else f"{value:.2f}"
-
     return templates.TemplateResponse(
         request,
         "trade_form.html",
         {
-            "target": target,
+            **_price_fields(session, market_data, target, when, max_age, price, underlying_price),
             "side": side if side in pf.SIDES else "bought",
-            "trade_date": when,
-            "today": pf.eastern_date(now),
             "quantity": quantity,
-            "price": shown(suggestion.price) if price is None else price,
-            "underlying_price": (
-                shown(suggestion.underlying_price) if underlying_price is None else underlying_price
-            ),
-            "suggestion": suggestion,
             "error": error,
+            "notice": notice,
         },
         status_code=status_code,
     )
+
+
+def _shown(value: float | None) -> str:
+    return "" if value is None else f"{value:.2f}"
+
+
+def _price_fields(
+    session: Session,
+    market_data: MarketData,
+    target: pf.TradeTarget,
+    when: date,
+    max_age,
+    price: str | None = None,
+    underlying_price: str | None = None,
+) -> dict:
+    """What the price part of the form shows: the suggestion for `when`, unless typed."""
+    suggestion = pf.suggest_price(session, market_data, target, when, utc_now(), max_age)
+    return {
+        "target": target,
+        "trade_date": when,
+        "today": pf.eastern_date(utc_now()),
+        "suggestion": suggestion,
+        "price": _shown(suggestion.price) if price is None else price,
+        "underlying_price": (
+            _shown(suggestion.underlying_price) if underlying_price is None else underlying_price
+        ),
+    }
 
 
 @router.get("/portfolio/trade", response_class=HTMLResponse)
@@ -233,6 +252,30 @@ def trade_form(
     )
 
 
+@router.get("/portfolio/trade/price", response_class=HTMLResponse)
+def trade_price_fields(
+    request: Request,
+    session: SessionDep,
+    market_data: MarketDataDep,
+    config: ConfigDep,
+    symbol: Annotated[str, Query(max_length=32)] = "",
+    date: Annotated[str, Query(max_length=10)] = "",
+):
+    """Just the price part of the form for another date; HTMX swaps it in when the trade
+    date changes, so the price always belongs to the date shown."""
+    max_age = _refresh_window(config)
+    try:
+        target = pf.resolve_target(session, market_data, symbol, max_age)
+    except pf.TradeError as exc:
+        return HTMLResponse(f'<p class="note error">{escape(str(exc))}</p>', status_code=400)
+    when = _parse_date(date) or pf.eastern_date(utc_now())
+    return templates.TemplateResponse(
+        request,
+        "_trade_price.html",
+        _price_fields(session, market_data, target, when, max_age),
+    )
+
+
 @router.post("/portfolio/trades", response_class=HTMLResponse)
 def record_trade(
     request: Request,
@@ -247,8 +290,36 @@ def record_trade(
     price: Annotated[str, Form(max_length=20)] = "",
     underlying_price: Annotated[str, Form(max_length=20)] = "",
     suggested_price: Annotated[str, Form(max_length=20)] = "",
+    price_date: Annotated[str, Form(max_length=10)] = "",
 ):
     trade_date = _parse_date(date)
+    filled_for = _parse_date(price_date)
+    if (
+        trade_date is not None
+        and filled_for is not None
+        and filled_for != trade_date
+        and _parse_number(price) is not None
+        and _parse_number(price) == _parse_number(suggested_price)
+    ):
+        # The date was changed after the price was filled in, and the price wasn't typed:
+        # it belongs to another day. Show that day's price instead of saving (bug seen
+        # 2026-11-03: a trade dated Oct 1 was saved at the Nov 3 price).
+        return _trade_form(
+            request,
+            session,
+            market_data,
+            config,
+            symbol=symbol,
+            side=side,
+            trade_date=trade_date,
+            quantity=quantity,
+            notice=(
+                f"The price shown was for {short_date(filled_for)}, not "
+                f"{short_date(trade_date)}. The price below is for {short_date(trade_date)}: "
+                "check it and press Save trade again."
+            ),
+            status_code=400,
+        )
     try:
         target = pf.resolve_target(session, market_data, symbol, _refresh_window(config))
         pf.record_trade(

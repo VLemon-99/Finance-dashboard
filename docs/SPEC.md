@@ -79,6 +79,7 @@ Acceptance criteria:
 - [ ] F3.7 I can link two option legs (same underlying, type and expiration) as a credit spread; the spread is then shown and calculated as one position.
 - [ ] F3.8 A short call that isn't covered (not enough shares) shows "uncovered — no return figure" instead of a number.
 - [ ] F3.9 When DTE reaches 0 the position is flagged "expiring today". After expiration it's marked expired, and I can confirm whether it expired worthless or was assigned.
+- [ ] F3.10 I can link a call I bought (a long-dated "LEAP") and a call I sold on the same stock as a **poor man's covered call**: the bought call expires after the sold call, the sold call's strike is above the bought call's, and both have the same number of contracts. It's shown and calculated as one position, and the sold call needs no shares to count as covered. Capital at risk = price paid for the bought call × 100 × contracts (confirmed by owner 2026-11-04); premium = the sold call's premium; DTE = the sold call's. Test case: bought call 60.00, sold call 3.00, 1 contract, 30 DTE → capital 6,000, annualized **60.83%**. (Added 2026-11-04 at the owner's request.)
 
 ### F4 — Daily research report
 One digest per ticker, about one page each, with a short summary of the whole watchlist on top.
@@ -131,7 +132,7 @@ Acceptance criteria (initial):
 - Non-US markets, crypto, futures, forex.
 - Paid "options flow" / dark-pool data feeds.
 - Push, SMS or email alerts (may come later).
-- Return figures for uncovered (naked) short calls; strategies with 3+ legs (iron condors, butterflies) until requested.
+- Return figures for uncovered (naked) short calls; strategies with 3+ legs (iron condors, butterflies) and the put version of the poor man's covered call, until requested.
 - Backtesting, tax lots, tax reporting.
 - Native mobile app (a phone-friendly web page comes with hosting, F7).
 - Multiple users / login (until F7's phase).

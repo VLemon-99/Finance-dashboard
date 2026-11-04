@@ -2,6 +2,17 @@
 
 > One entry per meaningful choice, newest at the top. This stops future sessions from quietly undoing past decisions.
 
+## 2026-11-04 — Poor man's covered calls; trade-date and after-close price fixes
+- **Decision:**
+  - **Poor man's covered calls (new SPEC F3.10, requested by the owner).** A call bought (the LEAP) and a call sold on the same stock can be linked when the bought call expires later, the sold call's strike is higher, and both hold the same number of contracts. **Capital at risk = price paid for the LEAP × 100 × contracts** (owner's choice of three: what was paid, its market value when the call was sold, or its cost minus the premium). Premium = the sold call's; days to expiration = the sold call's; P&L % is of the capital at risk. The sold call needs no shares to count as covered. Calls only; the put version waits until requested.
+  - **One Link button for both kinds.** The app tells them apart by the expiration dates (same date → credit spread; bought call later → poor man's covered call). They're stored in the same `spreads` table (no database change).
+  - **A link whose leg is closed simply ends, with no note**, because that's the normal end of a poor man's covered call's short call (or a spread leg closed early). The next sold call can then be linked to the same LEAP. Links whose legs are both open but no longer match still show a note.
+  - **The trade form's price always belongs to the date shown.** Changing the date refreshes the price (HTMX). Save refuses a filled-in price that was for another date and shows that day's price to check. (Bug: a trade dated Oct 1 was saved at the Nov 3 price.)
+  - **After the close, a missing "today" row is filled from Yahoo's latest regular-market price.** Yahoo's daily history can lack today's row for a while after 4 PM, so the app showed the previous day's close as the latest price. The price history's metadata carries the latest regular-session price and time (after-hours trades excluded); it's used when it's newer than the last row.
+- **Why:** The owner trades poor man's covered calls and wanted their returns tracked like covered calls; capital = what the LEAP cost is exact and matches common calculators. The two fixes come from the owner's tests with real data.
+- **Alternatives considered:** a separate "Link poor man's covered call" form (more buttons for the same action); a JavaScript-free date check only (works, but the owner expected the price to update when the date changes); always using the metadata price instead of the history (the history also gives the day range, volume and 52-week range).
+- **Revisit if:** the owner wants the put version, LEAPs covering more contracts than are sold, or Yahoo's metadata turns out to be unreliable.
+
 ## 2026-11-03 — Phase 4 part B: virtual portfolio choices
 - **Decision** (items 1–9 were confirmed by the owner before coding):
   1. **Average cost.** A position's entry price is the average of the trades that opened it. Trades the other way realize P&L against that average. Going past zero closes the position and opens the opposite one with the rest. A position that returns to zero is "closed"; a later trade starts a new one.

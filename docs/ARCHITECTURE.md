@@ -56,7 +56,7 @@ Every user-owned table has a `user_id` column from day one (one default user for
 - `quotes` — latest cached market data per stock: price, previous close, trading-session date, day range, 52-week range, volume, market cap, next earnings date, fetched_at (for "stale" display and the 15-minute refresh window). Shared market data, so no `user_id`.
 - `watchlists` (user_id, name; names unique per user, ignoring upper/lower case) and `watchlist_items` (user_id, watchlist, instrument; a stock appears once per list but can be in several lists). Deleting a list deletes its items, not the stored prices.
 - `transactions` — user, instrument, side (bought/sold), quantity (shares or contracts), price per share, trade date, price source (auto/manual), for options the stock price at the time, and a reason (`trade`, or how an option ended: `expired` / `assigned` / `exercised`).
-- `spreads` — user, the option instrument sold and the one bought, linked as one credit spread. Links instruments, not trades; a link only shows while both legs are open and still match.
+- `spreads` — user, the option instrument sold and the one bought, linked as one position: a credit spread (same expiration) or a poor man's covered call (the bought call expires later). Links instruments, not trades; a link only shows while both legs are open and still match.
 - Positions & P&L are **calculated** from transactions (not stored separately) to avoid drift: `services/positions.py` replays the trades with the average-cost method.
 - `source_items` — public content, so no `user_id`. One row per ticker + URL: source, source type (news/filing), outlet, title, URL, published_at, SEC form, text, structured data (Form 4 trades), `story_id` (the first item of its story; near-identical headlines share one), and the AI's summary, sentiment, reason, rumor flag.
 - `report_runs` — user, label (watchlist name or ticker), watchlist id (no database link, so deleting a list keeps its reports), status/progress, started/finished, the watchlist summary (JSON).
@@ -80,13 +80,13 @@ Every user-owned table has a `user_id` column from day one (one default user for
 5. **Add** on a row puts that contract into the chosen watchlist (`services/watchlists.add_contract`): only contracts we have stored prices for, not expired, within the list's item limit.
 
 **Recording a trade** (Phase 4, `/portfolio/trade?symbol=…&side=bought|sold`)
-1. I click Bought/Sold on a watchlist row, an option chain row, the quote card or the Portfolio page → a form with date (today), quantity and an auto-filled price (`services/portfolio.suggest_price`): today = the option's mid (or last), or the stock's last price; a past date = that day's close from the provider (`get_daily_close`). If there's none, it asks. Option trades also fill in the stock price at the time.
+1. I click Bought/Sold on a watchlist row, an option chain row, the quote card or the Portfolio page → a form with date (today), quantity and an auto-filled price (refreshed when the date changes; Save refuses a filled-in price that belongs to another date) (`services/portfolio.suggest_price`): today = the option's mid (or last), or the stock's last price; a past date = that day's close from the provider (`get_daily_close`). If there's none, it asks. Option trades also fill in the stock price at the time.
 2. On save, the trade is validated and stored in `transactions`. Options can only be traded once their chain has been seen (their prices are stored).
 
 **Portfolio page** (`/portfolio`)
 1. `services/portfolio.portfolio_view` loads the user's trades; `services/positions.build_positions` (pure functions) turns them into open and closed positions.
 2. Current prices: stocks through `services/quotes.py`, options through `services/options.contract_quotes` (same refresh window, stale/missing and expiry rules as watchlists).
-3. Linked credit spreads that still match are shown as one position. Short calls outside spreads are covered by long shares, oldest first, 100 per contract; short puts outside spreads count as cash-secured.
+3. Linked credit spreads and poor man's covered calls that still match are shown as one position each. Short calls outside spreads are covered by long shares, oldest first, 100 per contract; short puts outside spreads count as cash-secured.
 4. `options_math` computes P&L, premium, capital at risk and the locked-in / remaining annualized returns. Uncovered calls get no return figure.
 5. Expired option positions ask for their outcome; the answer is stored as closing trades (and a share trade at the strike for assignment / exercise).
 

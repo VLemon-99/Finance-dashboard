@@ -189,9 +189,49 @@
 <p class="muted small">Capital at risk = (difference between strikes − net credit) × 100 × contracts. P&amp;L % is of the premium received.</p>
 {% endif %}
 
+{% if view.pmccs %}
+<h2>Poor man's covered calls</h2>
+<div class="table-wrap">
+<table class="stocks positions pmccs">
+  <thead>
+    <tr>
+      <th>Position</th><th class="num">Contracts</th><th class="num">Call sold</th><th class="num">LEAP</th>
+      <th class="num">P&amp;L</th><th class="num">DTE</th>
+      <th class="num">Premium</th><th class="num">Capital at risk</th>
+      <th class="num" title="Premium ÷ capital at risk × 365 ÷ days to the sold call's expiration: at entry (locked-in) and left today (remaining)">Annualized return</th>
+      <th><span class="visually-hidden">Actions</span></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for pm in view.pmccs %}{% set s = pm.short.target %}{% set l = pm.long.target %}
+    <tr data-pmcc="{{ pm.spread_id }}"{% if pm.expired %} class="expired"{% endif %}>
+      <td class="wrap"><strong>{{ s.underlying }} {{ s.strike | strike }}/{{ l.strike | strike }} poor man's covered call</strong>
+        <span class="muted small block">sold {{ s.expiration | short_date }} {{ s.strike | strike }} call at {{ pm.short.position.avg_price | money }} · bought {{ l.expiration | short_date }} {{ l.strike | strike }} call at {{ pm.long.position.avg_price | money }}</span>
+        {% if pm.expiring_today %}<span class="badge">sold call expiring today</span>{% elif pm.expired %}<span class="badge plain">sold call expired</span>{% endif %}</td>
+      <td class="num">{{ pm.contracts | whole }}</td>
+      <td class="num">{{ pm.short.current_price | money }}</td>
+      <td class="num">{{ pm.long.current_price | money }}</td>
+      {{ pnl_cell(pm.pnl, pm.pnl_pct) }}
+      <td class="num">{{ 'expired' if pm.expired else pm.dte }}</td>
+      <td class="num">{{ pm.premium | money }}</td>
+      <td class="num">{{ pm.capital | money }}</td>
+      {{ returns_cell(pm.return_locked, pm.return_remaining, pm.dte_at_entry) }}
+      <td>
+        <form method="post" action="/portfolio/spreads/{{ pm.spread_id }}/delete">
+          <button type="submit" class="link" aria-label="Unlink poor man's covered call {{ pm.spread_id }}">Unlink</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="muted small">Capital at risk = price paid for the bought call (LEAP) × 100 × contracts; premium is from the call sold; days count to the sold call's expiration. P&amp;L % is of the capital at risk. When the sold call expires or is closed, link the next one to the same LEAP.</p>
+{% endif %}
+
 {% if view.link_shorts and view.link_longs %}
 <form method="post" action="/portfolio/spreads" class="inline-form">
-  <span>Link a credit spread:</span>
+  <span>Link a credit spread or poor man's covered call:</span>
   <label for="short_id" class="visually-hidden">Leg you sold</label>
   <select id="short_id" name="short_id">
     {% for r in view.link_shorts %}<option value="{{ r.target.instrument_id }}">Sold {{ r.position.quantity }} × {{ instrument_label(r.target) }}</option>{% endfor %}

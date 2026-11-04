@@ -17,7 +17,7 @@ per strike, plus the stock price at that moment. Yahoo has no greeks; we calcula
 import logging
 import math
 from dataclasses import replace
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pandas as pd
 import yfinance as yf
@@ -33,7 +33,7 @@ from app.providers.market_data import (
     TickerNotFound,
 )
 from app.tickers import InvalidTicker, normalize_ticker
-from app.timeutils import today_eastern, utc_now
+from app.timeutils import EASTERN, today_eastern, utc_now
 
 log = logging.getLogger(__name__)
 
@@ -79,7 +79,9 @@ class YahooMarketData:
                 f"Yahoo Finance did not respond properly ({type(exc).__name__})."
             ) from exc
 
-        quote = quote_from_history(symbol, history, _currency(ticker))
+        metadata = _metadata(ticker)
+        quote = quote_from_history(symbol, history, metadata.get("currency"))
+        quote = with_latest_regular_price(quote, metadata)
         shares = _shares(ticker, symbol)
         return replace(
             quote,
@@ -183,6 +185,42 @@ def quote_from_history(symbol: str, history: pd.DataFrame, currency: str | None)
         year_low=_number(history["Low"].min()) if "Low" in history else None,
         year_high=_number(history["High"].max()) if "High" in history else None,
         volume=_whole_number(last.get("Volume")),
+    )
+
+
+def with_latest_regular_price(quote: QuoteData, metadata: dict) -> QuoteData:
+    """Use Yahoo's latest regular-market price when the daily history lacks that day.
+
+    For a while after the 4 PM close, Yahoo's daily history can be missing today's row, so
+    its last row is the previous trading day. Seen 2026-11-03: AMZN showed Monday's close
+    (245.63) at 8 PM on Tuesday instead of Tuesday's (about 251). The history's metadata
+    always carries the latest regular-session price and its time (after-hours trades are
+    not included), so that day is added from it. Returns the quote unchanged otherwise.
+    """
+    price = _number(metadata.get("regularMarketPrice"))
+    stamp = _number(metadata.get("regularMarketTime"))
+    if not price or price <= 0 or not stamp:
+        return quote
+    try:
+        day = datetime.fromtimestamp(stamp, tz=UTC).astimezone(EASTERN).date()
+    except (OverflowError, OSError, ValueError):
+        return quote
+    if quote.session_date is not None and day <= quote.session_date:
+        return quote  # the history already has that day
+    low = _number(metadata.get("regularMarketDayLow"))
+    high = _number(metadata.get("regularMarketDayHigh"))
+    lows = [v for v in (quote.year_low, low, price) if v is not None]
+    highs = [v for v in (quote.year_high, high, price) if v is not None]
+    return replace(
+        quote,
+        last_price=price,
+        previous_close=quote.last_price,
+        session_date=day,
+        day_low=low,
+        day_high=high,
+        volume=_whole_number(metadata.get("regularMarketVolume")),
+        year_low=min(lows),
+        year_high=max(highs),
     )
 
 
@@ -305,11 +343,12 @@ def _contracts_from_table(table: pd.DataFrame | None, option_type: str) -> list[
 # --- extras: never let one of these spoil an otherwise good quote ---
 
 
-def _currency(ticker: yf.Ticker) -> str | None:
+def _metadata(ticker: yf.Ticker) -> dict:
+    """The price history's metadata (currency, latest regular-market price and time)."""
     try:
-        return (ticker.history_metadata or {}).get("currency")
+        return dict(ticker.history_metadata or {})
     except Exception:
-        return None
+        return {}
 
 
 def _shares(ticker: yf.Ticker, symbol: str) -> int | None:

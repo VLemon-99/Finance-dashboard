@@ -1,0 +1,18 @@
+{# The price part of the trade form. Swapped in by HTMX when the trade date changes. #}
+<input type="hidden" name="suggested_price" value="{{ '%.2f' | format(suggestion.price) if suggestion.price is not none else '' }}">
+<input type="hidden" name="price_date" value="{{ trade_date.isoformat() }}">
+<div class="field">
+  <label for="price">Price per share</label>
+  <input id="price" name="price" value="{{ price }}" inputmode="decimal" maxlength="20" placeholder="Enter the price">
+  <span class="muted small">
+    {% if suggestion.price is not none %}Filled in: {{ suggestion.source }}{% if trade_date == today %}, today{% endif %}. You can change it.{% endif %}
+  </span>
+</div>
+{% if suggestion.note %}<p class="note warning" role="status">{{ suggestion.note }}</p>{% endif %}
+{% if target.kind == "option" %}
+<div class="field">
+  <label for="underlying_price">{{ target.underlying }} stock price at the time</label>
+  <input id="underlying_price" name="underlying_price" value="{{ underlying_price }}" inputmode="decimal" maxlength="20" placeholder="Enter the stock price">
+  <span class="muted small">Needed when selling a call: a covered call's return is based on it.</span>
+</div>
+{% endif %}

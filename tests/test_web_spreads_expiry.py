@@ -157,7 +157,7 @@ def test_leg_already_in_a_spread(web, engine):
     link(web, engine, P250, P245)
     response = link(web, engine, P250, "AAPL261120P00255000")
     assert response.status_code == 400
-    assert "already part of a credit spread" in response.text
+    assert "already linked" in response.text
 
 
 def test_legs_no_longer_matching_are_shown_separately(web, engine):
