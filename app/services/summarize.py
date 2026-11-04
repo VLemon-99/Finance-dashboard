@@ -3,6 +3,8 @@
 - Only one item per story is sent: the story's first item (`story_id == id`). The other
   outlets' copies of the same story are shown as extra sources, not summarized again.
 - Form 4 insider filings aren't sent: their trades are read in code (see sources/edgar.py).
+- YouTube videos are only sent once the AI has watched them (videos.py); until then they
+  stay pending.
 - Items are sent in batches to keep the number of AI calls low.
 - Only public content leaves the app (SPEC F4.13): see `public_item`.
 """
@@ -12,9 +14,10 @@ from datetime import datetime
 
 from sqlmodel import Session, col, select
 
-from app.ai.llm import LLM, AIError, PublicItem
+from app.ai.llm import LLM, AIError, ItemKind, PublicItem
 from app.config import AIConfig
 from app.db.models import SourceItemRow
+from app.services.videos import is_video, is_watched
 from app.sources.edgar import base_form
 from app.timeutils import as_utc, format_eastern, utc_now
 
@@ -40,11 +43,16 @@ def pending_items(session: Session, ticker: str, since: datetime) -> list[Source
     return [r for r in rows if not is_form4(r)]
 
 
+def item_kind(source_type: str) -> ItemKind:
+    """How an item is labelled for the AI and on report pages."""
+    return {"filing": "filing", "blog": "blog", "youtube": "video"}.get(source_type, "news")
+
+
 def public_item(row: SourceItemRow, max_chars: int) -> PublicItem:
     """The only fields of a stored item the AI ever sees: public content."""
     return PublicItem(
         ref=row.id,
-        kind="filing" if row.source_type == "filing" else "news",
+        kind=item_kind(row.source_type),
         outlet=row.outlet,
         title=row.title,
         published=format_eastern(as_utc(row.published_at)),
@@ -80,7 +88,7 @@ def summarize_pending(
     config: AIConfig,
 ) -> list[str]:
     """Summarize what's pending. Returns notes for the report's "missing" list (empty if fine)."""
-    rows = pending_items(session, ticker, since)
+    rows = [r for r in pending_items(session, ticker, since) if not is_video(r) or is_watched(r)]
     by_id = {r.id: r for r in rows}
     left_out = 0
     for group in batches(rows, config):

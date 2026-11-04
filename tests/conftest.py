@@ -1,6 +1,8 @@
 """Shared test setup. Tests never touch the network or the real data/app.db."""
 
 import json
+import threading
+import time
 from dataclasses import replace
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -12,7 +14,17 @@ from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
-from app.ai.llm import AIError, Claim, ItemSummary, PublicItem, PublicStory, ReportDraft
+from app.ai.llm import (
+    AIError,
+    Claim,
+    ItemSummary,
+    PublicItem,
+    PublicStory,
+    PublicVideo,
+    ReportDraft,
+    VideoPoint,
+    VideoUnavailable,
+)
 from app.config import PROJECT_ROOT, AppConfig
 from app.db.session import make_engine
 from app.main import create_app
@@ -320,6 +332,34 @@ class FakeLLM:
         self.extra_claims: list[Claim] = []  # added to developments (e.g. uncited ones)
         self.item_calls: list[tuple[str, str | None, list[PublicItem]]] = []
         self.report_calls: list[tuple[str, str | None, list[PublicStory]]] = []
+        # Videos (SPEC F4.5)
+        self.video_calls: list[PublicVideo] = []
+        self.video_fail: str | None = None  # AIError for video calls only
+        self.unwatchable: set[str] = set()  # video URLs it can't watch
+        self.video_seconds = 0.0  # pretend each video takes this long to watch
+        self.most_at_once = 0  # most videos watched at the same time
+        self._watching = 0
+        self._lock = threading.Lock()
+
+    def watch_video(self, video: PublicVideo):
+        if self.fail or self.video_fail:
+            raise AIError(self.fail or self.video_fail)
+        with self._lock:
+            self.video_calls.append(video)
+            self._watching += 1
+            self.most_at_once = max(self.most_at_once, self._watching)
+        try:
+            time.sleep(self.video_seconds)
+            if video.url in self.unwatchable:
+                raise VideoUnavailable("The AI service couldn't watch this video.")
+            return (
+                VideoPoint(f"First point of: {video.title}", 75),
+                VideoPoint("Second point, time unknown.", None),
+                VideoPoint("Third point, past the hour.", 3725),
+            )
+        finally:
+            with self._lock:
+                self._watching -= 1
 
     def summarize_items(self, ticker, company, items):
         if self.fail:

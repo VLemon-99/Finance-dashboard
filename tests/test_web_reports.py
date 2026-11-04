@@ -201,3 +201,53 @@ def test_without_ai_sentiment_says_ratings_are_off(client, report_services):
     report_services.llm_problem = "AI summaries are off: set GEMINI_API_KEY in the .env file."
     html = client.get(generate(client, ticker="AAPL")).text
     assert "No score: AI ratings are off for this report" in html
+
+
+def test_progress_says_what_the_run_is_doing(client, report_runner, engine):
+    report_runner.hold = True
+    url = generate(client, ticker="AAPL")
+    with Session(engine) as session:
+        run = session.exec(select(ReportRun)).one()
+        run.summary = {"stage": "Watching new YouTube videos (up to 10)"}
+        session.commit()
+    assert "Watching new YouTube videos (up to 10)…" in client.get(f"{url}/progress").text
+
+
+def with_blog_and_channel(report_services, fake_fetch, **ai):
+    from app.config import AppConfig, SourcesConfig
+    from app.sources.registry import blog_and_video_sources
+
+    config = SourcesConfig.model_validate(
+        {
+            "blogs": {
+                "feeds": [{"name": "Sample Tech Blog", "feed": "https://blog.example.com/feed/"}]
+            },
+            "youtube": {
+                "channels": [{"name": "Sample Markets", "channel_id": "UCsampleChannelAAAAAAAAA"}]
+            },
+        }
+    )
+    report_services.sources.sources = blog_and_video_sources(fake_fetch, config)
+    report_services.config = AppConfig.model_validate({"ai": ai})
+
+
+def test_f4_5_video_points_link_to_their_moment(client, report_services, fake_fetch):
+    with_blog_and_channel(report_services, fake_fetch)
+    html = client.get(generate(client, ticker="AAPL")).text
+    sources = html.split("<h3>Sources</h3>")[1]
+    assert '<span class="badge plain">YouTube</span>' in sources
+    assert '<span class="badge plain">blog</span>' in sources
+    assert (
+        '<a href="https://www.youtube.com/watch?v=sampleVid01&amp;t=75s" rel="noopener noreferrer" '
+        'target="_blank" class="timestamp" title="Watch from 1:15">1:15</a> First point of:'
+    ) in sources
+    assert "Second point, time unknown." in sources
+    assert "times link to that moment" in sources
+    assert "Sample Markets" in sources and "Sample Tech Blog" in sources
+
+
+def test_video_waiting_for_a_later_run_says_so(client, report_services, fake_fetch):
+    with_blog_and_channel(report_services, fake_fetch, max_videos_per_run=0)
+    html = client.get(generate(client, ticker="AAPL")).text
+    assert "Not watched by the AI yet; it will be summarized in a later report." in html
+    assert "2 new video(s) will be watched in a later run" in html

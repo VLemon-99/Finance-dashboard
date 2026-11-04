@@ -101,9 +101,21 @@
     <ol class="sources">{% for st in body.stories %}
       <li id="r{{ rid }}-s{{ loop.index }}">
         <p class="source-title"><a href="{{ st["items"][0].url }}" rel="noopener noreferrer" target="_blank">{{ st.title }}</a>
-          {% if st.kind == "filing" %}<span class="badge plain">filing</span>{% endif %}
+          {% if st.kind in ("filing", "video", "blog") %}<span class="badge plain">{{ "YouTube" if st.kind == "video" else st.kind }}</span>{% endif %}
           {% if st.is_rumor %}<span class="badge">unconfirmed</span>{% endif %}</p>
         {% if st.summary %}<p>{{ st.summary }}</p>{% endif %}
+        {% if st.kind == "video" %}
+          {% if st.points %}
+        <ul class="video-points">{% for pt in st.points %}
+          <li>{% if pt.time %}<a href="{{ pt.url }}" rel="noopener noreferrer" target="_blank" class="timestamp" title="Watch from {{ pt.time }}">{{ pt.time }}</a> {% endif %}{{ pt.text }}</li>{% endfor %}
+        </ul>
+        <p class="muted small">Points written by the AI from the video itself; times link to that moment.</p>
+          {% elif st.watch_error %}
+        <p class="muted small">{{ st.watch_error }} Rated from its title and description only.</p>
+          {% else %}
+        <p class="muted small">Not watched by the AI yet; it will be summarized in a later report.</p>
+          {% endif %}
+        {% endif %}
         {% if st.sentiment %}<p class="small"><span class="rating {{ st.sentiment }}">{{ st.sentiment }}</span> {{ st.reason }}</p>{% endif %}
         <ul class="small">{% for it in st["items"] %}
           <li><a href="{{ it.url }}" rel="noopener noreferrer" target="_blank">{{ it.title }}</a> <span class="muted">{{ it.outlet }}, {{ it.published_at | from_iso | eastern }}</span></li>{% endfor %}
@@ -111,7 +123,7 @@
       </li>{% endfor %}
     </ol>
     {% else %}
-    <p class="muted">No news or filings found in this period.</p>
+    <p class="muted">No news, filings, blog posts or videos found in this period.</p>
     {% endif %}
   </section>
 </article>

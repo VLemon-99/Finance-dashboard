@@ -4,10 +4,18 @@ import json
 from types import SimpleNamespace
 
 import pytest
-from google.genai import errors
+from google.genai import errors, types
 
 from app.ai.gemini import GeminiLLM
-from app.ai.llm import AIError, ItemSummary, PublicItem, PublicStory
+from app.ai.llm import (
+    AIError,
+    ItemSummary,
+    PublicItem,
+    PublicStory,
+    PublicVideo,
+    VideoPoint,
+    VideoUnavailable,
+)
 
 
 class FakeClient:
@@ -141,3 +149,94 @@ def test_odd_answers_become_ai_errors(answer):
 def test_missing_or_placeholder_key_is_a_clear_error(key):
     with pytest.raises(AIError, match="GEMINI_API_KEY"):
         GeminiLLM(api_key=key, model_name="m")
+
+
+# --- YouTube videos (SPEC F4.5) -------------------------------------------------------
+
+VIDEO = PublicVideo(
+    url="https://www.youtube.com/watch?v=sampleVid01",
+    channel="Sample Markets",
+    title="Apple earnings: what the iPhone numbers say",
+    published="Nov 1, 2026 9:00 AM ET",
+    max_seconds=3600,
+)
+
+
+class SequenceClient(FakeClient):
+    """Answers with the given errors/answers in turn."""
+
+    def __init__(self, *outcomes) -> None:
+        super().__init__()
+        self.outcomes = list(outcomes)
+
+    def generate_content(self, model, contents, config):
+        self.requests.append({"model": model, "contents": contents, "config": config})
+        outcome = self.outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return SimpleNamespace(text=json.dumps(outcome))
+
+
+def test_video_is_sent_as_a_link_at_low_resolution_and_cut_off():
+    client = FakeClient(
+        {
+            "points": [
+                {"text": " iPhone sales were flat. ", "start_seconds": 195},
+                {"text": "Services grew.", "start_seconds": None},
+                {"text": "", "start_seconds": 10},  # empty -> dropped
+                {"text": "A time past what was watched.", "start_seconds": 9999},
+            ]
+        }
+    )
+    points = llm(client).watch_video(VIDEO)
+    assert points == (
+        VideoPoint("iPhone sales were flat.", 195),
+        VideoPoint("Services grew.", None),
+        VideoPoint("A time past what was watched.", None),
+    )
+    request = client.requests[0]
+    video_part, text_part = request["contents"].parts
+    assert video_part.file_data.file_uri == VIDEO.url
+    assert video_part.video_metadata.end_offset == "3600s"
+    assert "Sample Markets" in text_part.text and "iPhone numbers" in text_part.text
+    assert request["config"].media_resolution == types.MediaResolution.MEDIA_RESOLUTION_LOW
+    assert "untrusted data" in request["config"].system_instruction
+
+
+def test_video_answer_keeps_at_most_five_points():
+    client = FakeClient({"points": [{"text": f"Point {n}.", "start_seconds": n} for n in range(8)]})
+    assert len(llm(client).watch_video(VIDEO)) == 5
+
+
+def test_video_refused_with_cut_off_is_tried_once_without_it():
+    refused = errors.ClientError(400, {"error": {"message": "Invalid video offset"}})
+    client = SequenceClient(refused, {"points": [{"text": "Fine.", "start_seconds": 3}]})
+    assert llm(client).watch_video(VIDEO) == (VideoPoint("Fine.", 3),)
+    assert client.requests[1]["contents"].parts[0].video_metadata is None
+
+
+def test_video_that_cant_be_watched():
+    refused = errors.ClientError(400, {"error": {"message": "Video not available"}})
+    with pytest.raises(VideoUnavailable, match="couldn't watch this video"):
+        llm(SequenceClient(refused, refused)).watch_video(VIDEO)
+    with pytest.raises(VideoUnavailable, match="no usable summary"):
+        llm(FakeClient({"points": []})).watch_video(VIDEO)
+
+
+def test_video_service_failures_are_not_blamed_on_the_video():
+    # Out of credit or a bad key stops all watching (plain AIError, not VideoUnavailable).
+    for error in (
+        errors.ClientError(402, {"error": {"message": "prepay"}}),
+        errors.ClientError(400, {"error": {"message": "API key not valid."}}),
+    ):
+        with pytest.raises(AIError) as raised:
+            llm(FakeClient(error=error)).watch_video(VIDEO)
+        assert not isinstance(raised.value, VideoUnavailable)
+
+
+def test_only_youtube_watch_links_are_sent():
+    client = FakeClient({"points": []})
+    bad = PublicVideo("https://example.com/watch?v=sampleVid01", "C", "T", "", 60)
+    with pytest.raises(VideoUnavailable):
+        llm(client).watch_video(bad)
+    assert client.requests == []
