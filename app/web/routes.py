@@ -36,8 +36,11 @@ templates.env.filters.update(
     number=formatting.number,
     whole=formatting.whole,
     percent=formatting.percent,
+    multiple=formatting.multiple,
+    vs=formatting.vs,
     strike=formatting.strike,
     short_date=formatting.short_date,
+    iso_day=formatting.iso_day,
     session_label=lambda d: formatting.session_label(d, today_eastern()),
 )
 templates.env.globals["price_range"] = formatting.price_range

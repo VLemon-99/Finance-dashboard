@@ -251,3 +251,76 @@ def test_video_waiting_for_a_later_run_says_so(client, report_services, fake_fet
     html = client.get(generate(client, ticker="AAPL")).text
     assert "Not watched by the AI yet; it will be summarized in a later report." in html
     assert "2 new video(s) will be watched in a later run" in html
+
+
+# --- Phase 7: valuation, holders, followed funds, unusual options (F4.7, F4.8) ---------
+
+
+def section(html, name):
+    return html.split(f"<h3>{name}</h3>")[1].split("<h3>")[0]
+
+
+def test_f4_7_valuation_snapshot_is_compact_with_details_folded(client):
+    html = section(client.get(generate(client, ticker="AAPL")).text, "Valuation snapshot")
+    # Now, then own history average with "vs", peers, sector, Damodaran: P/E 30 vs 25 (+20%),
+    # peers 15 (+100%), sector 40 (−25%), industry average 26 (+15%).
+    pe_row = html.split('<th scope="row">P/E</th>')[1].split("</tr>")[0]
+    assert "<strong>30.0</strong>" in pe_row
+    for shown in ("25.0", "+20%", "15.0", "+100%", "40.0", "−25%", "26.0", "+15%"):
+        assert shown in pe_row
+    assert "Industry avg: Damodaran, Electronics (Consumer &amp; Office), January 2026." in html
+    targets = " ".join(html.split("Analyst targets")[1].split("</p>")[0].split())
+    assert targets.startswith('(40): low $180.00 <span class="vs">−10%</span>')
+    assert 'average $230.00 <span class="vs">+15%</span>' in targets
+    # Peer list and yearly figures are folded away.
+    assert '<details class="more"><summary>Peers and yearly figures</summary>' in html
+    assert "SONY" in html.split("<details")[1]
+
+
+def test_amzn_valuation_says_technology_is_the_owners_setting(client):
+    html = section(client.get(generate(client, ticker="AMZN")).text, "Valuation snapshot")
+    assert "Sector: Technology&#39;s 4 largest (your setting) · " in html
+
+
+def test_f4_8_holders_funds_and_options_shown(client, fake_market_data):
+    from datetime import date
+
+    from app.providers.market_data import OptionContractData
+
+    fake_market_data.extra_contracts = [
+        OptionContractData("AAPLX", "call", 300.0, volume=1200, open_interest=100)
+    ]
+    import app.services.market_facts as mf
+
+    original = mf.today_eastern
+    mf.today_eastern = lambda: date(2026, 11, 4)
+    try:
+        html = section(
+            client.get(generate(client, ticker="AAPL")).text,
+            "Institutional &amp; insider activity",
+        )
+    finally:
+        mf.today_eastern = original
+    assert "Institutions hold <strong>62.3%</strong> of the shares (6,512 institutions" in html
+    assert "<summary>Top 3 institutional holders</summary>" in html
+    assert "Funds you follow (13F reports for the quarter ending Jun 30, 2026)" in html
+    assert "<strong>Berkshire Hathaway</strong>" in html and "Held, unchanged" in html
+    assert "Unusual options activity:" in html and "<strong>4 contracts</strong>" in html
+    assert "Nov 20, 2026 300 call" in html
+
+
+def test_reports_made_before_phase_7_still_show(client, engine):
+    generate(client, ticker="AAPL")
+    with Session(engine) as session:
+        report = session.exec(select(Report)).first()
+        body = dict(report.body)
+        for key in ("institutional", "unusual_options"):
+            body.pop(key)
+        body["valuation"] = None
+        report.body = body
+        session.add(report)
+        session.commit()
+        report_id = report.id
+    html = client.get(f"/reports/{report_id}").text
+    assert "Not part of reports made before valuations were added." in html
+    assert "Unusual options activity" not in html

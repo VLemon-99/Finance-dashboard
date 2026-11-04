@@ -351,8 +351,14 @@ FUND_ROUTES = {
     _FUND_FOLDER + "000095012326005001/infotable.xml": "sec13f_infotable_previous.xml",
 }
 
+DAMODARAN_ROUTES = {
+    "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/" + name: f"../damodaran/{name}"
+    for name in ("pedata.html", "vebitda.html", "psdata.html")
+}
+
 DEFAULT_ROUTES = {
     **FUND_ROUTES,
+    **DAMODARAN_ROUTES,
     "https://news.google.com/rss/search": "google_news_aapl.xml",
     "https://www.youtube.com/feeds/videos.xml?channel_id=UCsampleChannelAAAAAAAAA": (
         "youtube_channel.xml"
@@ -520,7 +526,36 @@ TEST_SEC_USER_AGENT = "Test Person test.person@mail.test"
 
 
 @pytest.fixture
-def report_services(fake_fetch, fake_llm, sources_now, app_config):
+def market_facts(fake_market_data, fake_fetch):
+    """Valuation, holders and options (Phase 7) from the fake Yahoo, the sample Damodaran
+    pages and one followed fund's sample 13F reports."""
+    from app.config import (
+        DamodaranConfig,
+        FollowedFund,
+        FollowedFundsConfig,
+        InstitutionalConfig,
+        load_benchmarks_config,
+    )
+    from app.providers.damodaran import DamodaranClient
+    from app.providers.sec_13f import ThirteenFClient
+    from app.services.market_facts import MarketFacts
+
+    return MarketFacts(
+        market_data=fake_market_data,
+        benchmarks=load_benchmarks_config(PROJECT_ROOT / "config" / "benchmarks.yaml"),
+        damodaran=DamodaranClient(fake_fetch, DamodaranConfig()),
+        funds=ThirteenFClient(fake_fetch, TEST_SEC_USER_AGENT),
+        institutional=InstitutionalConfig(
+            followed_funds=FollowedFundsConfig(
+                funds=[FollowedFund(name="Berkshire Hathaway", cik=FUND_CIK)]
+            )
+        ),
+        max_parallel=2,
+    )
+
+
+@pytest.fixture
+def report_services(fake_fetch, fake_llm, sources_now, app_config, market_facts):
     """Report pipeline wired to the fake internet and the fake AI."""
     from app.config import SourcesConfig
     from app.services.reports import ReportServices
@@ -539,6 +574,7 @@ def report_services(fake_fetch, fake_llm, sources_now, app_config):
         llm_problem=None,
         config=app_config,
         sources_config=sources_config,
+        facts=market_facts,
     )
 
 

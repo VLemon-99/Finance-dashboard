@@ -209,3 +209,12 @@ def iso_eastern(value: str | None) -> datetime | None:
 
 templates.env.globals["citation_numbers"] = citation_numbers
 templates.env.filters["from_iso"] = iso_eastern
+# How a followed fund's change in a stock is described (SPEC F4.8).
+templates.env.globals["fund_status"] = {
+    "new": "Bought (new position)",
+    "added": "Added",
+    "reduced": "Reduced",
+    "unchanged": "Held, unchanged",
+    "sold": "Sold all",
+    "held": "Holds",
+}

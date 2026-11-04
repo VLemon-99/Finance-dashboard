@@ -79,3 +79,12 @@ def test_trend_follows_what_is_shown():
     assert f.trend(0.01) == "up"
     assert f.trend(-0.01) == "down"
     assert f.trend(None) == "flat"
+
+
+def test_valuation_formats():
+    from app.web.formatting import iso_day, multiple, vs
+
+    assert multiple(28.456) == "28.5" and multiple(None) == "—"
+    assert vs(0.204) == "+20%" and vs(-0.05) == "−5%" and vs(0.001) == "0%" and vs(None) == ""
+    assert iso_day("2026-06-30") == "Jun 30, 2026" and iso_day(None) == "—"
+    assert iso_day("bad") == "—"
