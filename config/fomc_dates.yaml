@@ -1,0 +1,18 @@
+# Fed rate decisions (FOMC meetings) for the calendar (SPEC F5.2).
+# Copied from the Fed's published schedule:
+#   https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+# "decision" is the meeting's last day, when the statement comes out (2:00 PM ET).
+# "minutes" is when the meeting's minutes are released (2:00 PM ET); leave it out and it's
+# taken as three weeks after the decision, which is the Fed's usual rule.
+# Add next year's meetings when the Fed publishes them (usually in the summer). The calendar
+# warns when no future meeting is listed. Restart the app after editing.
+
+decision_time: "14:00"
+minutes_time: "14:00"
+
+meetings:
+  - decision: 2026-10-28
+    minutes: 2026-11-18
+  - decision: 2026-12-09
+    minutes: 2026-12-30
+  # 2027: not added yet (owner 2026-11-04).

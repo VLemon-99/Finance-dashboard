@@ -29,6 +29,7 @@ from app.config import PROJECT_ROOT, AppConfig
 from app.db.session import make_engine
 from app.main import create_app
 from app.providers.market_data import (
+    EarningsData,
     MarketDataError,
     NoOptionChain,
     OptionChainData,
@@ -138,6 +139,10 @@ class FakeMarketData:
         # Portfolio (Phase 4 part B)
         self.option_closes: dict[tuple[str, date], float] = {}
         self.close_calls: list[tuple[str, date]] = []
+        # Calendar (Phase 6)
+        self.earnings: list[EarningsData] = []
+        self.earnings_down = False
+        self.earnings_calls: list[list[str]] = []
 
     def get_quote(self, symbol: str) -> QuoteData:
         self.calls.append(symbol)
@@ -198,6 +203,12 @@ class FakeMarketData:
             return self.option_closes.get((symbol, day))
         history, _ = load_yahoo_history()
         return close_on(history, day)
+
+    def get_earnings(self, symbols, start, end) -> list[EarningsData]:
+        self.earnings_calls.append(list(symbols))
+        if self.mode != "ok" or self.earnings_down:
+            raise MarketDataError("Yahoo Finance did not respond properly (Timeout).")
+        return [e for e in self.earnings if e.symbol in symbols and start <= e.day <= end]
 
     def get_risk_free_rate(self) -> float:
         self.rate_calls += 1
@@ -454,14 +465,66 @@ def report_runner():
     return RecordingRunner()
 
 
+# --- the calendar (Phase 6) -----------------------------------------------------------
+
+
+class FakeFred:
+    """Stands in for FRED: release id -> dates. Set `down` to fail, `is_set_up` to False for
+    "no key"."""
+
+    def __init__(self, dates: dict[int, list[date]] | None = None) -> None:
+        self.is_set_up = True
+        self.down = False
+        self.dates: dict[int, list[date]] = dates or {}
+        self.calls: list[int] = []
+
+    def release_dates(self, release_id, start, end):
+        from app.providers.fred import FredError
+
+        self.calls.append(release_id)
+        if self.down:
+            raise FredError("FRED didn't answer in time.")
+        return [d for d in self.dates.get(release_id, []) if start <= d <= end]
+
+
+# Fed meetings for tests (invented, near the calendar clock below).
+TEST_FOMC = {
+    "meetings": [
+        {"decision": "2026-10-28", "minutes": "2026-11-18"},
+        {"decision": "2026-12-09"},  # minutes three weeks later: Dec 30
+    ]
+}
+
+
 @pytest.fixture
-def client(engine, fake_market_data, app_config, report_services, report_runner):
+def fake_fred():
+    return FakeFred(
+        {
+            10: [date(2026, 11, 12), date(2026, 12, 10)],  # CPI
+            50: [date(2026, 11, 6), date(2026, 12, 4)],  # jobs report
+            54: [date(2026, 11, 25)],  # PCE
+            53: [date(2026, 11, 25)],  # GDP
+        }
+    )
+
+
+@pytest.fixture
+def fomc():
+    from app.config import FomcConfig
+
+    return FomcConfig.model_validate(TEST_FOMC)
+
+
+@pytest.fixture
+def client(engine, fake_market_data, app_config, report_services, report_runner, fake_fred, fomc):
     app = create_app(
         engine=engine,
         market_data=fake_market_data,
         app_config=app_config,
         report_services=report_services,
         report_runner=report_runner,
+        fred=fake_fred,
+        fomc=fomc,
     )
     with TestClient(app) as c:  # `with` runs startup (creates the default user)
         yield c

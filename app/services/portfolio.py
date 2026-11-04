@@ -547,6 +547,16 @@ def _load(session: Session, user_id: int) -> _Loaded:
     )
 
 
+def held_tickers(session: Session, user_id: int) -> set[str]:
+    """Stocks the user holds now, or holds options on (for the calendar, owner 2026-11-04)."""
+    loaded = _load(session, user_id)
+    tickers = set()
+    for position in loaded.open:
+        target = loaded.targets[position.instrument_id]
+        tickers.add(target.underlying if target.kind == "option" else target.symbol)
+    return tickers - {None}
+
+
 def portfolio_view(
     session: Session,
     market_data: MarketData,

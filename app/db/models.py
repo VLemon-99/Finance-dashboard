@@ -229,3 +229,38 @@ class Report(SQLModel, table=True):
     period_end: datetime
     body: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     missing: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+
+
+class CalendarEvent(SQLModel, table=True):
+    """One fetched calendar event (SPEC F5): an earnings date or an economic release.
+
+    Public market facts, so no `user_id` (like `quotes`). Fed meetings aren't stored: they
+    come straight from config/fomc_dates.yaml. Each refresh replaces all events of its
+    `source_key`, because dates can move.
+    """
+
+    __tablename__ = "calendar_events"
+
+    id: int | None = Field(default=None, primary_key=True)
+    kind: str = Field(max_length=10)  # "earnings" | "macro"
+    source_key: str = Field(max_length=40, index=True)  # "earnings:AAPL", "fred:10"
+    ticker: str | None = Field(default=None, max_length=32, index=True)  # earnings only
+    title: str = Field(max_length=200)
+    event_date: date = Field(index=True)  # the US Eastern calendar day
+    starts_at: datetime | None = None  # UTC; None when the time isn't known
+    timing: str | None = Field(default=None, max_length=12)  # earnings: before_open...
+    source: str = Field(max_length=60)  # shown on the page, e.g. "Yahoo Finance"
+    source_url: str | None = Field(default=None, max_length=500)
+    fetched_at: datetime = Field(default_factory=utc_now)
+
+
+class CalendarFetch(SQLModel, table=True):
+    """When each calendar source was last checked, and whether it worked (stale/missing)."""
+
+    __tablename__ = "calendar_fetches"
+
+    id: int | None = Field(default=None, primary_key=True)
+    source_key: str = Field(max_length=40, unique=True)  # "earnings:AAPL", "fred:10"
+    fetched_at: datetime
+    ok: bool = True
+    message: str | None = Field(default=None, max_length=300)  # why it failed

@@ -11,11 +11,21 @@ from sqlmodel import Session
 
 from app.ai.gemini import GeminiLLM
 from app.ai.llm import AIError
-from app.config import AppConfig, Settings, get_settings, load_app_config, load_sources_config
+from app.config import (
+    AppConfig,
+    FomcConfig,
+    Settings,
+    get_settings,
+    load_app_config,
+    load_fomc_config,
+    load_sources_config,
+)
 from app.db.session import database_is_set_up, database_is_up_to_date, make_engine
+from app.providers.fred import FredClient
 from app.providers.market_data import MarketData
 from app.providers.yahoo import YahooMarketData
 from app.scheduler import start_scheduler
+from app.services.calendar import CalendarSetup
 from app.services.options import RiskFreeRate
 from app.services.portfolio import TradeNotFound
 from app.services.reports import ReportServices, execute_run, mark_interrupted_runs
@@ -69,6 +79,8 @@ def create_app(
     app_config: AppConfig | None = None,
     report_services: ReportServices | None = None,
     report_runner: ReportRunner | None = None,
+    fred: FredClient | None = None,
+    fomc: FomcConfig | None = None,
 ) -> FastAPI:
     """Build the app. Tests pass in a temporary database, fake data sources and small limits."""
     settings = get_settings()
@@ -76,6 +88,8 @@ def create_app(
     engine = engine or make_engine(settings.database_url)
     market_data = market_data or YahooMarketData(settings.market_data_timeout_seconds)
     report_services = report_services or build_report_services(settings, app_config)
+    fred = fred or FredClient(settings.fred_api_key, settings.source_timeout_seconds)
+    fomc = fomc or load_fomc_config(settings.fomc_dates_file)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -108,6 +122,9 @@ def create_app(
     app.state.report_services = report_services
     app.state.report_runner = report_runner or run_in_background
     app.state.scheduler = None  # started at startup if schedule.enabled (app/scheduler.py)
+    app.state.calendar = CalendarSetup(
+        market_data=market_data, fred=fred, fomc=fomc, config=app_config
+    )
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     app.include_router(router)
     app.include_router(report_router)

@@ -89,3 +89,39 @@ schedule:
   enabled: false
   # Time of day, US Eastern, 24-hour clock. Keep the quotes.
   time: "07:30"
+
+calendar:
+  # The list view shows this many days from today (SPEC F5.3).
+  list_days: 14
+  # Earnings and economic release dates are checked again after this many hours, or this
+  # many minutes after the source failed.
+  refresh_hours: 24
+  retry_minutes: 15
+  # How far ahead earnings dates are fetched (days).
+  earnings_days_ahead: 90
+  # Impact tags (SPEC F5.2): high or medium. "High impact only" and the home page use them.
+  earnings_impact: high
+  fomc_decision_impact: high
+  fomc_minutes_impact: medium
+  # How many upcoming high-impact events the home page shows (SPEC F5.6).
+  home_events: 3
+  # Economic releases whose dates come from FRED's release calendar. Times are US Eastern
+  # (keep the quotes). fred_release_id is the number in the address of the release's page
+  # on fred.stlouisfed.org (e.g. .../release?rid=10).
+  macro_releases:
+    - name: CPI (consumer prices)
+      fred_release_id: 10
+      time: "08:30"
+      impact: high
+    - name: Jobs report (employment situation)
+      fred_release_id: 50
+      time: "08:30"
+      impact: high
+    - name: PCE (personal income and outlays)
+      fred_release_id: 54
+      time: "08:30"
+      impact: medium
+    - name: GDP
+      fred_release_id: 53
+      time: "08:30"
+      impact: medium

@@ -9,6 +9,10 @@ Where each field comes from (see DECISIONS.md, "Phase 2: where the stock row com
 - Yahoo's company calendar -> next earnings date.
 Market cap and earnings are extras: if either fails, the rest of the row is still returned.
 
+Earnings calendar (Phase 6): Yahoo's earnings calendar (the same data as its calendar page,
+asked for as JSON through yfinance) gives each report's date, time and "before open" /
+"after close". All tickers go in one request.
+
 Options (Phase 4): Yahoo's option chain gives bid, ask, last, volume, open interest and IV
 per strike, plus the stock price at that moment. Yahoo has no greeks; we calculate them
 (app/services/options_math.py). The risk-free rate is the 13-week T-bill yield (^IRX).
@@ -21,9 +25,11 @@ from datetime import UTC, date, datetime, timedelta
 
 import pandas as pd
 import yfinance as yf
+from yfinance.calendars import CalendarQuery
 from yfinance.exceptions import YFPricesMissingError, YFTickerMissingError, YFTzMissingError
 
 from app.providers.market_data import (
+    EarningsData,
     MarketDataError,
     NoOptionChain,
     OptionChainData,
@@ -162,6 +168,79 @@ class YahooMarketData:
                 f"Yahoo Finance did not respond properly ({type(exc).__name__})."
             ) from exc
         return rate_from_history(history)
+
+    def get_earnings(self, symbols: list[str], start: date, end: date) -> list[EarningsData]:
+        results: list[EarningsData] = []
+        for first in range(0, len(symbols), EARNINGS_BATCH):
+            batch = symbols[first : first + EARNINGS_BATCH]
+            try:
+                calendars = yf.Calendars(start=start.isoformat(), end=end.isoformat())
+                # yfinance's public earnings call can't filter by ticker, so we pass our own
+                # query to the same request it makes (pinned yfinance version, see uv.lock).
+                table = calendars._get_data(
+                    calendar_type="sp_earnings",
+                    query=earnings_query(batch, start, end),
+                    limit=100,
+                    force=True,
+                )
+            except Exception as exc:
+                log.warning("Yahoo earnings calendar failed: %s", exc)
+                raise MarketDataError(
+                    f"Yahoo Finance did not respond properly ({type(exc).__name__})."
+                ) from exc
+            results += earnings_from_calendar(table, set(batch))
+        return results
+
+
+# Tickers per earnings-calendar request (Yahoo returns at most 100 rows per request).
+EARNINGS_BATCH = 25
+# Yahoo's "startdatetimetype": before market open, after market close, time as specified.
+_TIMINGS = {"BMO": "before_open", "AMC": "after_close", "TAS": "at_time"}
+
+
+def earnings_query(symbols: list[str], start: date, end: date) -> CalendarQuery:
+    tickers = [CalendarQuery("eq", ["ticker", s]) for s in symbols]
+    return CalendarQuery(
+        "and",
+        [
+            CalendarQuery("eq", ["region", "us"]),
+            CalendarQuery(
+                "or",
+                [
+                    CalendarQuery("eq", ["eventtype", "EAD"]),
+                    CalendarQuery("eq", ["eventtype", "ERA"]),
+                ],
+            ),
+            CalendarQuery("gte", ["startdatetime", start.isoformat()]),
+            CalendarQuery("lte", ["startdatetime", end.isoformat()]),
+            tickers[0] if len(tickers) == 1 else CalendarQuery("or", tickers),
+        ],
+    )
+
+
+def earnings_from_calendar(table: pd.DataFrame | None, wanted: set[str]) -> list[EarningsData]:
+    """yfinance's earnings-calendar table (one row per report, indexed by symbol) -> ours."""
+    if table is None or table.empty or "Event Start Date" not in table:
+        return []
+    results = []
+    for symbol, row in table.iterrows():
+        symbol = str(symbol).upper()
+        when = row.get("Event Start Date")
+        if symbol not in wanted or when is None or pd.isna(when):
+            continue
+        when = pd.Timestamp(when)
+        when = when.tz_localize("UTC") if when.tzinfo is None else when.tz_convert("UTC")
+        starts_at = when.to_pydatetime()
+        timing = _TIMINGS.get(str(row.get("Timing") or "").strip().upper(), "unknown")
+        results.append(
+            EarningsData(
+                symbol=symbol,
+                day=starts_at.astimezone(EASTERN).date(),
+                starts_at=starts_at if timing != "unknown" else None,
+                timing=timing,  # type: ignore[arg-type]
+            )
+        )
+    return results
 
 
 def quote_from_history(symbol: str, history: pd.DataFrame, currency: str | None) -> QuoteData:

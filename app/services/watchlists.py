@@ -252,6 +252,19 @@ def watchlist_tickers(session: Session, user_id: int, watchlist_id: int) -> list
     return [symbol for _, symbol in _items(session, watchlist.id, kind="stock")]
 
 
+def all_tickers(session: Session, user_id: int) -> set[str]:
+    """Every stock in any of the user's lists, plus the stocks behind their option contracts
+    (used by the calendar's earnings dates, SPEC F5.1)."""
+    rows = session.exec(
+        select(Instrument.kind, Instrument.symbol, Instrument.underlying)
+        .join(WatchlistItem, col(WatchlistItem.instrument_id) == col(Instrument.id))
+        .where(WatchlistItem.user_id == user_id)
+    ).all()
+    return {underlying if kind == "option" else symbol for kind, symbol, underlying in rows} - {
+        None
+    }
+
+
 def _items(session: Session, watchlist_id: int, kind: str | None = None) -> list[tuple[int, str]]:
     """(item id, symbol) pairs in the order they were added; all kinds unless `kind` is given."""
     statement = (
