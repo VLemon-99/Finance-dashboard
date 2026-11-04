@@ -16,6 +16,7 @@ from app.services.options_math import (
     capital_at_risk_cash_secured_put,
     capital_at_risk_covered_call,
     capital_at_risk_credit_spread,
+    capital_at_risk_poor_mans_covered_call,
     days_to_expiry,
     expires_at,
     is_expired,
@@ -202,6 +203,15 @@ def test_f3_6_put_credit_spread():
     )
     assert capital == 400
     assert annualized_return(premium, capital, dte=45) == pytest.approx(2.0278, abs=0.00005)
+
+
+def test_f3_10_poor_mans_covered_call():
+    """LEAP bought at 60.00, call sold at 3.00, 1 contract, 30 DTE -> capital 6,000, 60.83%."""
+    premium = premium_received(3.00, contracts=1)
+    capital = capital_at_risk_poor_mans_covered_call(long_call_price_paid=60.00, contracts=1)
+    assert capital == 6_000
+    assert annualized_return(premium, capital, dte=30) == pytest.approx(0.6083, abs=0.00005)
+    assert capital_at_risk_poor_mans_covered_call(60.00, contracts=2) == 12_000
 
 
 def test_capital_scales_with_contracts():

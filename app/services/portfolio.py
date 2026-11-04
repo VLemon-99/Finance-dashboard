@@ -30,6 +30,7 @@ from app.services.options_math import (
     capital_at_risk_cash_secured_put,
     capital_at_risk_covered_call,
     capital_at_risk_credit_spread,
+    capital_at_risk_poor_mans_covered_call,
     days_to_expiry,
     is_expired,
     mid_price,
@@ -381,10 +382,37 @@ class SpreadRow:
 
 
 @dataclass(frozen=True)
+class PmccRow:
+    """A LEAP call bought and a shorter-dated call sold against it, as one position (F3.10)."""
+
+    spread_id: int
+    short: OpenRow  # the call sold
+    long: OpenRow  # the LEAP
+    contracts: int
+    pnl: float | None
+    pnl_pct: float | None  # of the capital at risk (what the LEAP cost)
+    premium: float  # $ received for the sold call
+    capital: float  # $ paid for the LEAP
+    dte: int  # the sold call's
+    dte_at_entry: int
+    return_locked: float | None
+    return_remaining: float | None
+
+    @property
+    def expiring_today(self) -> bool:
+        return self.short.expiring_today
+
+    @property
+    def expired(self) -> bool:
+        return self.short.expired
+
+
+@dataclass(frozen=True)
 class PortfolioView:
     stocks: list[OpenRow]
     options: list[OpenRow]  # not part of a spread
     spreads: list[SpreadRow]
+    pmccs: list[PmccRow]
     expired: list[OpenRow]  # expired option positions waiting for their outcome (F3.9)
     closed: list[ClosedRow]
     rate: RateView | None
@@ -469,9 +497,13 @@ def portfolio_view(
         min_iv=min_iv,
     )
 
-    # Credit spreads first: their short calls don't need shares to be covered.
-    active, spread_notes = _active_spreads(session, user_id, loaded)
-    in_spread = {i for sp in active for i in (sp.short_instrument_id, sp.long_instrument_id)}
+    # Linked positions first: their short calls don't need shares to be covered.
+    active, spread_notes = _active_links(session, user_id, loaded)
+    in_spread = {
+        i
+        for link in active
+        for i in (link.spread.short_instrument_id, link.spread.long_instrument_id)
+    }
 
     stocks = [_stock_row(targets[p.instrument_id], p, quotes) for p in stock_positions]
     shares_held = {
@@ -493,10 +525,16 @@ def portfolio_view(
         )
         for p in option_positions
     }
-    spreads = [
-        _spread_row(sp.id, option_rows[sp.short_instrument_id], option_rows[sp.long_instrument_id])
-        for sp in active
-    ]
+
+    def legs(link: _Link):
+        return (
+            link.spread.id,
+            option_rows[link.spread.short_instrument_id],
+            option_rows[link.spread.long_instrument_id],
+        )
+
+    spreads = [_spread_row(*legs(link)) for link in active if link.kind == "credit spread"]
+    pmccs = [_pmcc_row(*legs(link)) for link in active if link.kind != "credit spread"]
     options = [r for i, r in option_rows.items() if i not in in_spread]
     free = [r for r in options if not r.expired]
 
@@ -506,6 +544,7 @@ def portfolio_view(
     stocks.sort(key=lambda r: r.target.symbol)
     options.sort(key=by_contract)
     spreads.sort(key=lambda r: by_contract(r.short))
+    pmccs.sort(key=lambda r: by_contract(r.short))
     closed = sorted(
         (ClosedRow(targets[c.instrument_id], c) for c in loaded.closed),
         key=lambda r: r.position.closed_on,
@@ -515,6 +554,7 @@ def portfolio_view(
         stocks=stocks,
         options=options,
         spreads=spreads,
+        pmccs=pmccs,
         expired=sorted((r for r in option_rows.values() if r.expired), key=by_contract),
         closed=closed,
         rate=rate,
@@ -626,71 +666,89 @@ def _option_row(
     )
 
 
-# --- credit spreads (F3.7) ------------------------------------------------------------------
+# --- linked positions: credit spreads (F3.7) and poor man's covered calls (F3.10) --------
+
+LinkKind = Literal["credit spread", "poor man's covered call"]
 
 
-def spread_problem(
+def link_problem(
     short: OpenPosition, long: OpenPosition, targets: dict[int, TradeTarget]
-) -> str | None:
-    """Why two open positions can't be one credit spread, or None if they can."""
+) -> tuple[LinkKind | None, str | None]:
+    """What two open option positions can be linked as, or why they can't: (kind, problem).
+
+    Same expiration date -> credit spread. The bought call expiring later -> poor man's
+    covered call.
+    """
     s, lg = targets[short.instrument_id], targets[long.instrument_id]
     if s.kind != "option" or lg.kind != "option":
-        return "Both legs must be option contracts."
+        return None, "Both legs must be option contracts."
     if not short.is_short or long.is_short:
-        return "Pick a contract you sold and a contract you bought."
-    if (s.underlying, s.option_type, s.expiration) != (
-        lg.underlying,
-        lg.option_type,
-        lg.expiration,
-    ):
-        return (
-            "Both legs must be on the same stock, both calls or both puts, with the same "
-            "expiration date."
-        )
-    if s.strike == lg.strike:
-        return "The two legs must have different strikes."
+        return None, "Pick a contract you sold and a contract you bought."
+    if (s.underlying, s.option_type) != (lg.underlying, lg.option_type):
+        return None, "Both legs must be on the same stock, and both calls or both puts."
     if short.quantity != long.quantity:
-        return (
+        return None, (
             f"The legs have different numbers of contracts ({short.quantity} sold, "
             f"{long.quantity} bought)."
         )
-    if short.avg_price - long.avg_price <= 0:
-        return "These legs were opened for a net debit, not a credit."
-    further_out = lg.strike < s.strike if s.option_type == "put" else lg.strike > s.strike
-    if not further_out:
-        side = "lower" if s.option_type == "put" else "higher"
-        return (
-            f"In a {s.option_type} credit spread, the {s.option_type} you bought has the "
-            f"{side} strike."
+
+    if s.expiration == lg.expiration:
+        if s.strike == lg.strike:
+            return None, "The two legs must have different strikes."
+        if short.avg_price - long.avg_price <= 0:
+            return None, "These legs were opened for a net debit, not a credit."
+        further_out = lg.strike < s.strike if s.option_type == "put" else lg.strike > s.strike
+        if not further_out:
+            side = "lower" if s.option_type == "put" else "higher"
+            return None, (
+                f"In a {s.option_type} credit spread, the {s.option_type} you bought has the "
+                f"{side} strike."
+            )
+        return "credit spread", None
+
+    if lg.expiration < s.expiration:
+        return None, (
+            "The contract you bought must expire on the same date as the one you sold (a "
+            "credit spread) or later (a poor man's covered call)."
         )
-    return None
+    if s.option_type != "call":
+        return None, (
+            "Puts with different expiration dates can't be linked yet (a poor man's "
+            "covered put isn't supported)."
+        )
+    if s.strike <= lg.strike:
+        return None, (
+            "In a poor man's covered call, the call you sold must have a higher strike than "
+            "the call you bought."
+        )
+    return "poor man's covered call", None
 
 
-def _active_spreads(
+@dataclass(frozen=True)
+class _Link:
+    spread: Spread
+    kind: LinkKind
+
+
+def _active_links(
     session: Session, user_id: int, loaded: _Loaded
-) -> tuple[list[Spread], dict[int, str]]:
+) -> tuple[list[_Link], dict[int, str]]:
     """Links whose legs are both open and still match, plus a note for the legs of links
-    that no longer match (they're shown as separate positions)."""
+    that no longer match (they're shown as separate positions). A link with a closed leg
+    simply ends: that's normal, e.g. when a poor man's covered call's short call expires."""
     active, notes = [], {}
     for spread in session.exec(select(Spread).where(Spread.user_id == user_id)):
         short = loaded.open_position(spread.short_instrument_id)
         long = loaded.open_position(spread.long_instrument_id)
-        if short is None and long is None:
-            continue  # both legs closed: the link has nothing left to show
-        problem = (
-            spread_problem(short, long, loaded.targets)
-            if short and long
-            else ("The other leg is closed.")
-        )
-        if problem is None:
-            active.append(spread)
+        if short is None or long is None:
             continue
-        note = (
-            f"Linked as a credit spread, but the legs no longer match: {problem} Shown separately."
-        )
+        kind, problem = link_problem(short, long, loaded.targets)
+        if kind is not None:
+            active.append(_Link(spread, kind))
+            continue
+        note = f"Linked, but the legs no longer match: {problem} Shown separately."
         for position in (short, long):
-            if position is not None:
-                notes[position.instrument_id] = note
+            notes[position.instrument_id] = note
     return active, notes
 
 
@@ -729,22 +787,50 @@ def _spread_row(spread_id: int, short: OpenRow, long: OpenRow) -> SpreadRow:
     )
 
 
+def _pmcc_row(spread_id: int, short: OpenRow, long: OpenRow) -> "PmccRow":
+    """A poor man's covered call: premium from the sold call, capital = what the bought
+    call cost (F3.10). Days to expiration are the sold call's."""
+    contracts = short.position.quantity
+    premium = premium_received(short.position.avg_price, contracts)
+    capital = capital_at_risk_poor_mans_covered_call(long.position.avg_price, contracts)
+    opened = max(short.position.opened_on, long.position.opened_on)
+    dte_at_entry = days_to_expiry(short.target.expiration, opened)
+    pnl = short.pnl + long.pnl if short.pnl is not None and long.pnl is not None else None
+    return PmccRow(
+        spread_id=spread_id,
+        short=short,
+        long=long,
+        contracts=contracts,
+        pnl=pnl,
+        pnl_pct=pnl / capital * 100 if pnl is not None and capital > 0 else None,
+        premium=premium,
+        capital=capital,
+        dte=short.dte,
+        dte_at_entry=dte_at_entry,
+        return_locked=annualized_return(premium, capital, dte_at_entry),
+        return_remaining=annualized_return(premium, capital, short.dte),
+    )
+
+
 def link_spread(
     session: Session, user_id: int, short_instrument_id: int, long_instrument_id: int, now: datetime
 ) -> Spread:
-    """Link a sold and a bought option position as one credit spread (F3.7)."""
+    """Link a sold and a bought option position as one credit spread (F3.7) or poor man's
+    covered call (F3.10)."""
     loaded = _load(session, user_id)
     short = loaded.open_position(short_instrument_id)
     long = loaded.open_position(long_instrument_id)
     if short is None or long is None:
         raise TradeError("Pick two open option positions to link.")
-    active, _ = _active_spreads(session, user_id, loaded)
-    in_use = {i for sp in active for i in (sp.short_instrument_id, sp.long_instrument_id)}
+    active, _ = _active_links(session, user_id, loaded)
+    in_use = {
+        i
+        for link in active
+        for i in (link.spread.short_instrument_id, link.spread.long_instrument_id)
+    }
     if short_instrument_id in in_use or long_instrument_id in in_use:
-        raise TradeError(
-            "One of these positions is already part of a credit spread. Unlink it first."
-        )
-    problem = spread_problem(short, long, loaded.targets)
+        raise TradeError("One of these positions is already linked. Unlink it first.")
+    kind, problem = link_problem(short, long, loaded.targets)
     if problem:
         raise TradeError(problem)
     if is_expired(loaded.targets[short_instrument_id].expiration, now):

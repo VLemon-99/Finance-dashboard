@@ -185,6 +185,12 @@ def capital_at_risk_credit_spread(
     return (abs(short_strike - long_strike) - net_credit) * CONTRACT_SIZE * contracts
 
 
+def capital_at_risk_poor_mans_covered_call(long_call_price_paid: float, contracts: int) -> float:
+    """What was paid for the long call (the LEAP) x 100 x contracts (SPEC F3.10, confirmed by
+    the owner 2026-11-04)."""
+    return long_call_price_paid * CONTRACT_SIZE * contracts
+
+
 def annualized_return(premium: float, capital: float, dte: int) -> float | None:
     """Premium / capital at risk x 365 / DTE, as a fraction (0.2483 = 24.83%) (SPEC F3.4).
 
