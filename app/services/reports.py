@@ -4,14 +4,17 @@ For each ticker:
 1. Work out the period: since this ticker's last report with AI summaries, at most `max_days`
    back (F4.14; a report where the AI failed doesn't use up the period, owner 2026-11-04).
 2. Collect new items from every source (F4.11: failures are listed, not fatal).
-3. Have the AI summarize and rate new items (public content only, F4.13).
+3. Have the AI watch new YouTube videos (once per video, at most 10 per run; videos.py),
+   then summarize and rate new items (public content only, F4.13).
 4. Ask the AI for the "Major developments" and "Rumors & speculation" statements. Every
    statement must cite stories we gave it; anything uncited is dropped (F4.2).
 5. Work out the sentiment score and insider totals in code (F4.6, F4.8).
 6. Save the report as structured JSON. Pages render it; nothing is re-asked of the AI.
 
-A whole watchlist run does this per ticker, then puts a short summary on top, built in code
-from the ticker reports (so the list of tickers itself is never sent to the AI).
+A whole watchlist run collects for every ticker first, then watches the run's new videos
+together (a few at a time, newest first, so the per-run limit is shared fairly), then
+finishes each ticker's report, and puts a short summary on top, built in code from the
+ticker reports (so the list of tickers itself is never sent to the AI).
 """
 
 import logging
@@ -26,12 +29,21 @@ from sqlmodel import Session, col, select
 from app.ai.llm import LLM, AIError, Claim, PublicStory
 from app.config import AppConfig, SourcesConfig
 from app.db.models import Report, ReportRun, SourceItemRow
-from app.services.collect import collect_for_ticker
+from app.services.collect import CollectResult, collect_for_ticker
 from app.services.insider import insider_summary
 from app.services.sentiment import sentiment_score
-from app.services.summarize import is_form4, pending_items, summarize_pending
+from app.services.summarize import is_form4, item_kind, pending_items, summarize_pending
+from app.services.videos import (
+    AI_VIDEO_NOTE,
+    VideoBudget,
+    is_video,
+    timestamp_label,
+    unwatched_videos,
+    watch_new_videos,
+)
 from app.sources.edgar import EdgarSource, base_form
 from app.sources.registry import SourceSet
+from app.sources.youtube import at_time
 from app.timeutils import as_utc, format_eastern, utc_now
 
 log = logging.getLogger(__name__)
@@ -91,27 +103,44 @@ def mark_interrupted_runs(session: Session) -> None:
 def execute_run(
     engine: Engine, run_id: int, tickers: Sequence[str], services: ReportServices
 ) -> None:
-    """Make every ticker's report, then the summary. Safe to run in a background thread."""
+    """Make every ticker's report, then the summary. Safe to run in a background thread.
+
+    Three passes: collect for every ticker, watch the run's new videos, finish each report.
+    One ticker's surprise never loses the others."""
     with Session(engine) as session:
         run = session.get(ReportRun, run_id)
         if run is None:
             return
         reports: list[Report] = []
         try:
-            for ticker in tickers:
+            prepared: list[PreparedTicker] = []
+            for number, ticker in enumerate(tickers, start=1):
+                _set_stage(
+                    session, run, f"Collecting sources for {ticker} ({number} of {len(tickers)})"
+                )
                 try:
-                    reports.append(build_ticker_report(session, run, ticker, services))
-                except Exception:  # one ticker's surprise must not lose the others
-                    session.rollback()
-                    log.exception("Report for %s failed", ticker)
-                    run = session.get(ReportRun, run_id)
-                    run.summary = {
-                        **run.summary,
-                        "failed": [*run.summary.get("failed", []), ticker],
-                    }
+                    prepared.append(prepare_ticker(session, run, ticker, services))
+                except Exception:
+                    run = _ticker_failed(session, run_id, ticker)
+                    run.done += 1
+                    session.commit()
+
+            notes = watch_videos(session, run, prepared, services)
+
+            for item in prepared:
+                _set_stage(session, run, "Writing reports")
+                try:
+                    reports.append(
+                        finish_ticker_report(
+                            session, run, item, services, notes.get(item.ticker, [])
+                        )
+                    )
+                except Exception:
+                    run = _ticker_failed(session, run_id, item.ticker)
                 run.done += 1
                 session.commit()
-            run.summary = {**run.summary, **watchlist_summary(reports)}
+            summary = {k: v for k, v in run.summary.items() if k != "stage"}
+            run.summary = {**summary, **watchlist_summary(reports)}
             run.status = "done"
         except Exception:
             session.rollback()
@@ -121,6 +150,48 @@ def execute_run(
             run.error = "Something unexpected went wrong (details in the app log)."
         run.finished_at = utc_now()
         session.commit()
+
+
+def _set_stage(session: Session, run: ReportRun, text: str) -> None:
+    """What the progress box says the run is doing."""
+    if run.summary.get("stage") != text:
+        run.summary = {**run.summary, "stage": text}
+        session.commit()
+
+
+def _ticker_failed(session: Session, run_id: int, ticker: str) -> ReportRun:
+    session.rollback()
+    log.exception("Report for %s failed", ticker)
+    run = session.get(ReportRun, run_id)
+    run.summary = {**run.summary, "failed": [*run.summary.get("failed", []), ticker]}
+    return run
+
+
+def watch_videos(
+    session: Session,
+    run: ReportRun,
+    prepared: Sequence["PreparedTicker"],
+    services: ReportServices,
+    budget: VideoBudget | None = None,
+) -> dict[str, list[str]]:
+    """Have the AI watch the new videos of these tickers. Returns notes per ticker."""
+    if services.llm is None or not prepared:
+        return {}  # AI off: the report already says so; videos wait for a run with AI
+    cfg = services.config.ai
+    budget = budget or VideoBudget(cfg.max_videos_per_run)
+    periods = {p.ticker: p.start for p in prepared}
+    waiting = unwatched_videos(session, periods)
+    if waiting:
+        _set_stage(session, run, f"Watching new YouTube videos (up to {budget.remaining})")
+    try:
+        return watch_new_videos(session, services.llm, periods, cfg, budget)
+    except Exception:  # videos stay unwatched and are tried again next run
+        session.rollback()
+        log.exception("Watching videos failed unexpectedly")
+        return {
+            p.ticker: [f"{AI_VIDEO_NOTE} unexpected error (details in the app log)."]
+            for p in prepared
+        }
 
 
 def watchlist_summary(reports: Sequence[Report]) -> dict[str, Any]:
@@ -145,7 +216,7 @@ def watchlist_summary(reports: Sequence[Report]) -> dict[str, Any]:
 # --- one ticker -----------------------------------------------------------------------
 
 
-AI_NOTE_PREFIXES = ("AI summaries:", "AI report writing:")
+AI_NOTE_PREFIXES = ("AI summaries:", "AI report writing:", AI_VIDEO_NOTE)
 
 
 def had_ai(report: Report) -> bool:
@@ -186,15 +257,48 @@ def report_period(
     return start, now
 
 
+@dataclass
+class PreparedTicker:
+    """A ticker whose period is set and whose new items are collected."""
+
+    ticker: str
+    start: datetime
+    end: datetime
+    collected: CollectResult
+
+
+def prepare_ticker(
+    session: Session, run: ReportRun, ticker: str, services: ReportServices
+) -> PreparedTicker:
+    now = utc_now()
+    start, end = report_period(session, run.user_id, ticker, now, services.config.reports.max_days)
+    collected = collect_for_ticker(
+        session, services.sources, ticker, start, services.config.reports
+    )
+    return PreparedTicker(ticker=ticker, start=start, end=end, collected=collected)
+
+
 def build_ticker_report(
     session: Session, run: ReportRun, ticker: str, services: ReportServices
 ) -> Report:
-    cfg = services.config
-    now = utc_now()
-    start, end = report_period(session, run.user_id, ticker, now, cfg.reports.max_days)
+    """One ticker from start to finish (collect, watch its videos, summarize, write)."""
+    prepared = prepare_ticker(session, run, ticker, services)
+    notes = watch_videos(session, run, [prepared], services)
+    return finish_ticker_report(session, run, prepared, services, notes.get(ticker, []))
 
-    collected = collect_for_ticker(session, services.sources, ticker, start, cfg.reports)
-    missing = list(collected.missing)
+
+def finish_ticker_report(
+    session: Session,
+    run: ReportRun,
+    prepared: PreparedTicker,
+    services: ReportServices,
+    video_notes: Sequence[str] = (),
+) -> Report:
+    cfg = services.config
+    ticker, start, end = prepared.ticker, prepared.start, prepared.end
+    now = end
+    collected = prepared.collected
+    missing = list(collected.missing) + list(video_notes)
     company = collected.company
 
     if services.llm is None:
@@ -293,9 +397,9 @@ def load_stories(
 
 
 def _story(leader: SourceItemRow, items: list[SourceItemRow]) -> dict[str, Any]:
-    return {
+    story = {
         "ref": leader.id,
-        "kind": "filing" if leader.source_type == "filing" else "news",
+        "kind": item_kind(leader.source_type),
         "source_type": leader.source_type,
         "title": leader.title,
         "form": leader.form,
@@ -306,6 +410,22 @@ def _story(leader: SourceItemRow, items: list[SourceItemRow]) -> dict[str, Any]:
         "is_rumor": bool(leader.is_rumor),
         "items": [_source_link(i) for i in items],
     }
+    if is_video(leader):
+        story["points"] = video_points(leader)
+        story["watch_error"] = (leader.data or {}).get("watch_error")
+    return story
+
+
+def video_points(row: SourceItemRow) -> list[dict[str, Any]]:
+    """The video's 3-5 points, each linked to its moment in the video (F4.5)."""
+    return [
+        {
+            "text": p["text"],
+            "time": timestamp_label(p["seconds"]) if p.get("seconds") is not None else None,
+            "url": at_time(row.url, p.get("seconds")),
+        }
+        for p in (row.data or {}).get("points", [])
+    ]
 
 
 def _source_link(row: SourceItemRow) -> dict[str, Any]:

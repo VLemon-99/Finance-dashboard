@@ -82,6 +82,9 @@ a.cite:hover { color: var(--text); text-decoration: underline; }
 .sources > li { margin-bottom: 12px; }
 .sources p { margin: 2px 0; }
 .sources ul { margin: 2px 0 0; padding-left: 18px; }
+.sources ul.video-points { margin: 4px 0; padding-left: 18px; }
+.video-points li { margin-bottom: 3px; line-height: 1.4; }
+.timestamp { font-variant-numeric: tabular-nums; font-weight: 600; margin-right: 2px; }
 .source-title a { font-weight: 600; }
 .rating { font-weight: 600; text-transform: capitalize; }
 .rating.bullish { color: var(--up); } .rating.bearish { color: var(--down); } .rating.neutral { color: var(--muted); }

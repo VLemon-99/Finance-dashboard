@@ -296,21 +296,24 @@ def test_watchlist_run_summary(session, engine, user_id, services):
     assert rows[1]["missing"] > 0  # no Yahoo or SEC samples for MSFT
 
 
+@pytest.mark.parametrize("step", ["prepare_ticker", "finish_ticker_report"])
 def test_one_ticker_crashing_does_not_lose_the_others(
-    session, engine, user_id, services, monkeypatch
+    session, engine, user_id, services, monkeypatch, step
 ):
-    real = reports_service.build_ticker_report
+    real = getattr(reports_service, step)
 
-    def flaky(session, run, ticker, services):
+    def flaky(session, run, item, *args):
+        ticker = item if isinstance(item, str) else item.ticker
         if ticker == "MSFT":
             raise RuntimeError("bug")
-        return real(session, run, ticker, services)
+        return real(session, run, item, *args)
 
-    monkeypatch.setattr(reports_service, "build_ticker_report", flaky)
+    monkeypatch.setattr(reports_service, step, flaky)
     run = run_for(session, engine, user_id, services, tickers=("MSFT", "AAPL"))
     assert run.status == "done" and run.done == 2
     assert run.summary["failed"] == ["MSFT"]
     assert [r["ticker"] for r in run.summary["tickers"]] == ["AAPL"]
+    assert "stage" not in run.summary
 
 
 def test_running_and_interrupted_runs(session, user_id):

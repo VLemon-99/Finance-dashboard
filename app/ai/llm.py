@@ -2,7 +2,8 @@
 
 Privacy rule (SPEC F4.13): only public content goes to the AI. That's enforced by shape:
 the methods below accept only these small public-content records (a ticker, a company
-name, and articles/filings), never free text, watchlists, positions or trades.
+name, articles/filings/blog posts, and public YouTube video links), never free text,
+watchlists, positions or trades.
 """
 
 from dataclasses import dataclass
@@ -10,14 +11,15 @@ from typing import Literal, Protocol
 
 Sentiment = Literal["bullish", "neutral", "bearish"]
 SENTIMENTS: tuple[Sentiment, ...] = ("bullish", "neutral", "bearish")
+ItemKind = Literal["news", "filing", "blog", "video"]
 
 
 @dataclass(frozen=True)
 class PublicItem:
-    """One public article or filing, as the AI sees it."""
+    """One public article, filing, blog post or (already watched) video, as the AI sees it."""
 
     ref: int  # our stored item id; the AI must answer with it
-    kind: Literal["news", "filing"]
+    kind: ItemKind
     outlet: str
     title: str
     published: str  # shown in US Eastern, e.g. "Oct 30, 2026 4:30 PM ET"
@@ -38,12 +40,29 @@ class PublicStory:
     """One story (possibly reported by several outlets), already summarized."""
 
     ref: int  # the story id
-    kind: Literal["news", "filing"]
+    kind: ItemKind
     title: str
     outlets: tuple[str, ...]
     published: str
     summary: str
     is_rumor: bool
+
+
+@dataclass(frozen=True)
+class PublicVideo:
+    """A public YouTube video for the AI to watch (SPEC F4.5). The AI fetches it itself."""
+
+    url: str  # https://www.youtube.com/watch?v=...
+    channel: str
+    title: str
+    published: str
+    max_seconds: int  # watch at most this much, from the start
+
+
+@dataclass(frozen=True)
+class VideoPoint:
+    text: str
+    seconds: int | None  # where in the video this is said, if known
 
 
 @dataclass(frozen=True)
@@ -65,6 +84,10 @@ class AIError(Exception):
     """
 
 
+class VideoUnavailable(AIError):
+    """This one video can't be watched (private, removed, too long...). Others still can."""
+
+
 class LLM(Protocol):
     model_name: str
 
@@ -72,6 +95,11 @@ class LLM(Protocol):
         self, ticker: str, company: str | None, items: list[PublicItem]
     ) -> list[ItemSummary]:
         """A summary and sentiment rating per item. Items it skipped are simply absent."""
+        ...
+
+    def watch_video(self, video: PublicVideo) -> tuple[VideoPoint, ...]:
+        """3-5 points summarizing the video itself, with times. Raises VideoUnavailable for
+        this video only, AIError when the service itself fails."""
         ...
 
     def write_report(

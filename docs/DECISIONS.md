@@ -2,6 +2,22 @@
 
 > One entry per meaningful choice, newest at the top. This stops future sessions from quietly undoing past decisions.
 
+## 2026-11-04 — Phase 5: blogs, YouTube videos watched once (10 per run), schedule off by default
+- **Decision** (owner's answers to the Phase 5 plan):
+  - **YouTube:** the AI watches each new video **once, ever**. Its answer (3–5 points, each with its time in the video) is kept with the stored item and reused when the same video turns up for another ticker or in a later run. At most **10 new videos per run** (`ai.max_videos_per_run`), newest first across the whole run; the rest wait for the next run (the next report's period reaches back to them). The channel list starts empty; the owner fills it in later.
+  - **Automatic weekday reports are built but off** (`schedule.enabled: false`). The owner will press "Generate now" about once a week to start. With the schedule on, every watchlist is reported one after another at 7:30am ET on weekdays; a run missed by more than 30 minutes (laptop asleep, app closed) is skipped. Market holidays aren't skipped (owner: not relevant while it's off). SPEC F4.9 was reworded to match.
+  - **Blogs:** one source per blog feed (name + RSS/Atom address) in `config/sources.yaml`, list empty for now.
+- **How (small choices, recorded so they aren't undone by accident):**
+  - A post or video counts for a ticker when its title or description mentions the ticker in capitals (with or without `$`; tickers of 1–2 letters only with `$`, since "ON", "IT", "AI" are everyday words), the SEC company name (also without a trailing "COM": "AMAZON COM" → "Amazon"), or a name from `also_known_as` (starter entries: Google for GOOG/GOOGL, since the SEC name is "Alphabet").
+  - Videos are watched **from their YouTube link** (no transcript scraping, as decided 2026-11-01), at low video resolution and only the first `ai.max_video_minutes` (60) to keep the cost down; if Gemini refuses that cut-off, the whole video is tried once. 3 videos are watched at the same time to keep a 25-ticker run short. A video Gemini can't watch (private, live, too long) is marked and rated from its title and description; it isn't retried. Running out of credit or a bad key leaves the videos for the next run.
+  - The watched video's points become the item's text, and the normal summarize step then gives the one-line summary and bullish/neutral/bearish **for the ticker** (so one viewing serves several tickers). No ticker or watchlist is sent with the video itself.
+  - A run now collects for every ticker first, then watches videos, then finishes each report (so the per-run limit is shared fairly and the watching can happen in parallel). No database change: the answer lives in the item's existing `data` column.
+  - Each blog or channel feed is downloaded once per run (reused for 10 minutes, failures too), so a site that's down costs one timeout, not 25.
+  - New library: **APScheduler 3.11** (chosen in the tech-stack decision; version 4 is still a pre-release).
+- **Cost estimate:** at low resolution a video costs roughly 100 AI "tokens" per second, so a 20-minute video is about 120,000 tokens: about 4–6 cents on a Flash model ($0.30–$0.50 per million tokens), three times that for an hour. 10 twenty-minute videos a week is about $1.50–$3 a month; 10 a day would be about $8–15, more than the $10 credit.
+- **Alternatives considered:** watching each video per ticker (simpler, but pays for the same video several times); transcript libraries (unofficial, often blocked); summarizing from the description only (cheap, but misses what's said); a timer thread without a library (would need its own handling of sleep/wake and missed runs).
+- **Revisit if:** video costs climb (lower `max_videos_per_run` or `max_video_minutes`), matching lets through too many off-topic videos (add names to `also_known_as`, or require the ticker), or the owner turns the schedule on and wants holidays skipped.
+
 ## 2026-11-04 — Gemini needs prepaid credit; a failed AI run doesn't use up the report period
 - **Finding:** the owner's first report with a Gemini key failed with error 402 ("Your prepayment credits are depleted"). Gemini's "Prepay" billing stops every key at a $0 prepaid balance, and, per a Google community moderator, the subscription's monthly Developer Program credit only applies once the AI Studio prepaid wallet has a positive balance. This corrects the 2026-11-01 AI decision's assumption that the $10 monthly credit alone pays for the API.
 - **Decision:**

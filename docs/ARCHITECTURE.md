@@ -1,7 +1,7 @@
 # Architecture
 
 > The bird's-eye view. Keep this short and current — it's what a fresh agent or reviewer reads to understand the whole system.
-> Status: **Phases 1–4 built**: quote lookup, watchlists, research reports from news + SEC filings (Gemini summaries, "Generate now", history), the option chain browser (greeks calculated by us, contracts in watchlists) and the virtual portfolio (trades, positions, P&L, short-option returns, credit spreads, expiry outcomes). The calendar, macro, the 7:30am schedule and the later report sources are still the target design.
+> Status: **Phases 1–5 built**: quote lookup, watchlists, research reports from news, SEC filings, trusted blogs and YouTube channels (Gemini summaries and video watching, "Generate now", history, an optional weekday schedule that's off by default), the option chain browser (greeks calculated by us, contracts in watchlists) and the virtual portfolio (trades, positions, P&L, short-option returns, credit spreads, expiry outcomes). The calendar, macro and X/Reddit are still the target design.
 
 ## Overview
 A single Python web app runs on my computer and opens in the browser. Pages are built on
@@ -29,7 +29,7 @@ morning report. Each outside service sits behind a small "adapter", so one can b
  │  (fred.py, fomc)       x · reddit                                      │
  │     │                                                                  │
  │  db/  SQLModel models + Alembic migrations ──► data/app.db (SQLite)    │
- │  scheduler.py  APScheduler: weekday 7:30am ET report job               │
+ │  scheduler.py  APScheduler: weekday 7:30am ET report job (off by default)│
  └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -40,11 +40,11 @@ morning report. Each outside service sits behind a small "adapter", so one can b
 | Services | Business rules: watchlist limits, recording trades, positions & P&L, report building, calendar merging | `app/services/` |
 | Options math | Black-Scholes price & greeks, DTE, capital at risk, annualized return. Pure functions, heavily tested | `app/services/options_math.py` |
 | Market data provider | Quotes, search, option chains (with IV), price history, earnings dates, holders, valuation fields. Yahoo via `yfinance` to start | `app/providers/market_data.py` (interface), `app/providers/yahoo.py` |
-| Source plug-ins | Each fetches content for a ticker since a date and returns standard "source items" (title, outlet, URL, date, text). `enrich()` downloads extras (filing text, Form 4 trades) for new items only. Built from `config/sources.yaml` by `registry.py`; downloads go through `http.py` | `app/sources/` (built: `base.py`, `http.py`, `news_rss.py`, `edgar.py`, `registry.py`; later `youtube.py`, `blogs.py`, `x.py`, `reddit.py`) |
-| AI adapter | Summarize items, rate sentiment, write report sections. Accepts only public-content records. Gemini to start, swappable | `app/ai/llm.py` (interface), `app/ai/gemini.py` (prompts live here too) |
-| Report pipeline | Collect + dedupe → summarize → compose (cited statements only) → sentiment score + insider totals in code → store | `app/services/collect.py`, `summarize.py`, `reports.py`, `sentiment.py`, `insider.py`; pages in `app/web/report_routes.py` |
+| Source plug-ins | Each fetches content for a ticker since a date and returns standard "source items" (title, outlet, URL, date, text). `enrich()` downloads extras (filing text, Form 4 trades) for new items only. Built from `config/sources.yaml` by `registry.py`; downloads go through `http.py`. Each trusted blog and YouTube channel is its own source; its feed is downloaded once per run (`feeds.py`) and posts/videos are kept when they mention the ticker or company (`mentions.py`) | `app/sources/` (built: `base.py`, `http.py`, `news_rss.py`, `edgar.py`, `blogs.py`, `youtube.py`, `feeds.py`, `mentions.py`, `registry.py`; later `x.py`, `reddit.py`) |
+| AI adapter | Summarize items, rate sentiment, write report sections, watch public YouTube videos (3–5 timed points). Accepts only public-content records. Gemini to start, swappable | `app/ai/llm.py` (interface), `app/ai/gemini.py` (prompts live here too) |
+| Report pipeline | Collect + dedupe → watch new videos (once each, capped per run) → summarize → compose (cited statements only) → sentiment score + insider totals in code → store | `app/services/collect.py`, `videos.py`, `summarize.py`, `reports.py`, `sentiment.py`, `insider.py`; pages in `app/web/report_routes.py` |
 | Calendar data | Earnings from market data provider; macro release dates from FRED; FOMC dates from the Fed's published schedule | `app/providers/fred.py`, `config/fomc_dates.yaml` |
-| Scheduler | Runs the weekday 7:30am ET report while the app is running | `app/scheduler.py` |
+| Scheduler | Runs every watchlist's report on weekdays at 7:30am ET while the app is running. Off unless `schedule.enabled` is true in `config/settings.yaml` | `app/scheduler.py` |
 | Database | All stored data; one file locally, Postgres-compatible design. Tables are created by Alembic migrations (`uv run alembic upgrade head`), never automatically at startup | `data/app.db` (git-ignored), `app/db/models.py`, `app/db/migrations/` |
 | Configuration | Trusted sources, sentiment weights, limits, thresholds | `config/*.yaml`, `.env` for secrets |
 
@@ -58,7 +58,7 @@ Every user-owned table has a `user_id` column from day one (one default user for
 - `transactions` — user, instrument, side (bought/sold), quantity (shares or contracts), price per share, trade date, price source (auto/manual), for options the stock price at the time, and a reason (`trade`, or how an option ended: `expired` / `assigned` / `exercised`).
 - `spreads` — user, the option instrument sold and the one bought, linked as one position: a credit spread (same expiration) or a poor man's covered call (the bought call expires later). Links instruments, not trades; a link only shows while both legs are open and still match.
 - Positions & P&L are **calculated** from transactions (not stored separately) to avoid drift: `services/positions.py` replays the trades with the average-cost method.
-- `source_items` — public content, so no `user_id`. One row per ticker + URL: source, source type (news/filing), outlet, title, URL, published_at, SEC form, text, structured data (Form 4 trades), `story_id` (the first item of its story; near-identical headlines share one), and the AI's summary, sentiment, reason, rumor flag.
+- `source_items` — public content, so no `user_id`. One row per ticker + URL: source, source type (news/filing/blog/youtube), outlet, title, URL, published_at, SEC form, text, structured data (Form 4 trades; for videos the video id, description and the AI's kept answer: points with times, or why it couldn't be watched), `story_id` (the first item of its story; near-identical headlines share one), and the AI's summary, sentiment, reason, rumor flag.
 - `report_runs` — user, label (watchlist name or ticker), watchlist id (no database link, so deleting a list keeps its reports), status/progress, started/finished, the watchlist summary (JSON).
 - `reports` — user, run, ticker, generated_at, period covered, the report as structured JSON (statements with citations, insider section, sentiment, sources), missing sources.
 - `events` — calendar: date/time (stored UTC, shown US Eastern), type, ticker (optional), impact, source.
@@ -90,14 +90,15 @@ Every user-owned table has a `user_id` column from day one (one default user for
 4. `options_math` computes P&L, premium, capital at risk and the locked-in / remaining annualized returns. Uncovered calls get no return figure.
 5. Expired option positions ask for their outcome; the answer is stored as closing trades (and a share trade at the strike for assignment / exercise).
 
-**Research report** ("Generate now" on the Reports page or a watchlist; the 7:30am schedule comes in Phase 5)
-1. `POST /reports/generate` creates a `report_runs` row and starts `execute_run` in a background thread (one run at a time). The run page polls `/reports/runs/{id}/progress` every 3 seconds and reloads when done.
-2. Per ticker, the period is "since this ticker's previous report", at most 7 days (`config/settings.yaml`).
-3. `services/collect.py` asks each source plug-in for items since then (SEC Form 4s go back 90 days for the insider section). New items are enriched (filing text, Form 4 trades) and stored; near-identical news headlines get the same `story_id`. A failing source is noted as missing; the rest carry on.
-4. `services/summarize.py` sends each new story's first item (not Form 4s) to the AI in batches; the answers (summary, bullish/neutral/bearish, reason, rumor flag) are saved on the item. Items the AI says aren't about the ticker are hidden.
-5. `services/reports.py` asks the AI for "Major developments" and "Rumors & speculation" statements citing story numbers, and drops any statement that doesn't cite properly. The sentiment score (`sentiment.py`) and insider totals (`insider.py`) are calculated in code.
-6. The report is saved as JSON with its period and missing-source list. When all tickers are done, a short summary (score + top development per ticker) is built in code and put on top. Valuation and institutional holders show "coming in a later phase".
-7. Pages: `/reports/runs/{id}` (summary + every ticker), `/reports/{id}` (one ticker), `/reports?ticker=&day=` (history).
+**Research report** ("Generate now" on the Reports page or a watchlist; or the optional weekday schedule, `app/scheduler.py`, one run per watchlist)
+1. `POST /reports/generate` creates a `report_runs` row and starts `execute_run` in a background thread (one run at a time). The run page polls `/reports/runs/{id}/progress` every 3 seconds (it shows the current step) and reloads when done.
+2. Per ticker, the period is "since this ticker's previous report with AI summaries", reaching back to anything the AI never processed, at most 7 days (`config/settings.yaml`).
+3. `services/collect.py` asks each source plug-in for items since then (SEC Form 4s go back 90 days for the insider section). New items are enriched (filing text, Form 4 trades) and stored; near-identical news headlines get the same `story_id`. A failing source is noted as missing; the rest carry on. A whole run collects for **every** ticker first.
+4. `services/videos.py` has the AI watch the run's new YouTube videos: newest first, at most `ai.max_videos_per_run` (10), 3 at a time, the first 60 minutes at low resolution. Each answer (3–5 points with times) is kept in the item's `data`, and reused for the same video under another ticker or in a later run, so no video is watched twice. Videos over the limit wait for the next run. The video's points become its text for the next step.
+5. `services/summarize.py` sends each new story's first item (not Form 4s, not videos still waiting to be watched) to the AI in batches; the answers (summary, bullish/neutral/bearish, reason, rumor flag) are saved on the item. Items the AI says aren't about the ticker are hidden.
+6. `services/reports.py` asks the AI for "Major developments" and "Rumors & speculation" statements citing story numbers, and drops any statement that doesn't cite properly. The sentiment score (`sentiment.py`) and insider totals (`insider.py`) are calculated in code.
+7. The report is saved as JSON with its period and missing-source list. When all tickers are done, a short summary (score + top development per ticker) is built in code and put on top. Valuation and institutional holders show "coming in a later phase".
+8. Pages: `/reports/runs/{id}` (summary + every ticker), `/reports/{id}` (one ticker), `/reports?ticker=&day=` (history).
 
 **Single-ticker quote lookup** (`/lookup`; was `/` in Phase 1)
 1. I type a ticker. `app/tickers.py` checks it looks like a US ticker (`BRK.B` → `BRK-B`); anything else is rejected before any outside call.
@@ -119,8 +120,8 @@ Every user-owned table has a `user_id` column from day one (one default user for
 ## External services
 - **Yahoo Finance** via `yfinance` (free, unofficial, no key) for quotes, option chains, IV, history, earnings dates, holders, analyst targets. It can break or rate-limit, which is why it sits behind the `MarketData` interface.
 - **SEC EDGAR** (free, no key; must send a contact User-Agent) for filings and Form 4. Set as `SEC_USER_AGENT` in `.env`. Requests are spaced 0.15 s apart (the SEC allows 10 a second). Uses the ticker list (`company_tickers.json`, refreshed daily), each company's `submissions` file, and the filing documents.
-- **Google News search RSS** (press releases arrive here too) and **Yahoo Finance headline RSS** (free, unofficial) via `feedparser`; later blog RSS.
-- **YouTube channel RSS feeds** (free, no key) to list new videos from trusted channels.
+- **Google News search RSS** (press releases arrive here too) and **Yahoo Finance headline RSS** (free, unofficial) via `feedparser`; trusted blogs' RSS/Atom feeds the same way.
+- **YouTube channel feeds** (`https://www.youtube.com/feeds/videos.xml?channel_id=…`, free, no key) to list new videos from trusted channels. Gemini fetches the videos themselves from their public links.
 - **Gemini API** (Google AI Studio key `GEMINI_API_KEY`) for summaries, sentiment and video understanding. Billed to the $10/month Google Cloud credit included with the owner's Gemini Pro subscription.
 - **FRED API** (free key `FRED_API_KEY`) for macro release dates and, later, macro series.
 - **Later:** X/Twitter (provider to be decided, ≤ ~$5/month, key in `.env`); Reddit API (free personal-use app credentials).
@@ -128,19 +129,19 @@ Every user-owned table has a `user_id` column from day one (one default user for
 ## Folder map
 ```
 app/
-  main.py          create_app(): builds the web app (tests pass in a temp DB + fake data source); later starts the scheduler
+  main.py          create_app(): builds the web app (tests pass in a temp DB + fake data source); starts the scheduler if switched on
   config.py        settings from environment / .env, plus loading/checking config/settings.yaml
   tickers.py       ticker format rules (shared by services and adapters)
   timeutils.py     UTC storage ↔ US Eastern display
   market_calendar.py  US trading days: weekends + NYSE holidays (one-off closures from config/settings.yaml)
   web/             routes (routes.py: watchlists + lookup; option_routes.py; portfolio_routes.py; report_routes.py), formatting.py (number/date display), assets.py (version codes on CSS/JS links), templates/ (HTML pages + HTMX partials), static/ (CSS, vendored htmx.min.js)
-  services/        business rules: watchlists, quotes, search, options (chains, contract prices, risk-free rate), options_math (pure formulas), portfolio (trades, prices, portfolio page, spreads, expiry), positions (pure: positions from trades), collect, summarize, reports, sentiment, insider (later calendar, macro)
+  services/        business rules: watchlists, quotes, search, options (chains, contract prices, risk-free rate), options_math (pure formulas), portfolio (trades, prices, portfolio page, spreads, expiry), positions (pure: positions from trades), collect, videos (watching YouTube videos once each), summarize, reports, sentiment, insider (later calendar, macro)
   providers/       market data + calendar data adapters (yahoo, fred)
-  sources/         research content plug-ins: base.py (interface), http.py (downloads), news_rss.py, edgar.py, registry.py; later youtube, blogs, x, reddit
+  sources/         research content plug-ins: base.py (interface), http.py (downloads), feeds.py (one download per run), mentions.py (does a post mention the ticker?), news_rss.py, edgar.py, blogs.py, youtube.py, registry.py; later x, reddit
   ai/              LLM interface (llm.py) + Gemini adapter with its prompts (gemini.py)
   db/              models.py, session.py, migrations/ (Alembic; alembic.ini is in the project root)
-  scheduler.py     timed jobs
-config/            settings.yaml (limits, refresh window, options fallback rate + minimum IV, report settings, sentiment weights, AI model), sources.yaml (sources on/off, Google News search, trusted outlets, SEC forms), later fomc_dates.yaml
+  scheduler.py     the optional weekday report job (APScheduler)
+config/            settings.yaml (limits, refresh window, options fallback rate + minimum IV, report settings, sentiment weights, AI model, video limits, schedule), sources.yaml (sources on/off, Google News search, trusted outlets, SEC forms, blogs, YouTube channels, also_known_as names), later fomc_dates.yaml
 data/              app.db and caches (git-ignored)
 tests/             automated tests; fixtures/ holds sample responses (fixtures/sources/ for feeds and SEC files); conftest.py has the fake market data, fake internet (FakeFetch) and fake AI (FakeLLM)
 docs/              spec, architecture, decisions, prompts

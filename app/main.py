@@ -15,6 +15,7 @@ from app.config import AppConfig, Settings, get_settings, load_app_config, load_
 from app.db.session import database_is_set_up, database_is_up_to_date, make_engine
 from app.providers.market_data import MarketData
 from app.providers.yahoo import YahooMarketData
+from app.scheduler import start_scheduler
 from app.services.options import RiskFreeRate
 from app.services.portfolio import TradeNotFound
 from app.services.reports import ReportServices, execute_run, mark_interrupted_runs
@@ -88,7 +89,14 @@ def create_app(
         with Session(engine) as session:
             app.state.user_id = ensure_default_user(session, settings.default_user_email).id
             mark_interrupted_runs(session)
-        yield
+        app.state.scheduler = start_scheduler(
+            engine, app.state.user_id, report_services, app_config.schedule
+        )
+        try:
+            yield
+        finally:
+            if app.state.scheduler is not None:
+                app.state.scheduler.shutdown(wait=False)
 
     app = FastAPI(title="Finance Dashboard", lifespan=lifespan)
     app.state.engine = engine
@@ -99,6 +107,7 @@ def create_app(
     )
     app.state.report_services = report_services
     app.state.report_runner = report_runner or run_in_background
+    app.state.scheduler = None  # started at startup if schedule.enabled (app/scheduler.py)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     app.include_router(router)
     app.include_router(report_router)

@@ -4,7 +4,7 @@
 > Feature IDs (F1.4 etc.) refer to acceptance criteria in `docs/SPEC.md`.
 
 ## Current phase
-**Phase 4: Options chain + virtual portfolio**: built. Part A (options browser, F2) is merged and checked by the owner with real Yahoo data, after hours and during market hours. Part B (virtual portfolio, F3) is merged and checked by the owner (stock, cash-secured put, covered call and the return figures work; expiry can only be tested after Friday Nov 6). Follow-ups merged (poor man's covered calls, trade-date and after-close price fixes; owner confirmed the automatic prices). Options grouped per ticker and trading-day-only trade dates are merged and confirmed. SEC contact and Gemini key are set up (Gemini needed prepaid credit). Merged: plain-words 402 message, no more "-0.00", first report-period fix. On branch `claude/next-task-plan-5yfs0v`, waiting to be merged: the second report-period fix (news the AI never processed is caught up). Next: **Phase 5** (report v2: YouTube, blogs, 7:30am schedule).
+**Phase 5: Report v2 (blogs, YouTube, schedule)**: built on branch `claude/wonderful-clarke-pr4ane`, waiting for the owner's check and merge. Trusted blogs and YouTube channels are read from `config/sources.yaml` (both lists empty until the owner fills them in); the AI watches each new video once, at most 10 per run; automatic weekday reports are built but switched off (owner's choice: reports by hand, about weekly). Phase 4 is merged and checked by the owner; its last open check is expiry after Friday Nov 6. Next: the owner's check of Phase 5, then **Phase 6** (calendar).
 
 ## Phases
 Each phase ends with a working app, passing tests, and the docs updated.
@@ -26,15 +26,15 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - "Generate now" button, report history page.
   - **Done when:** F4.1 (developments, rumors, insider part of F4.8, sentiment, sources), F4.2, F4.3 (news + filings), F4.4, F4.6, F4.10–F4.14 pass. AI calls are mocked in tests. *(All have automated tests; see "Done (recent)".)*
 
-- [ ] **Phase 4 — Options chain + virtual portfolio (F2, F3)**
+- [x] **Phase 4 — Options chain + virtual portfolio (F2, F3)** (built and merged 2026-11-03/04; owner confirmed with real data; expiry check after Nov 6 still open)
   - Option chain browser, Black-Scholes greeks, DTE, add contracts to watchlists. *(Part A built and merged 2026-11-03; owner confirmed after hours, market-hours check pending.)*
   - Bought/Sold buttons with auto-filled prices, positions and P&L, annualized return for short options, spread linking, expiry handling. *(Part B built 2026-11-03: F2.5b and F3.1–F3.9 have automated tests, including the three F3.6 known answers; owner check pending.)*
   - **Done when:** F2.1–F2.7 and F3.1–F3.9 pass, including the F2.3 and F3.6 numeric test cases.
 
-- [ ] **Phase 5 — Report v2: YouTube + blogs + morning schedule (F4)**
+- [ ] **Phase 5 — Report v2: YouTube + blogs + morning schedule (F4)** *(built 2026-11-04, owner check pending)*
   - YouTube plug-in (trusted channels' RSS feeds → Gemini summarizes the video), blog RSS plug-in, starter `config/sources.yaml` for me to edit.
-  - Weekday 7:30am ET scheduler.
-  - **Done when:** F4.5 and F4.9 pass; a 25-ticker run completes in < 10 minutes.
+  - Weekday 7:30am ET scheduler (off by default, owner 2026-11-04).
+  - **Done when:** F4.5 and F4.9 pass; a 25-ticker run completes in < 10 minutes. *(F4.5 and F4.9 have automated tests. Speed: offline, a 25-ticker run downloads each blog/channel feed once and watches 3 videos at a time; the real time can only be measured on the owner's computer, estimate 5–9 minutes, see Known issues.)*
 
 - [ ] **Phase 6 — Calendar (F5)**
   - Watchlist earnings dates, macro releases from FRED, FOMC dates file, week/list views, filters, top-3 on home page.
@@ -57,17 +57,27 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - **Done when:** F7.1–F7.3 pass and the security review has no open high-severity findings.
 
 ## Next up
-1. **Owner, after merging** (README "Updating to a new version"; no database change):
-   - **Portfolio layout:** options are grouped per ticker (A–Z, open by default), each header showing contracts and total P&L; your AMZN poor man's covered call appears as one line with both legs under it, inside AMZN.
-   - **Trading days only:** on the trade form, pick a Saturday or a holiday (e.g. Nov 27, 2025): you should see why it's closed, and **Save trade** greys out. On a weekend, the form should open on Friday.
-   - **After 4 PM ET**, refresh a watchlist: prices should be that day's close (not the previous day's), with the change labelled "today".
-   - **Placeholder IVs:** during market hours, look at far out-of-the-money strikes on a later date (where bids are often 0). Do IVs of exactly 50%, 25%, 12.5%… still appear? If yes, we'll hide IV and greeks for strikes with no bid and no ask.
+1. **Owner: check Phase 5, then merge** (README "Updating to a new version": `uv sync` installs the new APScheduler library; no database change):
+   - **Blogs and channels:** add one or two YouTube channels (and blogs, if you like) to `config/sources.yaml` (README "Adding YouTube channels and blogs"), restart, and generate a report for a ticker those channels talk about.
+   - In the report's Sources list, videos are labelled YOUTUBE with 3–5 points; click a time (e.g. **3:15**): the video should open at that moment, and the point should match what's said there.
+   - Generate the same report again: the run should be quick and the videos not watched again (same points).
+   - **Timing:** for your largest watchlist, note how long a run takes (start and finish times on the run page). The goal is under 10 minutes.
+   - Reports page: "Automatic reports are off" with how to switch them on.
+2. **Owner: still open from Phase 4 and the report-period fix:**
    - **Expiry (after Friday Nov 6, 4 PM ET):** record a contract expiring Friday before then; afterwards the Portfolio page should ask "Expired worthless" or "Assigned".
-2. **Phase 5: Report v2** (YouTube + blogs + the weekday 7:30am schedule), after the owner's check. Propose a plan first; the YouTube channel and blog lists come from the owner (`config/sources.yaml`).
-3. Owner, after merging the second report-period fix: generate an AMZN report. It should reach back to the oldest AMZN news the AI never processed (up to 7 days), so expect AI-written developments again. Check that AI summaries appear, the citation numbers jump to the right sources, and an insider trade matches the SEC's own Form 4 page.
+   - **After 4 PM ET**, refresh a watchlist: prices should be that day's close, with the change labelled "today".
+   - **Placeholder IVs:** during market hours, do IVs of exactly 50%, 25%, 12.5%… still appear on far out-of-the-money strikes? If yes, we'll hide IV and greeks for strikes with no bid and no ask (see Known issues).
+   - **AMZN report:** it should reach back to AMZN news the AI never processed (up to 7 days), with AI-written developments, working citation numbers, and an insider trade matching the SEC's own Form 4 page.
+3. **Phase 6: Calendar (F5)**, after the owner's Phase 5 check. Propose a plan first.
 4. Owner: after seeing which outlets show up, decide whether to switch on `trusted_outlets_only` in `config/sources.yaml`.
 
 ## Done (recent)
+- 2026-11-04 **Phase 5 report v2**, in four commits on `claude/wonderful-clarke-pr4ane`, with the owner's answers (channel list later; about 10 videos per run and never the same video twice; schedule off for now, reports by hand about weekly; holidays not relevant):
+  1. **Blogs and YouTube channels** (F4.3, F4.4, F4.5): one source per blog/channel from `config/sources.yaml`; a post or video counts when its title or description mentions the ticker (`$` needed for 1–2 letter tickers), the SEC company name, or an `also_known_as` name (Google for GOOG/GOOGL); YouTube only the last 7 days; each feed downloaded once per run.
+  2. **Videos watched by the AI** (F4.5): Gemini watches the public video from its link (low resolution, first 60 minutes) and writes 3–5 points with times; each links to that moment. The answer is kept and reused for other tickers and later runs (never watched twice); at most 10 new per run, newest first, 3 at a time; the rest wait for the next run. A run now collects for every ticker, then watches, then writes; the progress box shows the step.
+  3. **Automatic weekday reports** (F4.9): `app/scheduler.py` with APScheduler (new library), every watchlist at 7:30am ET on weekdays, **off** unless `schedule.enabled: true`; the Reports page says whether it's on and when it runs next. SPEC F4.9 reworded ("can run automatically… off by default").
+  4. Speed check (25 tickers, 30 videos, offline) and docs: README "Adding YouTube channels and blogs" and "Automatic morning reports", DECISIONS, ARCHITECTURE.
+  Tests: 561 pass (up from 505), all offline. No database change.
 - 2026-11-04 Owner merged the report-period fix, but AMZN reports still covered only minutes. Root cause: the fix judged *reports*; a quiet 12:12 report (made by the old code right after the failed 12:05 run) had nothing to ask the AI, so it counted as a report "with AI" and every later period started after it. Fixed by checking the *news*: the period reaches back to the oldest item from the last 7 days that the AI never processed. A test replays the owner's exact sequence (it failed before the fix). Tests: 505 pass.
 - 2026-11-04 Owner set up the SEC contact and Gemini key. SEC filings work (AMZN Form 4 insider sales listed). Gemini first failed with 402 (prepaid credit needed; owner added credit), then worked, but the next report covered only 7 minutes because the failed run counted as a report. Fixed, in two commits: a report's period now starts where the last report **with AI** ended (owner's choice); the 402 is explained in plain words; "-0.00" no longer appears; README "Setting up reports" now includes adding prepaid credit. Tests: 504 pass.
 - 2026-11-04 Owner confirmed the per-ticker options layout and trading-day-only trade dates work as intended (PR #12 merged).
@@ -110,6 +120,11 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - 2026-11-01 Kickoff: interviewed owner; wrote SPEC, ARCHITECTURE, PLAN, DECISIONS; filled in stack and commands in CLAUDE.md. No application code yet.
 
 ## Known issues / bugs
+- **Phase 5 samples are hand-made** (`tests/fixtures/sources/youtube_channel.xml`, `blog_feed.xml`): the cloud build machine can't reach YouTube or Gemini, so the first real run is the real test of: the channel feed's format, Gemini accepting the 60-minute cut-off on YouTube links (if it refuses, the whole video is watched once instead, costing more on long videos), and whether its times are accurate.
+- **Speed of a real 25-ticker run isn't measured yet.** Estimate: collecting 2–4 minutes, two AI calls per ticker (one after another) 3–5 minutes, watching 10 new videos 3 at a time 1–3 minutes, so roughly 5–9 minutes, close to the 10-minute goal. If it's over, the next step is doing the per-ticker AI calls a few at a time too.
+- A video the AI couldn't watch (private, members-only, a scheduled premiere that hadn't aired yet) is marked as such for good and rated from its description; it isn't retried later.
+- A video or post is matched by name in its title and description. Videos about a company that never name it there are missed; videos that name it in passing are included (the AI then skips them if they aren't really about the ticker). Add names to `also_known_as` if a company is missed.
+- When a catch-up report reaches back for a video that waited (over the 10-per-run limit), the other items from that stretch appear again in the new report too (as with the earlier report-period fix).
 - **Placeholder IVs after hours** (owner's SOFI screenshot, 2026-11-03): strikes with no bid and no ask show IVs of exactly 50%, 25%, 12.5%, 6.3%, 3.1% (Yahoo's dummy values), and a few with only an ask show 242% or 338%. The greeks from these are meaningless. The 1% minimum-IV filter doesn't catch them. Decide after the market-hours check: likely hide IV and greeks when a strike has no bid and no ask.
 - Past-date prices for option contracts come from Yahoo's daily history for the contract, which is often missing, so the form usually asks you to type the price. Stocks' past closes are reliable.
 - A stock's "today" price on the trade form is its last price (we don't store stock bids/asks).
@@ -142,7 +157,9 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - *(Fixed in Phase 2: the day change was always labelled "today", and the quote page fetched from Yahoo on every lookup.)*
 
 ## Handoff note
-Phase 4 is merged into `main`; the follow-ups (poor man's covered calls, trade-date and after-close price fixes) are merged; the per-ticker layout and trading-day-only dates are merged; the report-period / 402 / "-0.00" fixes are merged; the second report-period fix (check the news, not just reports) is on branch `claude/next-task-plan-5yfs0v` (505 tests green), not merged yet. Both parts are checked by the owner with real data. Next session: if the owner reports problems from the market-hours check (including the placeholder-IV question in Known issues) or from their first run with SEC/Gemini keys, fix those first (prompt #3); otherwise plan Phase 5. After each merge, remind the owner to update their folder (README, "Updating to a new version").
+Phase 5 is built on branch `claude/wonderful-clarke-pr4ane` (561 tests green), not merged yet; everything before it is merged into `main`. Next session: if the owner reports problems from the Phase 5 check (first real YouTube/Gemini video run, the timing of a big run) or the Phase 4 expiry check, fix those first; otherwise plan Phase 6 (calendar). After each merge, remind the owner to update their folder (README, "Updating to a new version").
+- Video code map: `app/sources/youtube.py` (finds videos, `watch_url()`, `at_time()`), `app/sources/blogs.py`, `app/sources/feeds.py` (`CachedFeed`: one download per 10 minutes), `app/sources/mentions.py`, `app/services/videos.py` (`watch_new_videos()`: reuse kept answers, budget, parallel watching; answers in `SourceItemRow.data["points"]` / `["watch_error"]`), `GeminiLLM.watch_video()`. `reports.execute_run` = `prepare_ticker()` for all → `watch_videos()` → `finish_ticker_report()` each; `build_ticker_report()` does all three for one ticker.
+- Video tests: `tests/test_reports_videos.py` (uses `make_services()` with the sample channel `UCsampleChannelAAAAAAAAA` and blog `https://blog.example.com/feed/`), `test_sources_blogs_youtube.py`, `test_scheduler.py`. `FakeLLM.watch_video` returns three points (1:15, no time, 1:02:05); set `unwatchable`, `video_fail` or `video_seconds` (and read `most_at_once`).
 - Portfolio code map: `app/services/positions.py` (pure: `build_positions()` replays trades), `app/services/portfolio.py` (`resolve_target()`, `suggest_price()`, `record_trade()`, `portfolio_view()`, `link_spread()`, `settle_expired()`), `app/web/portfolio_routes.py`, templates `portfolio.html` / `trade_form.html`. Formulas in `options_math.py`. Option prices for pages come from `options.contract_quotes()` (shared with watchlists).
 - Portfolio tests: `tests/test_positions.py` (pure), `test_web_trades.py`, `test_web_portfolio.py`, `test_web_spreads_expiry.py`. They use `options_clock` and open the sample chain first (`client.get(CHAIN_URL)`), as the owner would. `FakeMarketData.get_daily_close` gives the stock sample's closes; set `option_closes[(symbol, date)]` for options.
 - Options code map: `app/services/options_math.py` (pure formulas), `app/services/options.py` (`option_chain()` for the chain page, `contract_rows()` for watchlists, `RiskFreeRate` kept on `app.state.risk_free_rate`), `app/web/option_routes.py`, templates `option_chain.html` / `options_start.html`, contracts table in `watchlist.html`. `watchlists.add_contract()` adds a contract; `watchlist_rows()` returns stocks only and `watchlist_contracts()` the contracts.

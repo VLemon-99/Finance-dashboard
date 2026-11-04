@@ -7,6 +7,7 @@ Two places, on purpose:
 """
 
 from datetime import date
+from datetime import time as clock_time
 from functools import lru_cache
 from pathlib import Path
 
@@ -111,6 +112,19 @@ class AIConfig(_Section):
     # Most statements per report section.
     max_developments: int = Field(default=6, ge=1, le=20)
     max_rumors: int = Field(default=4, ge=0, le=20)
+    # YouTube (SPEC F4.5): the most new videos the AI watches in one run (each video is
+    # watched once, ever), how much of each video it watches (minutes, from the start), and
+    # how many videos it watches at the same time.
+    max_videos_per_run: int = Field(default=10, ge=0, le=100)
+    max_video_minutes: int = Field(default=60, ge=1, le=180)
+    parallel_videos: int = Field(default=3, ge=1, le=8)
+
+
+class ScheduleConfig(_Section):
+    # Automatic reports for every watchlist on weekdays (SPEC F4.9). Off by default
+    # (owner 2026-11-04: reports are started by hand for now).
+    enabled: bool = False
+    time: clock_time = clock_time(7, 30)  # US Eastern
 
 
 class AppConfig(_Section):
@@ -120,6 +134,7 @@ class AppConfig(_Section):
     search: SearchConfig = SearchConfig()
     reports: ReportsConfig = ReportsConfig()
     ai: AIConfig = AIConfig()
+    schedule: ScheduleConfig = ScheduleConfig()
 
 
 # --- config/sources.yaml (trusted sources, SPEC F4.4) ---------------------------------
@@ -158,9 +173,37 @@ class EdgarConfig(_Section):
     max_text_chars: int = Field(default=150_000, ge=1_000, le=1_000_000)
 
 
+class BlogFeed(_Section):
+    name: str = Field(min_length=1, max_length=100)  # shown in reports
+    feed: str = Field(pattern=r"^https?://\S+$", max_length=2000)  # RSS or Atom address
+
+
+class BlogsConfig(_Section):
+    enabled: bool = True
+    feeds: list[BlogFeed] = []
+
+
+class YouTubeChannel(_Section):
+    name: str = Field(min_length=1, max_length=100)  # shown in reports
+    # The channel's id: "UC" followed by 22 letters, digits, "-" or "_".
+    channel_id: str = Field(pattern=r"^UC[A-Za-z0-9_-]{22}$")
+
+
+class YouTubeConfig(_Section):
+    enabled: bool = True
+    # Only videos published in the last this-many days are used (SPEC F4.5).
+    lookback_days: int = Field(default=7, ge=1, le=31)
+    channels: list[YouTubeChannel] = []
+
+
 class SourcesConfig(_Section):
     news: NewsConfig = NewsConfig()
     sec_edgar: EdgarConfig = EdgarConfig()
+    blogs: BlogsConfig = BlogsConfig()
+    youtube: YouTubeConfig = YouTubeConfig()
+    # Extra names that count as a mention of a ticker in blog posts and videos, e.g.
+    # GOOGL: [Google]. The ticker and the SEC's company name always count.
+    also_known_as: dict[str, list[str]] = {}
 
 
 class ConfigFileError(RuntimeError):

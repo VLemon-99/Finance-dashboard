@@ -93,7 +93,7 @@ Acceptance criteria:
 - [ ] F4.6 Sentiment: each source item is rated bullish / neutral / bearish with a one-line reason. The ticker gets an overall score from −100 to +100, weighted by source type (default weights: filings & news 1.0, blogs 0.8, YouTube 0.7, X 0.5, Reddit 0.3, set in config). The report shows the score, the counts by rating and the weights used.
 - [ ] F4.7 Valuation snapshot: trailing and forward P/E, EV/EBITDA, P/S, and how each compares with the stock's own multi-year range (as much history as the source provides) and with a peer list I set per ticker; plus the analyst target (low / average / high) and the % gap to the current price.
 - [ ] F4.8 Institutional & insider: insider buys and sells from Form 4 in the last 90 days; latest top institutional holders and the change in their stakes; new 13D/13G filings; unusual options activity (contracts where today's volume > 2× open interest and volume ≥ 500; thresholds set in config).
-- [ ] F4.9 Reports run automatically on weekdays at 7:30am US Eastern while the app is running. A "Generate now" button runs one for a single ticker or the whole watchlist.
+- [ ] F4.9 Reports can run automatically on weekdays at 7:30am US Eastern while the app is running (a setting; off by default, owner 2026-11-04). A "Generate now" button runs one for a single ticker or the whole watchlist.
 - [ ] F4.10 Past reports are kept and browsable by date and ticker.
 - [ ] F4.11 If a source fails or hits its limit, the report is still produced and says which sources were missing.
 - [ ] F4.12 The same story from several outlets appears once, with all of its sources listed.
