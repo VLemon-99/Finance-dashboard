@@ -3,6 +3,7 @@
 Owner's rules (2026-11-04): about 10 new videos per run, and a video is never watched twice.
 """
 
+import time
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -263,3 +264,17 @@ def test_video_helpers():
     assert timestamp_label(3725) == "1:02:05"
     text = video_text("Title", "", [{"text": "A point.", "seconds": None}])
     assert text == "Title\n\nWhat the video says:\n- A point."
+
+
+def test_25_ticker_run_downloads_each_blog_and_channel_once(
+    session, engine, user_id, services, fake_fetch, fake_llm
+):
+    tickers = ["AAPL", "MSFT"] + [f"T{chr(65 + n // 26)}{chr(65 + n % 26)}" for n in range(23)]
+    started = time.monotonic()
+    run = run_for(session, engine, user_id, services, tickers=tickers)
+    assert (run.status, run.done, run.total) == ("done", 25, 25)
+    assert time.monotonic() - started < 60  # offline; the real run is mostly AI time
+    assert fake_fetch.calls.count("https://blog.example.com/feed/") == 1
+    channel_feed = "https://www.youtube.com/feeds/videos.xml?channel_id=UCsampleChannelAAAAAAAAA"
+    assert fake_fetch.calls.count(channel_feed) == 1
+    assert len(fake_llm.video_calls) == 2  # video 2 serves both AAPL and MSFT

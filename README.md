@@ -77,6 +77,26 @@ Reports need two values in your `.env` file (open it in any text editor, e.g. Te
 
 Never paste the key into chat, code or GitHub. It belongs only in `.env`, which is never uploaded.
 
+**Adding YouTube channels and blogs**
+
+Reports use only the channels and blogs you list in `config/sources.yaml` (open it in any text editor). Both lists start empty.
+
+1. **A YouTube channel** needs its channel id, which starts with `UC`. On the channel's YouTube page, click **…more** under the channel name, scroll down, click **Share channel**, then **Copy channel ID**. In `config/sources.yaml`, under `youtube:`, replace `channels: []` with (keep the spaces at the start of each line):
+   ```yaml
+     channels:
+       - name: The channel's name
+         channel_id: UCxxxxxxxxxxxxxxxxxxxxxx
+   ```
+   Add more channels as more `- name:` / `channel_id:` pairs, lined up the same way.
+2. **A blog** needs the address of its feed: often the blog's address followed by `/feed` (e.g. `https://blog.example.com/feed/`). Under `blogs:`, replace `feeds: []` the same way, with `- name:` and `feed:` lines.
+3. Restart the app. If the file has a typo, the app won't start and the terminal names the line; fix it and start again.
+
+A video or post is used when its title or description mentions the ticker (e.g. `AMZN` or `$AMZN`) or the company's name. If a company goes by another name (Alphabet → Google), add it under `also_known_as`. The AI watches each new video once (never twice, even for another ticker), at most 10 per run; the rest wait for the next run. Change the limit in `config/settings.yaml` → `ai: max_videos_per_run`. Each 20-minute video costs roughly 4–6 cents of AI credit.
+
+**Automatic morning reports** (off for now)
+
+To have every watchlist reported on weekdays at 7:30am Eastern while the app is running, open `config/settings.yaml`, find `schedule:`, change `enabled: false` to `enabled: true`, and restart the app. The Reports page then shows when the next run is. If your computer is asleep or the app is closed at 7:30, that day's run happens only if the app is back by 8:00.
+
 **Updating to a new version**
 
 Merging changes on GitHub doesn't change the folder on your computer. After each merge, stop the app (`Ctrl+C`), then run these in the project folder:
