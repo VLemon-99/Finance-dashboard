@@ -1,8 +1,7 @@
 """Build research reports (SPEC F4): collect -> summarize -> compose -> store.
 
 For each ticker:
-1. Work out the period: since this ticker's last report with AI summaries, at most `max_days`
-   back (F4.14; a report where the AI failed doesn't use up the period, owner 2026-11-04).
+1. Work out the period: the last `max_days` (7) days (F4.14, owner 2026-11-04).
 2. Collect new items from every source (F4.11: failures are listed, not fatal).
 3. Have the AI watch new YouTube videos (once per video, at most 10 per run; videos.py),
    then summarize and rate new items (public content only, F4.13).
@@ -32,7 +31,7 @@ from app.db.models import Report, ReportRun, SourceItemRow
 from app.services.collect import CollectResult, collect_for_ticker
 from app.services.insider import insider_summary
 from app.services.sentiment import sentiment_score
-from app.services.summarize import is_form4, item_kind, pending_items, summarize_pending
+from app.services.summarize import is_form4, item_kind, summarize_pending
 from app.services.videos import (
     AI_VIDEO_NOTE,
     VideoBudget,
@@ -219,42 +218,14 @@ def watchlist_summary(reports: Sequence[Report]) -> dict[str, Any]:
 AI_NOTE_PREFIXES = ("AI summaries:", "AI report writing:", AI_VIDEO_NOTE)
 
 
-def had_ai(report: Report) -> bool:
-    """True if the report got its AI summaries and statements. Reports made before this flag
-    existed are judged by their "missing" notes."""
-    if "ai_complete" in (report.body or {}):
-        return bool(report.body["ai_complete"])
-    return not any(str(note).startswith(AI_NOTE_PREFIXES) for note in report.missing or [])
+def report_period(now: datetime, max_days: int) -> tuple[datetime, datetime]:
+    """The last `max_days` days (owner 2026-11-04: every report covers the whole week, so
+    nothing found late is missed, e.g. a video from a channel added after the last report).
 
-
-def report_period(
-    session: Session, user_id: int, ticker: str, now: datetime, max_days: int
-) -> tuple[datetime, datetime]:
-    """Since the end of this ticker's last report that had AI summaries, but never more than
-    `max_days` back. A report where the AI failed or was off doesn't use up the period, so
-    the next one summarizes that news (bug seen 2026-11-04: after a failed AI run, the next
-    AMZN report covered only 7 minutes). A source being down doesn't extend the period.
-
-    The news itself is checked too: if any stored item from the last `max_days` was never
-    processed by the AI, the period reaches back to it. Judging reports alone wasn't enough
-    (seen 2026-11-04): a quiet report after the failed one had nothing to ask the AI, so it
-    counted as a report "with AI", and the failed run's news stayed outside every period."""
-    earliest = now - timedelta(days=max_days)
-    previous = session.exec(
-        select(Report)
-        .where(
-            Report.user_id == user_id,
-            Report.ticker == ticker,
-            col(Report.period_end) > earliest,
-        )
-        .order_by(col(Report.period_end).desc())
-    )
-    last_with_ai = next((r for r in previous if had_ai(r)), None)
-    start = max(as_utc(last_with_ai.period_end), earliest) if last_with_ai else earliest
-    waiting = pending_items(session, ticker, earliest)  # never processed by the AI
-    if waiting:
-        start = min(start, max(as_utc(waiting[0].published_at), earliest))
-    return start, now
+    Nothing is paid for twice: stored items aren't downloaded again, items the AI has
+    already summarized aren't sent again, and a video is never watched twice. Only the
+    report's written statements are asked for again, from the stored summaries."""
+    return now - timedelta(days=max_days), now
 
 
 @dataclass
@@ -271,7 +242,7 @@ def prepare_ticker(
     session: Session, run: ReportRun, ticker: str, services: ReportServices
 ) -> PreparedTicker:
     now = utc_now()
-    start, end = report_period(session, run.user_id, ticker, now, services.config.reports.max_days)
+    start, end = report_period(now, services.config.reports.max_days)
     collected = collect_for_ticker(
         session, services.sources, ticker, start, services.config.reports
     )
@@ -338,8 +309,8 @@ def finish_ticker_report(
         },
         "stories": stories,
         "ai_model": services.llm.model_name if services.llm else None,
-        # False if any AI step failed or AI is off: the next report then covers this
-        # period again (see report_period).
+        # False if any AI step failed or AI is off (kept for the record; every report
+        # covers the last 7 days anyway, so the next one catches up).
         "ai_complete": not any(str(note).startswith(AI_NOTE_PREFIXES) for note in missing),
     }
     report = Report(

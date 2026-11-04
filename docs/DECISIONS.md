@@ -2,6 +2,13 @@
 
 > One entry per meaningful choice, newest at the top. This stops future sessions from quietly undoing past decisions.
 
+## 2026-11-04 — Every report covers the last 7 days (replaces "since the last report with AI")
+- **Finding** (owner's first report with YouTube channels): a channel's 5-day-old Amazon video wasn't in the AMZN report. The report covered only the 11 hours since the previous AMZN report, and the channel had been added after that one, so its older videos were outside every period.
+- **Decision** (owner: "find the simplest solution for now, we will formally fix that later"): **every report covers the last 7 days** (`reports.max_days`), however recent the previous report. This replaces the period rule from the 2026-11-04 "Gemini needs prepaid credit" entry (start where the last report with AI ended, reaching back to unprocessed news), which is no longer needed: a full week always includes anything left over.
+- **Why it doesn't waste AI credit:** stored items aren't downloaded again, items already summarized aren't sent to the AI again, and videos are never watched twice (all as before). The only repeated AI work is the report's written statements ("Major developments", "Rumors"), which are rebuilt from the stored one-line summaries of the week: one small text request per ticker.
+- **Side effect:** a report made a day after another shows mostly the same stories again. Fine for weekly use; if the morning schedule is switched on, each day's report repeats most of the week. A "what's new since my last report" view or an "update this report" button are the later, proper fixes (owner's suggestions).
+- **Alternatives considered:** collecting 7 days back but showing only items found since the last report (keeps reports short, but the "date range covered" (F4.14) would no longer describe the report); an "update" button on past reports (more work; later).
+
 ## 2026-11-04 — Phase 6: market events calendar
 - **Decision** (owner's answers to the Phase 6 plan):
   - **"My tickers"** = every stock in my watchlists **and** every stock I hold in the virtual portfolio (including the stocks behind option positions and watchlist contracts). SPEC F5.1 and F5.4 reworded. "My tickers only" therefore hides the economic events.
