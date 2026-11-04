@@ -33,6 +33,7 @@ from app.services.users import ensure_default_user
 from app.services.watchlists import WatchlistNotFound
 from app.sources.registry import build_sources
 from app.web.assets import STATIC_DIR
+from app.web.calendar_routes import router as calendar_router
 from app.web.option_routes import router as option_router
 from app.web.portfolio_routes import router as portfolio_router
 from app.web.portfolio_routes import trade_not_found
@@ -130,6 +131,7 @@ def create_app(
     app.include_router(report_router)
     app.include_router(option_router)
     app.include_router(portfolio_router)
+    app.include_router(calendar_router)
     app.add_exception_handler(WatchlistNotFound, watchlist_not_found)
     app.add_exception_handler(ReportNotFound, report_not_found)
     app.add_exception_handler(TradeNotFound, trade_not_found)
