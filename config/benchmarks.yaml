@@ -1,0 +1,190 @@
+# What each stock's valuation is compared with (SPEC F4.7). Restart the app after editing.
+#
+# Automatic, no lists needed: every stock gets Yahoo's sector and industry, and is compared
+# with (1) its own past fiscal years, (2) its industry's largest companies ("peers"),
+# (3) its sector's largest companies, and (4) Professor Damodaran's industry average.
+# Each comparison uses the median (the middle value), so one extreme company can't skew it.
+
+# How many of the industry's largest companies are used as peers (the stock itself is left out).
+industry_peers: 10
+# How many of the sector's largest companies make up the sector benchmark.
+sector_companies: 25
+# Peer figures and the companies in each group are reused for this many hours.
+refresh_hours: 24
+
+# Changes for individual tickers. Leave a ticker out when the automatic choice is fine.
+#   sector:              one of Yahoo's 11 sectors: Basic Materials, Communication Services,
+#                        Consumer Cyclical, Consumer Defensive, Energy, Financial Services,
+#                        Healthcare, Industrials, Real Estate, Technology, Utilities
+#   industry:            a Yahoo industry name, e.g. "Software - Infrastructure"
+#   peers:               your own peer list, used instead of the industry's largest companies
+#   damodaran_industry:  a Damodaran industry name (see the list below)
+tickers:
+  AMZN:
+    sector: Technology  # Yahoo files Amazon under Consumer Cyclical (owner 2026-11-04)
+  # Example:
+  # TSLA:
+  #   peers: [GM, F, RIVN, TM]
+
+# Damodaran's US industry averages (NYU Stern, updated every January; free).
+damodaran:
+  enabled: true
+  # Yahoo industry -> Damodaran industry. Damodaran uses about 95 broader industries,
+  # so several Yahoo industries share one. If the report says a name isn't found, Damodaran
+  # has renamed an industry: copy the new name from his page into the right-hand side.
+  industries:
+    # Basic Materials
+    Agricultural Inputs: Farming/Agriculture
+    Aluminum: Metals & Mining
+    Building Materials: Building Materials
+    Chemicals: Chemical (Diversified)
+    Coking Coal: Coal & Related Energy
+    Copper: Metals & Mining
+    Gold: Precious Metals
+    Lumber & Wood Production: Paper/Forest Products
+    Other Industrial Metals & Mining: Metals & Mining
+    Other Precious Metals & Mining: Precious Metals
+    Paper & Paper Products: Paper/Forest Products
+    Silver: Precious Metals
+    Specialty Chemicals: Chemical (Specialty)
+    Steel: Steel
+    # Communication Services
+    Advertising Agencies: Advertising
+    Broadcasting: Broadcasting
+    Electronic Gaming & Multimedia: Software (Entertainment)
+    Entertainment: Entertainment
+    Internet Content & Information: Software (Internet)
+    Publishing: Publishing & Newspapers
+    Telecom Services: Telecom. Services
+    # Consumer Cyclical
+    Apparel Manufacturing: Apparel
+    Apparel Retail: Retail (Special Lines)
+    Auto & Truck Dealerships: Retail (Automotive)
+    Auto Manufacturers: Auto & Truck
+    Auto Parts: Auto Parts
+    Department Stores: Retail (General)
+    Footwear & Accessories: Shoe
+    Furnishings, Fixtures & Appliances: Furn/Home Furnishings
+    Gambling: Hotel/Gaming
+    Home Improvement Retail: Retail (Building Supply)
+    Internet Retail: Retail (Online)
+    Leisure: Recreation
+    Lodging: Hotel/Gaming
+    Luxury Goods: Apparel
+    Packaging & Containers: Packaging & Container
+    Personal Services: Business & Consumer Services
+    Recreational Vehicles: Recreation
+    Residential Construction: Homebuilding
+    Resorts & Casinos: Hotel/Gaming
+    Restaurants: Restaurant/Dining
+    Specialty Retail: Retail (Special Lines)
+    Textile Manufacturing: Apparel
+    Travel Services: Business & Consumer Services
+    # Consumer Defensive
+    Beverages - Brewers: Beverage (Alcoholic)
+    Beverages - Non-Alcoholic: Beverage (Soft)
+    Beverages - Wineries & Distilleries: Beverage (Alcoholic)
+    Confectioners: Food Processing
+    Discount Stores: Retail (General)
+    Education & Training Services: Education
+    Farm Products: Farming/Agriculture
+    Food Distribution: Food Wholesalers
+    Grocery Stores: Retail (Grocery and Food)
+    Household & Personal Products: Household Products
+    Packaged Foods: Food Processing
+    Tobacco: Tobacco
+    # Energy
+    Oil & Gas Drilling: Oilfield Svcs/Equip.
+    Oil & Gas E&P: Oil/Gas (Production and Exploration)
+    Oil & Gas Equipment & Services: Oilfield Svcs/Equip.
+    Oil & Gas Integrated: Oil/Gas (Integrated)
+    Oil & Gas Midstream: Oil/Gas Distribution
+    Oil & Gas Refining & Marketing: Oil/Gas (Integrated)
+    Thermal Coal: Coal & Related Energy
+    Uranium: Metals & Mining
+    # Financial Services
+    Asset Management: Investments & Asset Management
+    Banks - Diversified: Bank (Money Center)
+    Banks - Regional: Banks (Regional)
+    Capital Markets: Brokerage & Investment Banking
+    Credit Services: Financial Svcs. (Non-bank & Insurance)
+    Financial Conglomerates: Financial Svcs. (Non-bank & Insurance)
+    Financial Data & Stock Exchanges: Information Services
+    Insurance Brokers: Insurance (General)
+    Insurance - Diversified: Insurance (General)
+    Insurance - Life: Insurance (Life)
+    Insurance - Property & Casualty: Insurance (Prop/Cas.)
+    Insurance - Reinsurance: Reinsurance
+    Insurance - Specialty: Insurance (General)
+    Mortgage Finance: Financial Svcs. (Non-bank & Insurance)
+    # Healthcare
+    Biotechnology: Drugs (Biotechnology)
+    Diagnostics & Research: Healthcare Products
+    Drug Manufacturers - General: Drugs (Pharmaceutical)
+    Drug Manufacturers - Specialty & Generic: Drugs (Pharmaceutical)
+    Health Information Services: Heathcare Information and Technology  # sic: Damodaran's spelling
+    Healthcare Plans: Healthcare Support Services
+    Medical Care Facilities: Hospitals/Healthcare Facilities
+    Medical Devices: Healthcare Products
+    Medical Distribution: Healthcare Support Services
+    Medical Instruments & Supplies: Healthcare Products
+    Pharmaceutical Retailers: Retail (Special Lines)
+    # Industrials
+    Aerospace & Defense: Aerospace/Defense
+    Airlines: Air Transport
+    Airports & Air Services: Air Transport
+    Building Products & Equipment: Building Materials
+    Business Equipment & Supplies: Office Equipment & Services
+    Conglomerates: Diversified
+    Consulting Services: Business & Consumer Services
+    Electrical Equipment & Parts: Electrical Equipment
+    Engineering & Construction: Engineering/Construction
+    Farm & Heavy Construction Machinery: Machinery
+    Industrial Distribution: Retail (Distributors)
+    Infrastructure Operations: Engineering/Construction
+    Integrated Freight & Logistics: Transportation
+    Marine Shipping: Shipbuilding & Marine
+    Metal Fabrication: Machinery
+    Pollution & Treatment Controls: Environmental & Waste Services
+    Railroads: Transportation (Railroads)
+    Rental & Leasing Services: Business & Consumer Services
+    Security & Protection Services: Business & Consumer Services
+    Specialty Business Services: Business & Consumer Services
+    Specialty Industrial Machinery: Machinery
+    Staffing & Employment Services: Business & Consumer Services
+    Tools & Accessories: Machinery
+    Trucking: Trucking
+    Waste Management: Environmental & Waste Services
+    # Real Estate
+    Real Estate - Development: Real Estate (Development)
+    Real Estate - Diversified: Real Estate (General/Diversified)
+    Real Estate Services: Real Estate (Operations & Services)
+    REIT - Diversified: R.E.I.T.
+    REIT - Healthcare Facilities: R.E.I.T.
+    REIT - Hotel & Motel: R.E.I.T.
+    REIT - Industrial: R.E.I.T.
+    REIT - Mortgage: R.E.I.T.
+    REIT - Office: R.E.I.T.
+    REIT - Residential: R.E.I.T.
+    REIT - Retail: Retail (REITs)
+    REIT - Specialty: R.E.I.T.
+    # Technology
+    Communication Equipment: Telecom. Equipment
+    Computer Hardware: Computers/Peripherals
+    Consumer Electronics: Electronics (Consumer & Office)
+    Electronic Components: Electronics (General)
+    Electronics & Computer Distribution: Electronics (General)
+    Information Technology Services: Computer Services
+    Scientific & Technical Instruments: Electronics (General)
+    Semiconductor Equipment & Materials: Semiconductor Equip
+    Semiconductors: Semiconductor
+    Software - Application: Software (System & Application)
+    Software - Infrastructure: Software (System & Application)
+    Solar: Green & Renewable Energy
+    # Utilities
+    Utilities - Diversified: Utility (General)
+    Utilities - Independent Power Producers: Power
+    Utilities - Regulated Electric: Utility (General)
+    Utilities - Regulated Gas: Utility (General)
+    Utilities - Regulated Water: Utility (Water)
+    Utilities - Renewable: Green & Renewable Energy
