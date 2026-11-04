@@ -29,7 +29,7 @@ from app.db.models import Report, ReportRun, SourceItemRow
 from app.services.collect import collect_for_ticker
 from app.services.insider import insider_summary
 from app.services.sentiment import sentiment_score
-from app.services.summarize import is_form4, summarize_pending
+from app.services.summarize import is_form4, pending_items, summarize_pending
 from app.sources.edgar import EdgarSource, base_form
 from app.sources.registry import SourceSet
 from app.timeutils import as_utc, format_eastern, utc_now
@@ -162,7 +162,12 @@ def report_period(
     """Since the end of this ticker's last report that had AI summaries, but never more than
     `max_days` back. A report where the AI failed or was off doesn't use up the period, so
     the next one summarizes that news (bug seen 2026-11-04: after a failed AI run, the next
-    AMZN report covered only 7 minutes). A source being down doesn't extend the period."""
+    AMZN report covered only 7 minutes). A source being down doesn't extend the period.
+
+    The news itself is checked too: if any stored item from the last `max_days` was never
+    processed by the AI, the period reaches back to it. Judging reports alone wasn't enough
+    (seen 2026-11-04): a quiet report after the failed one had nothing to ask the AI, so it
+    counted as a report "with AI", and the failed run's news stayed outside every period."""
     earliest = now - timedelta(days=max_days)
     previous = session.exec(
         select(Report)
@@ -175,6 +180,9 @@ def report_period(
     )
     last_with_ai = next((r for r in previous if had_ai(r)), None)
     start = max(as_utc(last_with_ai.period_end), earliest) if last_with_ai else earliest
+    waiting = pending_items(session, ticker, earliest)  # never processed by the AI
+    if waiting:
+        start = min(start, max(as_utc(waiting[0].published_at), earliest))
     return start, now
 
 
