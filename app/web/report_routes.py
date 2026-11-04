@@ -10,10 +10,11 @@ from fastapi.responses import HTMLResponse, Response
 from sqlmodel import Session, col, select
 
 from app.db.models import Report, ReportRun
+from app.scheduler import next_scheduled_run
 from app.services import watchlists as wl
 from app.services.reports import running_run, start_run
 from app.tickers import InvalidTicker, normalize_ticker
-from app.timeutils import EASTERN, as_utc, today_eastern
+from app.timeutils import EASTERN, as_utc, today_eastern, utc_now
 from app.web.routes import SessionDep, UserDep, _redirect, templates
 
 router = APIRouter()
@@ -65,10 +66,22 @@ def _history_page(
             "ticker": ticker,
             "day": day,
             "today": today_eastern(),
+            "schedule": _schedule_info(request),
             "error": error,
         },
         status_code=status_code,
     )
+
+
+def _schedule_info(request: Request) -> dict[str, Any]:
+    """For the "Automatic reports" line on the Reports page (F4.9)."""
+    config = request.app.state.config.schedule
+    running = request.app.state.scheduler is not None
+    return {
+        "on": running,
+        "time": config.time,
+        "next": next_scheduled_run(utc_now(), config.time) if running else None,
+    }
 
 
 @router.get("/reports", response_class=HTMLResponse)
