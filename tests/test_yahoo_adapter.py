@@ -4,7 +4,7 @@ yfinance is replaced with a fake, so nothing goes over the network.
 """
 
 import math
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 from yfinance.exceptions import YFPricesMissingError, YFTzMissingError
@@ -16,6 +16,7 @@ from app.providers.yahoo import (
     next_earnings_date,
     quote_from_history,
     search_results_from_quotes,
+    with_latest_regular_price,
 )
 from tests.conftest import load_yahoo_history, load_yahoo_search
 
@@ -41,10 +42,12 @@ class FakeTicker:
         shares_error=False,
         calendar=None,
         calendar_error=False,
+        metadata=None,
     ):
         self._history, self._error, self._metadata_error = history, error, metadata_error
         self.fast_info = FakeFastInfo(shares, shares_error)
         self._calendar, self._calendar_error = calendar, calendar_error
+        self._metadata = metadata or {}
 
     def history(self, **kwargs):
         if self._error:
@@ -55,7 +58,7 @@ class FakeTicker:
     def history_metadata(self):
         if self._metadata_error:
             raise ConnectionError("metadata fetch failed")
-        return {"currency": "USD"}
+        return {"currency": "USD", **self._metadata}
 
     @property
     def calendar(self):
@@ -214,3 +217,53 @@ def test_search_failure_is_market_data_error(monkeypatch):
     monkeypatch.setattr(yahoo.yf, "Search", broken)
     with pytest.raises(MarketDataError):
         YahooMarketData().search("amazon", max_results=5)
+
+
+# --- after the close: Yahoo's history can lack today's row (seen 2026-11-03) -------------
+
+# Mon Nov 2, 2026, 4:00 PM Eastern (the sample history's last row is Fri Oct 30: 259.58).
+MONDAY_CLOSE = datetime(2026, 11, 2, 21, 0, tzinfo=UTC).timestamp()
+LATEST = {
+    "regularMarketPrice": 262.10,
+    "regularMarketTime": MONDAY_CLOSE,
+    "regularMarketDayLow": 258.50,
+    "regularMarketDayHigh": 272.00,
+    "regularMarketVolume": 41_000_000,
+}
+
+
+def test_missing_last_day_is_taken_from_the_latest_regular_price(monkeypatch, today):
+    history, _ = load_yahoo_history()
+    use_fake_ticker(monkeypatch, history=history, metadata=LATEST)
+    q = YahooMarketData().get_quote("AMZN")
+    assert q.last_price == 262.10
+    assert q.previous_close == pytest.approx(259.58)  # Friday's close
+    assert q.session_date == date(2026, 11, 2)
+    assert (q.day_low, q.day_high, q.volume) == (258.50, 272.00, 41_000_000)
+    assert q.year_high == 272.00  # above the history's 52-week high of 271.40
+    assert q.year_low == pytest.approx(186.20)
+    assert q.market_cap == pytest.approx(15_000_000_000 * 262.10)
+
+
+def test_latest_price_ignored_when_history_has_that_day(today):
+    history, _ = load_yahoo_history()
+    quote = quote_from_history("AAPL", history, "USD")
+    friday = {**LATEST, "regularMarketTime": datetime(2026, 10, 30, 20, 0, tzinfo=UTC).timestamp()}
+    assert with_latest_regular_price(quote, friday) == quote
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {},
+        {"regularMarketPrice": 262.10},  # no time
+        {"regularMarketTime": MONDAY_CLOSE},  # no price
+        {**LATEST, "regularMarketPrice": 0},
+        {**LATEST, "regularMarketPrice": "n/a"},
+        {**LATEST, "regularMarketTime": 1e20},  # nonsense time
+    ],
+)
+def test_unusable_latest_price_leaves_quote_alone(metadata):
+    history, _ = load_yahoo_history()
+    quote = quote_from_history("AAPL", history, "USD")
+    assert with_latest_regular_price(quote, metadata) == quote
