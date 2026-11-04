@@ -86,7 +86,7 @@ Every user-owned table has a `user_id` column from day one (one default user for
 **Portfolio page** (`/portfolio`)
 1. `services/portfolio.portfolio_view` loads the user's trades; `services/positions.build_positions` (pure functions) turns them into open and closed positions.
 2. Current prices: stocks through `services/quotes.py`, options through `services/options.contract_quotes` (same refresh window, stale/missing and expiry rules as watchlists).
-3. Linked credit spreads and poor man's covered calls that still match are shown as one position each. Short calls outside spreads are covered by long shares, oldest first, 100 per contract; short puts outside spreads count as cash-secured.
+3. Option positions are grouped per stock (`group_by_ticker`: collapsible sections A–Z with contract count and total P&L). Linked credit spreads and poor man's covered calls that still match are shown as one line each, with their legs underneath. Short calls outside spreads are covered by long shares, oldest first, 100 per contract; short puts outside spreads count as cash-secured.
 4. `options_math` computes P&L, premium, capital at risk and the locked-in / remaining annualized returns. Uncovered calls get no return figure.
 5. Expired option positions ask for their outcome; the answer is stored as closing trades (and a share trade at the strike for assignment / exercise).
 

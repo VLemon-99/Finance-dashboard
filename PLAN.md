@@ -4,7 +4,7 @@
 > Feature IDs (F1.4 etc.) refer to acceptance criteria in `docs/SPEC.md`.
 
 ## Current phase
-**Phase 4: Options chain + virtual portfolio**: built. Part A (options browser, F2) is merged and checked by the owner with real Yahoo data, after hours and during market hours. Part B (virtual portfolio, F3) is merged and checked by the owner (stock, cash-secured put, covered call and the return figures work; expiry can only be tested after Friday Nov 6). Follow-up on branch `claude/next-task-plan-5yfs0v`: poor man's covered calls (new SPEC F3.10) and two bug fixes from the owner's tests, waiting to be merged. Next: **Phase 5** (report v2: YouTube, blogs, 7:30am schedule). SEC filings and Gemini summaries still need one real run once the owner adds their keys.
+**Phase 4: Options chain + virtual portfolio**: built. Part A (options browser, F2) is merged and checked by the owner with real Yahoo data, after hours and during market hours. Part B (virtual portfolio, F3) is merged and checked by the owner (stock, cash-secured put, covered call and the return figures work; expiry can only be tested after Friday Nov 6). Follow-ups merged (poor man's covered calls, trade-date and after-close price fixes; owner confirmed the automatic prices). On branch `claude/next-task-plan-5yfs0v`, waiting to be merged: options grouped per ticker on the Portfolio page, and a clearer weekend message on the trade form. Next: **Phase 5** (report v2: YouTube, blogs, 7:30am schedule). SEC filings and Gemini summaries still need one real run once the owner adds their keys.
 
 ## Phases
 Each phase ends with a working app, passing tests, and the docs updated.
@@ -57,10 +57,10 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - **Done when:** F7.1–F7.3 pass and the security review has no open high-severity findings.
 
 ## Next up
-1. **Owner, after merging the follow-up** (README "Updating to a new version"; no database change this time):
-   - **Re-enter the AMZN trade dated Oct 1:** it was saved at the Nov 3 price (245.63) by the date bug. Delete it in the trade list, then record it again; the price should now change to Oct 1's close (248.23) as soon as you change the date.
+1. **Owner, after merging** (README "Updating to a new version"; no database change):
+   - **Portfolio layout:** options are grouped per ticker (A–Z, open by default), each header showing contracts and total P&L; your AMZN poor man's covered call appears as one line with both legs under it, inside AMZN.
+   - **Prices before Dec 1, 2025:** the "no closing price" for Nov 30, 2025 was because it was a Sunday (the form now says so). Try a weekday such as Tue Nov 25, 2025; if that also has no price, note it here as a real limit.
    - **After 4 PM ET**, refresh a watchlist: prices should be that day's close (not the previous day's), with the change labelled "today".
-   - **Link a poor man's covered call:** with your AMZN Jan 2029 230 call and a shorter-dated AMZN call sold above 230 (one contract each), use **Link**. Check the premium, capital at risk (what the LEAP cost × 100) and the two returns.
    - **Placeholder IVs:** during market hours, look at far out-of-the-money strikes on a later date (where bids are often 0). Do IVs of exactly 50%, 25%, 12.5%… still appear? If yes, we'll hide IV and greeks for strikes with no bid and no ask.
    - **Expiry (after Friday Nov 6, 4 PM ET):** record a contract expiring Friday before then; afterwards the Portfolio page should ask "Expired worthless" or "Assigned".
 2. **Phase 5: Report v2** (YouTube + blogs + the weekday 7:30am schedule), after the owner's check. Propose a plan first; the YouTube channel and blog lists come from the owner (`config/sources.yaml`).
@@ -68,6 +68,7 @@ Each phase ends with a working app, passing tests, and the docs updated.
 4. Owner: after seeing which outlets show up, decide whether to switch on `trusted_outlets_only` in `config/sources.yaml`.
 
 ## Done (recent)
+- 2026-11-04 Owner's feedback on the follow-up: automatic trade prices work; poor man's covered call figures correct (AMZN 290/230: 31.11% / 53.92%). Changed at the owner's request: **options grouped per ticker** on the Portfolio page (collapsible sections A–Z, open by default, header with contract count and total P&L; linked pairs as one line with both legs underneath) instead of separate spread / poor-man's-covered-call tables. Also: the trade form now says when a date is a weekend (the owner's "no price before Dec 1, 2025" was Sun Nov 30). Tests: 474 pass.
 - 2026-11-04 Follow-up to the owner's portfolio check, in three commits (branch `claude/next-task-plan-5yfs0v`):
   1. **Trade-date bug fixed:** changing the date and pressing Save kept the price filled in for today (a trade dated Oct 1 was saved at Nov 3's 245.63). The price now refreshes when the date changes, and Save refuses a filled-in price that belongs to another date.
   2. **After-close price bug fixed:** at 8 PM, AMZN showed Monday's close (245.63) instead of Tuesday's (~251), because Yahoo's daily history lacks today's row for a while after 4 PM. The app now fills that day from Yahoo's latest regular-market price (after-hours trades excluded).
@@ -109,6 +110,7 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - Past-date prices for option contracts come from Yahoo's daily history for the contract, which is often missing, so the form usually asks you to type the price. Stocks' past closes are reliable.
 - A stock's "today" price on the trade form is its last price (we don't store stock bids/asks).
 - If a poor man's covered call's sold call is assigned, "Assigned" records 100 shares sold at the strike, which shows as a short stock position (you'd normally exercise or sell the LEAP; record that as a trade).
+- Past closing prices: the owner saw none before Dec 1, 2025, but the date tried (Nov 30, 2025) was a Sunday. To check on a weekday; if Yahoo's history really stops there, note it and consider fetching a longer history.
 - Expired contracts can't be recorded after the fact (Yahoo no longer lists them), so expiry can only be tested with a contract recorded before it expires.
 - The portfolio doesn't track cash: every short put outside a spread is treated as cash-secured. Assignment is all-or-nothing (no partial assignment). Trades can't be edited, only deleted and re-entered.
 - Positions are recalculated from all trades on every portfolio page view. Fine for hundreds of trades; revisit if it ever feels slow.
@@ -137,7 +139,7 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - *(Fixed in Phase 2: the day change was always labelled "today", and the quote page fetched from Yahoo on every lookup.)*
 
 ## Handoff note
-Phase 4 is merged into `main`; the follow-up (poor man's covered calls, trade-date and after-close price fixes) is on branch `claude/next-task-plan-5yfs0v` (471 tests green), not merged yet. Both parts are checked by the owner with real data. Next session: if the owner reports problems from the market-hours check (including the placeholder-IV question in Known issues) or from their first run with SEC/Gemini keys, fix those first (prompt #3); otherwise plan Phase 5. After each merge, remind the owner to update their folder (README, "Updating to a new version").
+Phase 4 is merged into `main`; the follow-ups (poor man's covered calls, trade-date and after-close price fixes) are merged; the per-ticker options layout and the weekend message are on branch `claude/next-task-plan-5yfs0v` (474 tests green), not merged yet. Both parts are checked by the owner with real data. Next session: if the owner reports problems from the market-hours check (including the placeholder-IV question in Known issues) or from their first run with SEC/Gemini keys, fix those first (prompt #3); otherwise plan Phase 5. After each merge, remind the owner to update their folder (README, "Updating to a new version").
 - Portfolio code map: `app/services/positions.py` (pure: `build_positions()` replays trades), `app/services/portfolio.py` (`resolve_target()`, `suggest_price()`, `record_trade()`, `portfolio_view()`, `link_spread()`, `settle_expired()`), `app/web/portfolio_routes.py`, templates `portfolio.html` / `trade_form.html`. Formulas in `options_math.py`. Option prices for pages come from `options.contract_quotes()` (shared with watchlists).
 - Portfolio tests: `tests/test_positions.py` (pure), `test_web_trades.py`, `test_web_portfolio.py`, `test_web_spreads_expiry.py`. They use `options_clock` and open the sample chain first (`client.get(CHAIN_URL)`), as the owner would. `FakeMarketData.get_daily_close` gives the stock sample's closes; set `option_closes[(symbol, date)]` for options.
 - Options code map: `app/services/options_math.py` (pure formulas), `app/services/options.py` (`option_chain()` for the chain page, `contract_rows()` for watchlists, `RiskFreeRate` kept on `app.state.risk_free_rate`), `app/web/option_routes.py`, templates `option_chain.html` / `options_start.html`, contracts table in `watchlist.html`. `watchlists.add_contract()` adds a contract; `watchlist_rows()` returns stocks only and `watchlist_contracts()` the contracts.

@@ -2,6 +2,13 @@
 
 > One entry per meaningful choice, newest at the top. This stops future sessions from quietly undoing past decisions.
 
+## 2026-11-04 — Portfolio options grouped per ticker
+- **Decision** (owner's choices from four options each): every open option position sits in a **collapsible section per stock**, tickers A–Z, **open by default**. The section header shows the ticker, the number of contracts and the **total P&L** (sum of the positions' P&L, calculated in code; "—" if any price is missing). **Linked pairs** (credit spreads and poor man's covered calls) are one shaded line with the combined figures and an Unlink button, with **both legs listed underneath**. Stocks keep their own table above. This replaces the separate "Credit spreads" and "Poor man's covered calls" tables (Phase 4 part B entry).
+- **Why:** The owner found a separate table per strategy hard to follow; grouping by stock keeps everything about one company together, as broker apps do.
+- **How:** HTML `<details>` sections (no JavaScript), one table per ticker with fixed column widths so the columns line up across sections.
+- **Alternatives considered:** grouping only the linked pairs; grouping stocks and options together per ticker; starting closed or remembering open/closed (owner chose open).
+- **Revisit if:** the page gets long with many tickers (then consider starting closed or remembering the choice).
+
 ## 2026-11-04 — Poor man's covered calls; trade-date and after-close price fixes
 - **Decision:**
   - **Poor man's covered calls (new SPEC F3.10, requested by the owner).** A call bought (the LEAP) and a call sold on the same stock can be linked when the bought call expires later, the sold call's strike is higher, and both hold the same number of contracts. **Capital at risk = price paid for the LEAP × 100 × contracts** (owner's choice of three: what was paid, its market value when the call was sold, or its cost minus the premium). Premium = the sold call's; days to expiration = the sold call's; P&L % is of the capital at risk. The sold call needs no shares to count as covered. Calls only; the put version waits until requested.
