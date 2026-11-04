@@ -112,6 +112,12 @@ def test_nothing_to_send_makes_no_call():
 @pytest.mark.parametrize(
     ("error", "message"),
     [
+        (
+            errors.ClientError(
+                402, {"error": {"message": "Your prepayment credits are depleted."}}
+            ),
+            "prepaid credit is used up: add credit in Google AI Studio",
+        ),
         (errors.ClientError(429, {"error": {"message": "quota"}}), "usage limit"),
         (errors.ClientError(403, {"error": {"message": "denied"}}), "GEMINI_API_KEY"),
         (errors.ClientError(400, {"error": {"message": "API key not valid."}}), "GEMINI_API_KEY"),
