@@ -7,6 +7,7 @@ contracts expire Fri Nov 20 (17 days away). The AAPL Nov 20 250 put has bid 2.68
 
 import re
 from datetime import UTC, datetime
+from html import unescape
 
 import pytest
 
@@ -227,3 +228,55 @@ def test_other_users_trades_are_not_shown(web, engine):
     html = page(web)
     assert 'data-symbol="AAPL"' not in html
     assert "No open stock positions." in html
+
+
+# --- options grouped per ticker (owner's layout, 2026-11-04) ----------------------------------
+
+
+def ticker_sections(html):
+    """(ticker, summary text) for each options section, in page order."""
+    found = re.findall(
+        r'<details class="ticker-group" open data-ticker="([A-Z-]+)">\s*<summary>(.*?)</summary>',
+        html,
+        re.S,
+    )
+    return [(t, unescape(" ".join(re.sub(r"<[^>]+>", " ", s).split()))) for t, s in found]
+
+
+def test_options_grouped_per_ticker_a_to_z_with_totals(web):
+    web.get(f"/options/MSFT?expiration={OPTION_EXPIRATION.isoformat()}")
+    trade(web, "MSFT261120C00260000", "bought", 1, 6.00)  # mid 6.31 -> +31.00
+    trade(web, P250, "sold", 2, 3.00)  # mid 2.73 -> +54.00
+    trade(web, C265, "bought", 1, 4.00)  # mid 4.06 -> +6.00
+    html = page(web)
+    assert ticker_sections(html) == [
+        ("AAPL", "AAPL · 3 contracts · P&L +60.00"),
+        ("MSFT", "MSFT · 1 contract · P&L +31.00"),
+    ]
+    aapl = html.split('data-ticker="AAPL"')[1].split("</details>")[0]
+    assert P250 in aapl and C265 in aapl and "MSFT" not in aapl
+    # Inside a ticker: by expiration, then calls before puts, then strike.
+    assert aapl.index(C265) < aapl.index(P250)
+
+
+def test_linked_pair_counts_in_its_ticker_total(web, engine):
+    from tests.test_web_spreads_expiry import link
+
+    trade(web, P250, "sold", 1, 3.00)  # +27.00 at mid 2.73
+    trade(web, "AAPL261120P00245000", "bought", 1, 1.00)  # +71.00 at mid 1.71
+    link(web, engine, P250, "AAPL261120P00245000")
+    assert ticker_sections(page(web)) == [("AAPL", "AAPL · 2 contracts · P&L +98.00")]
+
+
+def test_ticker_total_is_dash_when_a_price_is_missing(web, fake_market_data):
+    trade(web, P250, "sold", 1, 3.00)
+    fake_market_data.mode = "down"
+    web.get(f"/options/AAPL?expiration={OPTION_EXPIRATION.isoformat()}")
+    from sqlmodel import Session, delete
+
+    from app.db.models import OptionQuote
+
+    with Session(web.app.state.engine) as session:
+        session.exec(delete(OptionQuote))
+        session.commit()
+    assert ticker_sections(page(web, refresh=1)) == [("AAPL", "AAPL · 1 contract · P&L —")]

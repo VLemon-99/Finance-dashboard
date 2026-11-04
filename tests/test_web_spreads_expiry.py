@@ -56,7 +56,7 @@ def link(web, engine, short, long):
 
 
 def spread_row(html):
-    match = re.search(r'<tr data-spread="\d+".*?</tr>', html, re.S)
+    match = re.search(r'<tr [^>]*data-spread="\d+".*?</tr>', html, re.S)
     return match.group(0) if match else None
 
 
@@ -74,17 +74,21 @@ def test_f3_6_f3_7_put_credit_spread_spec_case(web, engine):
 
     html = web.get("/portfolio").text
     sp = spread_row(html)
-    assert "AAPL 250/245 put credit spread" in sp
+    assert "250/245 put credit spread" in sp
+    assert "net credit 1.00, cost to close 1.02" in sp  # 2.00 - 1.00; 2.73 - 1.71
     values = cells(sp)
-    # Contracts, net credit, cost to close, P&L, DTE, premium, capital, annualized return
-    assert values[:3] == ["1", "1.00", "1.02"]  # 2.73 - 1.71
+    # The pair's line: contracts, -, -, P&L, DTE, -, -, premium, capital, annualized return
+    assert values[0] == "1"
     assert values[3] == "-2.00 -2.00%"
     assert values[4] == "17"
-    assert values[5:7] == ["100.00", "400.00"]
+    assert values[7:9] == ["100.00", "400.00"]
     # 100 / 400 x 365 / 45 days at entry, then x 365 / 17 days left
-    assert values[7] == "202.78% locked-in (45 DTE at entry) 536.76% remaining"
-    # The legs are no longer listed on their own.
+    assert values[9] == "202.78% locked-in (45 DTE at entry) 536.76% remaining"
+    # Both legs are shown under the pair (not as single contracts), in the AAPL section.
     assert f'<tr data-symbol="{P250}"' not in html and f'<tr data-symbol="{P245}"' not in html
+    assert f'<tr data-leg="{P250}"' in html and f'<tr data-leg="{P245}"' in html
+    section = html.split('data-ticker="AAPL"')[1].split("</details>")[0]
+    assert sp in section
 
 
 def test_call_credit_spread_needs_no_shares_and_uses_none(web, engine):
@@ -94,7 +98,7 @@ def test_call_credit_spread_needs_no_shares_and_uses_none(web, engine):
     assert link(web, engine, C265, C270).status_code == 303
     trade(web, C260, "sold", 1, 6.31)  # the 100 shares still cover this one
     html = web.get("/portfolio").text
-    assert "AAPL 265/270 call credit spread" in spread_row(html)
+    assert "265/270 call credit spread" in spread_row(html)
     assert "covered call" in row(html, C260)
 
 

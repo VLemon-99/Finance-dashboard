@@ -408,11 +408,62 @@ class PmccRow:
 
 
 @dataclass(frozen=True)
+class GroupItem:
+    """One line in a ticker's options section: a single contract, or a linked pair."""
+
+    kind: Literal["single", "credit spread", "poor man's covered call"]
+    row: "OpenRow | SpreadRow | PmccRow"
+
+    @property
+    def legs(self) -> list[OpenRow]:
+        return [self.row] if self.kind == "single" else [self.row.short, self.row.long]
+
+
+@dataclass(frozen=True)
+class TickerGroup:
+    """All option positions on one stock, with their totals (owner's layout, 2026-11-04)."""
+
+    ticker: str
+    items: list[GroupItem]
+
+    @property
+    def contracts(self) -> int:
+        return sum(leg.position.quantity for item in self.items for leg in item.legs)
+
+    @property
+    def pnl(self) -> float | None:
+        """Sum of the positions' P&L; None if any position has no current price."""
+        values = [leg.pnl for item in self.items for leg in item.legs]
+        return None if any(v is None for v in values) else sum(values)
+
+
+def group_by_ticker(
+    singles: list[OpenRow], spreads: list[SpreadRow], pmccs: list[PmccRow]
+) -> list[TickerGroup]:
+    """Option positions grouped per stock, tickers A-Z; inside, by expiration then strike
+    (a pair sorts by its sold leg)."""
+    items = (
+        [GroupItem("single", r) for r in singles]
+        + [GroupItem("credit spread", r) for r in spreads]
+        + [GroupItem("poor man's covered call", r) for r in pmccs]
+    )
+    by_ticker: dict[str, list[GroupItem]] = {}
+    for item in items:
+        by_ticker.setdefault(item.legs[0].target.underlying, []).append(item)
+
+    def order(item: GroupItem):
+        t = item.legs[0].target
+        return (t.expiration, t.option_type, t.strike)
+
+    return [
+        TickerGroup(ticker, sorted(group, key=order)) for ticker, group in sorted(by_ticker.items())
+    ]
+
+
+@dataclass(frozen=True)
 class PortfolioView:
     stocks: list[OpenRow]
-    options: list[OpenRow]  # not part of a spread
-    spreads: list[SpreadRow]
-    pmccs: list[PmccRow]
+    option_groups: list[TickerGroup]  # every open option position, per stock (F3.3, F3.7, F3.10)
     expired: list[OpenRow]  # expired option positions waiting for their outcome (F3.9)
     closed: list[ClosedRow]
     rate: RateView | None
@@ -552,9 +603,7 @@ def portfolio_view(
     )
     return PortfolioView(
         stocks=stocks,
-        options=options,
-        spreads=spreads,
-        pmccs=pmccs,
+        option_groups=group_by_ticker(options, spreads, pmccs),
         expired=sorted((r for r in option_rows.values() if r.expired), key=by_contract),
         closed=closed,
         rate=rate,
