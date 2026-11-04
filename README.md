@@ -71,6 +71,7 @@ Reports need two values in your `.env` file (open it in any text editor, e.g. Te
    2. Click **Get API key** (left side), then **Create API key**.
    3. When asked for a project, choose the Google Cloud project that gets your $10 monthly credit. Not sure which one? In https://console.cloud.google.com open **Billing → Credits** to see where the credit sits, and pick a project linked to that billing account.
    4. Copy the key and put it in `.env`: `GEMINI_API_KEY=` followed by the key (no spaces or quotes).
+   5. **Add prepaid credit:** in AI Studio open **Billing → Buy credits** and add at least the minimum ($5). The Gemini API stops at a $0 prepaid balance, and the subscription's monthly credit doesn't count until there's some prepaid balance. Without it, reports say "the AI service's prepaid credit is used up". Prepaid credit can't be refunded and expires after 12 months.
 3. **Budget alert** (so you're warned before spending more than the credit): in https://console.cloud.google.com open **Billing → Budgets & alerts → Create budget**. Name it "Gemini", set the amount to $10, keep the 50% / 90% / 100% email alerts, and click **Finish**.
 4. Restart the app. Google sometimes renames these menus; if a step doesn't match what you see, tell Claude what's on your screen.
 

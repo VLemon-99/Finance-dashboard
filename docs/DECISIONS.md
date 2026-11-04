@@ -2,6 +2,16 @@
 
 > One entry per meaningful choice, newest at the top. This stops future sessions from quietly undoing past decisions.
 
+## 2026-11-04 — Gemini needs prepaid credit; a failed AI run doesn't use up the report period
+- **Finding:** the owner's first report with a Gemini key failed with error 402 ("Your prepayment credits are depleted"). Gemini's "Prepay" billing stops every key at a $0 prepaid balance, and, per a Google community moderator, the subscription's monthly Developer Program credit only applies once the AI Studio prepaid wallet has a positive balance. This corrects the 2026-11-01 AI decision's assumption that the $10 monthly credit alone pays for the API.
+- **Decision:**
+  - The owner **added prepaid credit** in AI Studio (minimum $5, non-refundable, expires after 12 months). README "Setting up reports" now includes this step. The $10 budget alert stays.
+  - The 402 error is shown in plain words ("prepaid credit is used up: add credit in Google AI Studio") instead of "error (402)".
+  - **A report's period now starts where the last report *with AI summaries* ended** (owner's choice; still at most 7 days back). Before, the failed 12:05 AMZN report counted as a finished report, so the next one covered only 7 minutes and the earlier news never got AI summaries. Reports store an `ai_complete` flag; older ones are judged by their "missing" notes ("AI summaries:" / "AI report writing:"). A news or SEC source being down doesn't extend the period (owner's choice; it would otherwise push every report back 7 days while a source is down). A run where nothing needed the AI counts as complete.
+  - Tiny amounts that round to zero are shown as 0.00 without a minus sign or red colour (the owner saw "-0.00" on a portfolio row).
+- **Alternatives considered:** the Gemini free tier (no cost, but daily limits that change and inputs may be used by Google; kept as a fallback); covering again after any missing source (owner chose AI only); keeping the period as it was.
+- **Revisit if:** Google changes how the subscription credit applies to the API, or reports should also catch up after a source outage.
+
 ## 2026-11-04 — Trades only on trading days
 - **Decision** (owner's request): trades can't be dated on a weekend or a US stock market holiday. Browsers' date pickers can't grey out single days, so picking a closed day shows why ("Nov 27, 2025 was a market holiday (Thanksgiving Day)") and switches **Save trade** off; the server refuses such dates too. The form opens on the latest trading day, and on a weekend or holiday that day's prices count as current (Friday's closing mid on a Saturday).
 - **How:** `app/market_calendar.py` works out the regular NYSE holidays (New Year's, MLK Day, Washington's Birthday, Good Friday, Memorial Day, Juneteenth from 2022, Independence Day, Labor Day, Thanksgiving, Christmas, with the weekend "observed" rules; New Year's on a Saturday isn't moved to Friday). Rare one-off closures (Sept 11, 2001, presidential funerals, Hurricane Sandy, Jan 9, 2025) are listed in `config/settings.yaml` → `market_data.extra_closed_days`, where new ones can be added. Half-day sessions count as trading days. Option expirations are left alone (Yahoo gives the real dates).
@@ -141,6 +151,7 @@
 - **Why:** The owner already pays for this credit, Gemini handles YouTube videos natively, and $10/month should comfortably cover a 25-ticker daily report on a Flash model. Billed (paid-tier) usage also gets higher rate limits than the free tier. Under Google's terms at the time of writing, paid-tier inputs aren't used to improve their models. The adapter means switching providers later is a one-file change.
 - **Alternatives considered:** Gemini free tier (no billing setup, but lower limits, and inputs may be used for training; kept as a fallback); Claude or OpenAI APIs (similar cost and quality, but no existing credit and no native YouTube input).
 - **Revisit if:** monthly usage gets close to the $10 credit, quality is poor, or the subscription changes.
+- **Update 2026-11-04:** the API also needs a positive prepaid balance in AI Studio (Billing → Buy credits); the monthly credit alone doesn't unlock it. See the 2026-11-04 entry "Gemini needs prepaid credit".
 
 ## 2026-11-01 — Market data: Yahoo Finance via `yfinance`, behind a provider interface; greeks calculated by us
 - **Decision:** Get quotes, option chains (with IV), history, earnings dates, holders and analyst data from `yfinance`. Calculate the greeks ourselves with the Black-Scholes formula, using Yahoo's IV and a risk-free rate from 13-week T-bills (`^IRX`) or FRED.
