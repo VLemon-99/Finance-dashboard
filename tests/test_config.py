@@ -1,5 +1,7 @@
 """config/settings.yaml: limits come from the file and can be raised without code changes (F1.3)."""
 
+from datetime import date
+
 import pytest
 
 from app.config import PROJECT_ROOT, ConfigFileError, load_app_config, load_sources_config
@@ -12,6 +14,8 @@ def test_shipped_settings_file_has_the_spec_defaults():
     assert cfg.market_data.refresh_minutes == 15
     assert cfg.options.fallback_risk_free_rate_percent == 4.0
     assert cfg.options.min_implied_volatility_percent == 1.0
+    assert date(2025, 1, 9) in cfg.market_data.extra_closed_days
+    assert len(cfg.market_data.extra_closed_days) == 10
 
 
 def test_limits_can_be_raised_in_the_file(tmp_path):

@@ -5,6 +5,7 @@ expiration date: the 245 call's mid is 16.78, the 265 call's 4.06.
 """
 
 import re
+from datetime import UTC, datetime
 from html import unescape
 
 import pytest
@@ -122,11 +123,12 @@ def test_rolling_to_the_next_call_on_the_same_leap(web, engine, options_clock):
     assert "no longer match" not in html  # a link with a closed leg simply ends
     assert cells(row(html, LEAP))[0] == "Long 1"
 
-    trade(web, NEXT_SHORT, "sold", 1, 2.43, day="2026-11-21")
+    options_clock.now = datetime(2026, 11, 23, 15, 0, tzinfo=UTC)  # Monday
+    trade(web, NEXT_SHORT, "sold", 1, 2.43, day="2026-11-23")
     assert link(web, engine, NEXT_SHORT, LEAP).status_code == 303
     r = pmcc_row(web.get("/portfolio").text)
     assert "270/245 poor man's covered call" in r
-    assert cells(r)[4] == "27"  # Nov 21 -> Dec 18
+    assert cells(r)[4] == "25"  # Mon Nov 23 -> Fri Dec 18
 
 
 def test_unlink(web, engine):

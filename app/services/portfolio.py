@@ -5,6 +5,7 @@ Every function takes the user's id and only touches that user's trades.
 """
 
 import logging
+from collections.abc import Collection
 from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta
 from typing import Literal
@@ -12,6 +13,7 @@ from typing import Literal
 from sqlmodel import Session, col, select
 
 from app.db.models import Instrument, Spread, Transaction
+from app.market_calendar import closed_reason, is_trading_day, last_trading_day
 from app.providers.market_data import MarketData
 from app.services.options import (
     CONTRACT_SYMBOL_RE,
@@ -85,10 +87,25 @@ class PriceSuggestion:
     source: str = ""  # e.g. "mid", "last price", "closing price on Oct 30, 2026"
     underlying_price: float | None = None  # options: the stock price for that time
     note: str | None = None  # why there's no price, or that it's stale
+    market_closed: bool = False  # the date is a weekend or market holiday: can't be saved
 
 
 def eastern_date(now: datetime) -> date:
     return as_utc(now).astimezone(EASTERN).date()
+
+
+def default_trade_date(now: datetime, extra_closed: Collection[date] = ()) -> date:
+    """The latest trading day: today on a trading day, else e.g. Friday on a weekend."""
+    return last_trading_day(eastern_date(now), extra_closed)
+
+
+def closed_day_message(day: date, today: date, extra_closed: Collection[date] = ()) -> str | None:
+    """'Nov 30, 2025 was a Sunday: the market was closed...' or None on a trading day."""
+    reason = closed_reason(day, extra_closed)
+    if reason is None:
+        return None
+    verb = "is" if day >= today else "was"
+    return f"{short_date(day)} {verb} {reason}: the market was closed. Please pick a trading day."
 
 
 # --- what's being traded ---------------------------------------------------------------
@@ -150,17 +167,27 @@ def suggest_price(
     trade_date: date,
     now: datetime,
     max_age: timedelta | None,
+    extra_closed: Collection[date] = (),
 ) -> PriceSuggestion:
     """Today: the current mid (or last if there's no bid/ask). Past date: that day's close.
     Never raises: when there's no price, the note asks for one to be entered."""
     today = eastern_date(now)
     if trade_date > today:
         return PriceSuggestion(None, note="The trade date can't be in the future.")
+    closed = closed_day_message(trade_date, today, extra_closed)
+    if closed:
+        return PriceSuggestion(None, note=closed, market_closed=True)
     if target.kind == "option" and trade_date > target.expiration:
         return PriceSuggestion(
             None, note=f"This contract expired on {short_date(target.expiration)}."
         )
-    if trade_date == today:
+    # The latest session's prices are still "current" on a weekend or holiday (e.g. Friday's
+    # closing mid on Saturday), which is better than Yahoo's patchy daily option history.
+    latest_session = trade_date == today or (
+        trade_date == last_trading_day(today, extra_closed)
+        and not is_trading_day(today, extra_closed)
+    )
+    if latest_session:
         if target.kind == "option":
             return _current_option_price(session, market_data, target, now, max_age)
         quote = lookup_quote(session, market_data, target.symbol, max_age=max_age)
@@ -213,14 +240,11 @@ def _closing_prices(
             "Please enter the price.",
         )
     if close is None:
-        if trade_date.weekday() >= 5:  # Saturday or Sunday
-            note = (
-                f"{when} was a {trade_date:%A}: the market was closed. Please pick a weekday, "
-                "or enter the price."
-            )
-        else:
-            note = f"The data source has no closing price for {when}. Please enter the price."
-        return PriceSuggestion(None, underlying_price=underlying, note=note)
+        return PriceSuggestion(
+            None,
+            underlying_price=underlying,
+            note=f"The data source has no closing price for {when}. Please enter the price.",
+        )
     return PriceSuggestion(close, f"closing price on {when}", underlying)
 
 
@@ -244,6 +268,7 @@ def record_trade(
     suggested_price: float | None,
     now: datetime,
     reason: str = "trade",
+    extra_closed: Collection[date] = (),
 ) -> Transaction:
     """Check and store one trade. Sold with no position opens a short position (F3.1)."""
     if side not in SIDES:
@@ -261,6 +286,9 @@ def record_trade(
         raise TradeError("The trade date can't be in the future.")
     if trade_date < EARLIEST_TRADE_DATE:
         raise TradeError(f"The trade date can't be before {short_date(EARLIEST_TRADE_DATE)}.")
+    closed = closed_day_message(trade_date, eastern_date(now), extra_closed)
+    if closed:
+        raise TradeError(closed)
     if target.kind == "option":
         if trade_date > target.expiration:
             raise TradeError(f"This contract expired on {short_date(target.expiration)}.")
