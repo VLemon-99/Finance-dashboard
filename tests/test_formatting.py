@@ -59,3 +59,23 @@ def test_option_number_formats():
     assert f.percent(None) == "—"
     assert f.strike(260.0) == "260"
     assert f.strike(262.5) == "262.50"
+
+
+def test_tiny_negatives_never_show_as_minus_zero():
+    """Owner's portfolio, 2026-11-04: a P&L of -0.0001 showed as '-0.00' / '-0.00%'."""
+    assert f.signed(-0.0001) == "0.00"
+    assert f.signed(0) == "0.00"
+    assert f.signed(-0.004) == "0.00"
+    assert f.signed(1.5) == "+1.50"
+    assert f.signed(-1.5) == "-1.50"
+    assert f.money(-0.001) == "0.00"
+    assert f.percent(-0.000001, 2) == "0.00%"
+    assert f.number(-0.00001, 3) == "0.000"
+
+
+def test_trend_follows_what_is_shown():
+    assert f.trend(-0.0001) == "flat"  # shows as 0.00, so not red
+    assert f.trend(0.004) == "flat"
+    assert f.trend(0.01) == "up"
+    assert f.trend(-0.01) == "down"
+    assert f.trend(None) == "flat"

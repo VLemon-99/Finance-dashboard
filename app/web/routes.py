@@ -30,6 +30,7 @@ templates.env.filters.update(
     eastern=format_eastern,
     money=formatting.money,
     signed=formatting.signed,
+    trend=formatting.trend,
     compact=formatting.compact,
     number=formatting.number,
     whole=formatting.whole,

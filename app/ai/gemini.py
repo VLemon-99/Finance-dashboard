@@ -183,6 +183,12 @@ class GeminiLLM:
 
 def _api_error_message(exc: errors.APIError) -> str:
     code = getattr(exc, "code", None)
+    if code == 402:
+        # Seen 2026-11-04: Gemini's "Prepay" billing stops all keys at a $0 balance.
+        return (
+            "The AI service's prepaid credit is used up: add credit in Google AI Studio "
+            "(Billing, Buy credits)."
+        )
     if code == 429:
         return "The AI service's usage limit was reached; try again later."
     if code in (401, 403) or (code == 400 and "api key" in str(exc).lower()):

@@ -5,21 +5,36 @@ from datetime import date
 DASH = "—"  # shown when a value isn't available
 
 
+def _shown(value: float, decimals: int) -> float:
+    """The value as it will be shown. Tiny amounts that round to zero become exactly 0, so
+    they never show as "-0.00" (seen on the owner's portfolio, 2026-11-04)."""
+    return round(value, decimals) + 0.0  # adding 0.0 turns -0.0 into 0.0
+
+
 def money(value: float | None) -> str:
-    return DASH if value is None else f"{value:,.2f}"
+    return DASH if value is None else f"{_shown(value, 2):,.2f}"
 
 
 def signed(value: float | None, decimals: int = 2) -> str:
-    return DASH if value is None else f"{value:+,.{decimals}f}"
+    """'+1.50', '-0.25'; zero has no sign: '0.00'."""
+    if value is None:
+        return DASH
+    shown = _shown(value, decimals)
+    return f"{shown:,.{decimals}f}" if shown == 0 else f"{shown:+,.{decimals}f}"
+
+
+def trend(value: float | None, decimals: int = 2) -> str:
+    """CSS class for a change as shown: 'up', 'down' or 'flat' (so -0.001 isn't red)."""
+    if value is None:
+        return "flat"
+    shown = _shown(value, decimals)
+    return "up" if shown > 0 else ("down" if shown < 0 else "flat")
 
 
 def number(value: float | None, decimals: int = 2) -> str:
     """Plain number with a fixed number of decimals, e.g. greeks: 0.637, -0.018.
     Tiny negatives that round to zero show as 0.000, not -0.000."""
-    if value is None:
-        return DASH
-    text = f"{value:,.{decimals}f}"
-    return text[1:] if text.startswith("-") and float(text.replace(",", "")) == 0 else text
+    return DASH if value is None else f"{_shown(value, decimals):,.{decimals}f}"
 
 
 def whole(value: int | None) -> str:
@@ -29,7 +44,7 @@ def whole(value: int | None) -> str:
 
 def percent(fraction: float | None, decimals: int = 1) -> str:
     """0.2834 -> '28.3%'."""
-    return DASH if fraction is None else f"{fraction * 100:.{decimals}f}%"
+    return DASH if fraction is None else f"{_shown(fraction * 100, decimals):.{decimals}f}%"
 
 
 def strike(value: float) -> str:
