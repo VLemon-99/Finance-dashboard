@@ -200,6 +200,7 @@ class FakeMarketData:
         # "profile:AAPL", "figures:AAPL", "group:sector:technology", "ownership:AAPL".
         self.research_down: set[str] = set()
         self.research_calls: list[str] = []
+        self.extra_contracts: list = []  # added to every option chain (unusual activity tests)
 
     def get_quote(self, symbol: str) -> QuoteData:
         self.calls.append(symbol)
@@ -248,9 +249,10 @@ class FakeMarketData:
                 fake_contract_symbol(symbol, expiration, option_type, k)
                 for k in sample[side]["strike"]
             ]
-        return chain_from_yahoo(
+        chain = chain_from_yahoo(
             symbol, expiration, sample["calls"], sample["puts"], sample["underlying"]
         )
+        return replace(chain, contracts=chain.contracts + tuple(self.extra_contracts))
 
     def get_daily_close(self, symbol: str, day: date) -> float | None:
         """Stocks: the recorded sample's close for that day. Options: `option_closes`."""

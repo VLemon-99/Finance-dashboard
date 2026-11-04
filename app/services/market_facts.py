@@ -11,6 +11,7 @@ Everything is fetched for all of a run's tickers together, a few at a time:
 3. Damodaran's industry averages (one download a day).
 4. Each ticker's institutional ownership (Yahoo), and the latest two 13F reports of each
    fund the owner follows (SEC; once per run for all tickers, each report kept for good).
+5. Unusual options activity in each ticker's nearest option chains (unusual_options.py).
 Each part that fails is listed in the report's "missing" notes; the rest is still shown
 (SPEC F4.11).
 """
@@ -43,6 +44,7 @@ from app.providers.market_data import (
     TickerNotFound,
 )
 from app.providers.sec_13f import FundReport, ThirteenFClient, holding, matching_cusips
+from app.services.unusual_options import scan
 from app.services.valuation import (
     METRICS,
     fiscal_label,
@@ -52,7 +54,7 @@ from app.services.valuation import (
     target_section,
 )
 from app.sources.base import SourceError
-from app.timeutils import utc_now
+from app.timeutils import today_eastern, utc_now
 
 log = logging.getLogger(__name__)
 
@@ -104,6 +106,7 @@ class TickerFacts:
 
     valuation: dict[str, Any] | None = None
     institutional: dict[str, Any] | None = None
+    unusual_options: dict[str, Any] | None = None
     missing: list[str] = field(default_factory=list)
 
 
@@ -183,6 +186,18 @@ class MarketFacts:
             facts[t].institutional = self._institutional(
                 t, ownership[t], funds, names, facts[t].missing
             )
+
+        options_cfg = self.institutional.unusual_options
+        if options_cfg.enabled:
+            today = today_eastern()
+            scans = self._parallel(
+                tickers,
+                lambda t: attempt(lambda: scan(self.market_data, t, today, options_cfg)),
+            )
+            for t in tickers:
+                if scans[t].error:
+                    facts[t].missing.append(f"Unusual options activity: {scans[t].error}")
+                facts[t].unusual_options = scans[t].value
         return facts
 
     def _parallel[K](self, items: Iterable[K], fn: Callable[[K], Any]) -> dict[K, Any]:
