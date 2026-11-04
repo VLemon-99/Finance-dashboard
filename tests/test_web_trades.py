@@ -174,7 +174,10 @@ def test_f3_2_past_date_for_an_option(web, fake_market_data):
 def test_f3_2_no_price_available_asks_for_one(web, engine):
     html = unescape(form(web, date="2026-11-01").text)  # a Sunday
     assert field(html, "price") == ""
-    assert "has no closing price for Nov 1, 2026. Please enter the price." in html
+    assert "Nov 1, 2026 was a Sunday: the market was closed." in html
+    # A weekday without a price (e.g. a holiday, or before the source's history).
+    html = unescape(form(web, date="2024-05-01").text)
+    assert "has no closing price for May 1, 2024. Please enter the price." in html
     response = save(web, date="2026-11-01", price="")
     assert response.status_code == 400
     assert "Please enter the price." in response.text

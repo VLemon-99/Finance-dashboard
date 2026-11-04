@@ -213,11 +213,14 @@ def _closing_prices(
             "Please enter the price.",
         )
     if close is None:
-        return PriceSuggestion(
-            None,
-            underlying_price=underlying,
-            note=f"The data source has no closing price for {when}. Please enter the price.",
-        )
+        if trade_date.weekday() >= 5:  # Saturday or Sunday
+            note = (
+                f"{when} was a {trade_date:%A}: the market was closed. Please pick a weekday, "
+                "or enter the price."
+            )
+        else:
+            note = f"The data source has no closing price for {when}. Please enter the price."
+        return PriceSuggestion(None, underlying_price=underlying, note=note)
     return PriceSuggestion(close, f"closing price on {when}", underlying)
 
 
