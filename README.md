@@ -6,7 +6,7 @@ It also tracks stocks, option contracts (greeks, IV, days to expiration) and a v
 portfolio, including the annualized return on short options, and shows a calendar of
 market-moving events. It is not linked to any brokerage and never places trades.
 
-**Status:** Phase 3 works: watchlists with live stock data, plus research reports from news and SEC filings, summarized by Gemini ("Generate now" and a history page under **Reports**). Phase 4: option chains with greeks under **Options** (or the "Options" link on any watchlist row), option contracts saved in watchlists, and a virtual **Portfolio**: press Bought or Sold on any stock or contract to record a trade, then see P&L, capital at risk and annualized returns on short options, credit spreads and expiry outcomes. A single-ticker quote lookup is at `/lookup`. See `PLAN.md` for the current phase.
+**Status:** Phase 3 works: watchlists with live stock data, plus research reports from news and SEC filings, summarized by Gemini ("Generate now" and a history page under **Reports**). Phase 4: option chains with greeks under **Options** (or the "Options" link on any watchlist row), option contracts saved in watchlists, and a virtual **Portfolio**: press Bought or Sold on any stock or contract to record a trade, then see P&L, capital at risk and annualized returns on short options, credit spreads, poor man's covered calls and expiry outcomes. A single-ticker quote lookup is at `/lookup`. See `PLAN.md` for the current phase.
 
 ## Documents
 | File | Purpose |
