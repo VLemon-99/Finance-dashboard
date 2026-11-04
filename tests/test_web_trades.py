@@ -6,7 +6,7 @@ price is also 259.58. The sample contracts expire Nov 20.
 """
 
 import re
-from datetime import date
+from datetime import UTC, date, datetime
 from html import unescape
 
 import pytest
@@ -174,7 +174,10 @@ def test_f3_2_past_date_for_an_option(web, fake_market_data):
 def test_f3_2_no_price_available_asks_for_one(web, engine):
     html = unescape(form(web, date="2026-11-01").text)  # a Sunday
     assert field(html, "price") == ""
-    assert "has no closing price for Nov 1, 2026. Please enter the price." in html
+    assert "Nov 1, 2026 was a Sunday: the market was closed." in html
+    # A weekday without a price (e.g. a holiday, or before the source's history).
+    html = unescape(form(web, date="2024-05-01").text)
+    assert "has no closing price for May 1, 2024. Please enter the price." in html
     response = save(web, date="2026-11-01", price="")
     assert response.status_code == 400
     assert "Please enter the price." in response.text
@@ -325,3 +328,78 @@ def test_price_part_with_a_bad_symbol(web):
     response = web.get("/portfolio/trade/price", params={"symbol": "<b>x</b>", "date": ""})
     assert response.status_code == 400
     assert "<b>" not in response.text
+
+
+# --- trades only on trading days (owner's request, 2026-11-04) -------------------------------
+
+SATURDAY = datetime(2026, 11, 7, 15, 0, tzinfo=UTC)  # Sat Nov 7, 2026, 10:00 AM Eastern
+
+
+def save_button(html):
+    return re.search(r"<button type=\"submit\"[^>]*>Save trade</button>", html).group(0)
+
+
+@pytest.mark.parametrize(
+    "day,reason",
+    [
+        ("2025-11-30", "Nov 30, 2025 was a Sunday"),  # the owner's date
+        ("2025-11-29", "Nov 29, 2025 was a Saturday"),
+        ("2025-11-27", "Nov 27, 2025 was a market holiday (Thanksgiving Day)"),
+        ("2026-04-03", "Apr 3, 2026 was a market holiday (Good Friday)"),
+    ],
+)
+def test_closed_day_switches_save_off(web, day, reason):
+    html = unescape(web.get("/portfolio/trade/price", params={"symbol": "AAPL", "date": day}).text)
+    assert f"{reason}: the market was closed. Please pick a trading day." in html
+    assert "disabled" in save_button(html)
+    assert field(html, "price") == ""
+
+
+def test_closed_day_is_refused_on_save(web, engine):
+    response = save(web, date="2025-11-27", price="230.00")
+    assert response.status_code == 400
+    assert "was a market holiday (Thanksgiving Day)" in unescape(response.text)
+    assert trades(engine) == []
+
+
+def test_trading_days_are_fine(web):
+    # The day after Thanksgiving is a (short) trading day; no price in the sample, but Save works.
+    html = unescape(
+        web.get("/portfolio/trade/price", params={"symbol": "AAPL", "date": "2025-11-28"}).text
+    )
+    assert "market was closed" not in html
+    assert "disabled" not in save_button(html)
+
+
+def test_on_a_weekend_the_form_opens_on_the_last_trading_day(web, options_clock):
+    web.get(CHAIN_URL)  # Tuesday's chain is stored
+    options_clock.now = SATURDAY
+    html = form(web).text
+    assert field(html, "date") == "2026-11-06"  # Friday
+    assert field(html, "price") == "259.58"
+    assert "Filled in: last price." in html  # the latest session's price, not a past close
+    # Options too: the latest mid, not Yahoo's (often missing) daily history.
+    html = form(web, symbol=P250).text
+    assert field(html, "date") == "2026-11-06"
+    assert field(html, "price") == "2.73"
+    assert "Filled in: mid." in html
+
+
+def test_one_off_closures_come_from_the_settings(session, fake_market_data, options_clock):
+    from app.services import portfolio as pf
+
+    target = pf.resolve_target(session, fake_market_data, "AAPL", max_age=None)
+    with pytest.raises(pf.TradeError, match="Jan 9, 2025 was a day the market was closed"):
+        pf.record_trade(
+            session,
+            1,
+            target,
+            side="bought",
+            quantity=1,
+            price=230.0,
+            trade_date=date(2025, 1, 9),
+            underlying_price=None,
+            suggested_price=None,
+            now=options_clock.now,
+            extra_closed={date(2025, 1, 9)},
+        )

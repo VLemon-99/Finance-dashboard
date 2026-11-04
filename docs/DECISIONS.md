@@ -2,6 +2,19 @@
 
 > One entry per meaningful choice, newest at the top. This stops future sessions from quietly undoing past decisions.
 
+## 2026-11-04 — Trades only on trading days
+- **Decision** (owner's request): trades can't be dated on a weekend or a US stock market holiday. Browsers' date pickers can't grey out single days, so picking a closed day shows why ("Nov 27, 2025 was a market holiday (Thanksgiving Day)") and switches **Save trade** off; the server refuses such dates too. The form opens on the latest trading day, and on a weekend or holiday that day's prices count as current (Friday's closing mid on a Saturday).
+- **How:** `app/market_calendar.py` works out the regular NYSE holidays (New Year's, MLK Day, Washington's Birthday, Good Friday, Memorial Day, Juneteenth from 2022, Independence Day, Labor Day, Thanksgiving, Christmas, with the weekend "observed" rules; New Year's on a Saturday isn't moved to Friday). Rare one-off closures (Sept 11, 2001, presidential funerals, Hurricane Sandy, Jan 9, 2025) are listed in `config/settings.yaml` → `market_data.extra_closed_days`, where new ones can be added. Half-day sessions count as trading days. Option expirations are left alone (Yahoo gives the real dates).
+- **Alternatives considered:** a calendar library such as `pandas_market_calendars` (a new dependency for rules that fit in a short, tested file); a drop-down of trading days instead of a date field (thousands of entries back to 2000).
+- **Revisit if:** the NYSE adds a holiday or the app covers other markets.
+
+## 2026-11-04 — Portfolio options grouped per ticker
+- **Decision** (owner's choices from four options each): every open option position sits in a **collapsible section per stock**, tickers A–Z, **open by default**. The section header shows the ticker, the number of contracts and the **total P&L** (sum of the positions' P&L, calculated in code; "—" if any price is missing). **Linked pairs** (credit spreads and poor man's covered calls) are one shaded line with the combined figures and an Unlink button, with **both legs listed underneath**. Stocks keep their own table above. This replaces the separate "Credit spreads" and "Poor man's covered calls" tables (Phase 4 part B entry).
+- **Why:** The owner found a separate table per strategy hard to follow; grouping by stock keeps everything about one company together, as broker apps do.
+- **How:** HTML `<details>` sections (no JavaScript), one table per ticker with fixed column widths so the columns line up across sections.
+- **Alternatives considered:** grouping only the linked pairs; grouping stocks and options together per ticker; starting closed or remembering open/closed (owner chose open).
+- **Revisit if:** the page gets long with many tickers (then consider starting closed or remembering the choice).
+
 ## 2026-11-04 — Poor man's covered calls; trade-date and after-close price fixes
 - **Decision:**
   - **Poor man's covered calls (new SPEC F3.10, requested by the owner).** A call bought (the LEAP) and a call sold on the same stock can be linked when the bought call expires later, the sold call's strike is higher, and both hold the same number of contracts. **Capital at risk = price paid for the LEAP × 100 × contracts** (owner's choice of three: what was paid, its market value when the call was sold, or its cost minus the premium). Premium = the sold call's; days to expiration = the sold call's; P&L % is of the capital at risk. The sold call needs no shares to count as covered. Calls only; the put version waits until requested.

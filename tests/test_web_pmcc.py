@@ -5,6 +5,7 @@ expiration date: the 245 call's mid is 16.78, the 265 call's 4.06.
 """
 
 import re
+from datetime import UTC, datetime
 from html import unescape
 
 import pytest
@@ -24,8 +25,14 @@ def web(client, options_clock):
     return client
 
 
+def leg(html, symbol):
+    match = re.search(rf'<tr data-leg="{symbol}".*?</tr>', html, re.S)
+    assert match, f"no leg row for {symbol}"
+    return match.group(0)
+
+
 def pmcc_row(html):
-    match = re.search(r'<tr data-pmcc="\d+".*?</tr>', html, re.S)
+    match = re.search(r'<tr [^>]*data-pmcc="\d+".*?</tr>', html, re.S)
     return match.group(0) if match else None
 
 
@@ -38,17 +45,20 @@ def test_f3_10_spec_case(web, engine):
 
     html = web.get("/portfolio").text
     r = pmcc_row(html)
-    assert "AAPL 265/245 poor man's covered call" in r
+    assert "265/245 poor man's covered call" in r
     values = cells(r)
-    # Contracts, call sold, LEAP, P&L, DTE, premium, capital, annualized return
-    assert values[:3] == ["1", "4.06", "16.78"]
+    # The pair's line: contracts, -, -, P&L, DTE, -, -, premium, capital, annualized return
+    assert values[0] == "1"
     assert values[3] == "-4,428.00 -73.80%"  # (3.00 - 4.06 + 16.78 - 60.00) x 100, of 6,000
     assert values[4] == "17"
-    assert values[5:7] == ["300.00", "6,000.00"]
+    assert values[7:9] == ["300.00", "6,000.00"]
     # 300 / 6,000 x 365 / 30 days at entry; x 365 / 17 days left today
-    assert values[7] == "60.83% locked-in (30 DTE at entry) 107.35% remaining"
-    # Neither leg is listed on its own, and the sold call isn't "uncovered".
+    assert values[9] == "60.83% locked-in (30 DTE at entry) 107.35% remaining"
+    # Both legs are listed under the pair, with their own prices; neither stands alone,
+    # and the sold call isn't "uncovered".
     assert f'<tr data-symbol="{SHORT}"' not in html and f'<tr data-symbol="{LEAP}"' not in html
+    assert cells(leg(html, SHORT))[:3] == ["Short 1", "3.00", "4.06 mid"]
+    assert cells(leg(html, LEAP))[:3] == ["Long 1", "60.00", "16.78 mid"]
     assert "uncovered" not in html
 
 
@@ -113,11 +123,12 @@ def test_rolling_to_the_next_call_on_the_same_leap(web, engine, options_clock):
     assert "no longer match" not in html  # a link with a closed leg simply ends
     assert cells(row(html, LEAP))[0] == "Long 1"
 
-    trade(web, NEXT_SHORT, "sold", 1, 2.43, day="2026-11-21")
+    options_clock.now = datetime(2026, 11, 23, 15, 0, tzinfo=UTC)  # Monday
+    trade(web, NEXT_SHORT, "sold", 1, 2.43, day="2026-11-23")
     assert link(web, engine, NEXT_SHORT, LEAP).status_code == 303
     r = pmcc_row(web.get("/portfolio").text)
-    assert "AAPL 270/245 poor man's covered call" in r
-    assert cells(r)[4] == "27"  # Nov 21 -> Dec 18
+    assert "270/245 poor man's covered call" in r
+    assert cells(r)[4] == "25"  # Mon Nov 23 -> Fri Dec 18
 
 
 def test_unlink(web, engine):

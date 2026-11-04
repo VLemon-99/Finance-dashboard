@@ -6,6 +6,7 @@ Two places, on purpose:
 - Limits and timings you may want to tweak live in `config/settings.yaml`. That's `AppConfig`.
 """
 
+from datetime import date
 from functools import lru_cache
 from pathlib import Path
 
@@ -65,6 +66,9 @@ class WatchlistLimits(_Section):
 class MarketDataConfig(_Section):
     refresh_minutes: int = Field(default=15, ge=1)
     max_parallel_fetches: int = Field(default=4, ge=1, le=10)
+    # One-off market closures besides weekends and regular NYSE holidays (those are
+    # calculated in app/market_calendar.py).
+    extra_closed_days: frozenset[date] = frozenset()
 
 
 class OptionsConfig(_Section):

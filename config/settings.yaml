@@ -14,6 +14,21 @@ market_data:
   # How many stocks to fetch from Yahoo at the same time when refreshing a list.
   # Higher is faster but more likely to get rate-limited. 1 to 10.
   max_parallel_fetches: 4
+  # Days the US stock market was closed besides weekends and its regular holidays (New
+  # Year's, MLK Day, Presidents' Day, Good Friday, Memorial Day, Juneteenth, July 4,
+  # Labor Day, Thanksgiving, Christmas: those are worked out automatically). Trades can't
+  # be dated on a closed day. Add a date here if the market closes unexpectedly.
+  extra_closed_days:
+    - 2001-09-11  # September 11 attacks (closed Sep 11-14)
+    - 2001-09-12
+    - 2001-09-13
+    - 2001-09-14
+    - 2004-06-11  # President Reagan's funeral
+    - 2007-01-02  # President Ford's funeral
+    - 2012-10-29  # Hurricane Sandy
+    - 2012-10-30
+    - 2018-12-05  # President George H.W. Bush's funeral
+    - 2025-01-09  # President Carter's funeral
 
 options:
   # The greeks need a risk-free interest rate. We use the 13-week US T-bill yield from

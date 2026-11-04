@@ -117,3 +117,13 @@ a.cite:hover { color: var(--text); text-decoration: underline; }
 .plain-list li { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 6px 0; }
 main.wide { max-width: 1400px; }
 .stocks td[data-col=returns] { white-space: normal; min-width: 8.5em; }
+.ticker-group { margin: 0 0 12px; }
+.ticker-group > summary { cursor: pointer; padding: 8px 4px; font-size: 1.05rem; list-style-position: inside; }
+.ticker-group > summary:hover { color: var(--text); }
+table.options-positions { table-layout: fixed; }
+.options-positions td, .options-positions th { white-space: normal; }
+.options-positions tr.pair-head td { background: var(--itm-bg); border-bottom: none; }
+.options-positions tr.leg td { border-bottom: none; }
+.options-positions tr.leg + tr:not(.leg) td, .options-positions tr.leg:last-child td { border-bottom: 1px solid var(--border); }
+.leg-mark { color: var(--muted); }
+.options-positions td.num { white-space: nowrap; }

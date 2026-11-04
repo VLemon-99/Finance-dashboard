@@ -185,12 +185,15 @@ def _trade_form(
         return templates.TemplateResponse(
             request, "trade_form.html", {"target": None, "error": str(exc)}, status_code=400
         )
-    when = trade_date or pf.eastern_date(now)
+    closed = config.market_data.extra_closed_days
+    when = trade_date or pf.default_trade_date(now, closed)
     return templates.TemplateResponse(
         request,
         "trade_form.html",
         {
-            **_price_fields(session, market_data, target, when, max_age, price, underlying_price),
+            **_price_fields(
+                session, market_data, target, when, max_age, closed, price, underlying_price
+            ),
             "side": side if side in pf.SIDES else "bought",
             "quantity": quantity,
             "error": error,
@@ -210,11 +213,15 @@ def _price_fields(
     target: pf.TradeTarget,
     when: date,
     max_age,
+    extra_closed=(),
     price: str | None = None,
     underlying_price: str | None = None,
 ) -> dict:
-    """What the price part of the form shows: the suggestion for `when`, unless typed."""
-    suggestion = pf.suggest_price(session, market_data, target, when, utc_now(), max_age)
+    """What the price part of the form shows: the suggestion for `when`, unless typed.
+    On a weekend or market holiday there's no price and Save is switched off."""
+    suggestion = pf.suggest_price(
+        session, market_data, target, when, utc_now(), max_age, extra_closed
+    )
     return {
         "target": target,
         "trade_date": when,
@@ -268,11 +275,12 @@ def trade_price_fields(
         target = pf.resolve_target(session, market_data, symbol, max_age)
     except pf.TradeError as exc:
         return HTMLResponse(f'<p class="note error">{escape(str(exc))}</p>', status_code=400)
-    when = _parse_date(date) or pf.eastern_date(utc_now())
+    closed = config.market_data.extra_closed_days
+    when = _parse_date(date) or pf.default_trade_date(utc_now(), closed)
     return templates.TemplateResponse(
         request,
         "_trade_price.html",
-        _price_fields(session, market_data, target, when, max_age),
+        _price_fields(session, market_data, target, when, max_age, closed),
     )
 
 
@@ -333,6 +341,7 @@ def record_trade(
             underlying_price=_parse_number(underlying_price),
             suggested_price=_parse_number(suggested_price),
             now=utc_now(),
+            extra_closed=config.market_data.extra_closed_days,
         )
     except pf.TradeError as exc:
         return _trade_form(

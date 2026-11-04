@@ -16,3 +16,5 @@
   <span class="muted small">Needed when selling a call: a covered call's return is based on it.</span>
 </div>
 {% endif %}
+{# Inside the swapped part, so picking a weekend or market holiday switches Save off. #}
+<button type="submit"{% if suggestion.market_closed %} disabled aria-disabled="true"{% endif %}>Save trade</button>
