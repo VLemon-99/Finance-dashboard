@@ -4,7 +4,7 @@
 > Feature IDs (F1.4 etc.) refer to acceptance criteria in `docs/SPEC.md`.
 
 ## Current phase
-**Phase 5: Report v2 (blogs, YouTube, schedule)**: built on branch `claude/wonderful-clarke-pr4ane`, waiting for the owner's check and merge. Trusted blogs and YouTube channels are read from `config/sources.yaml` (both lists empty until the owner fills them in); the AI watches each new video once, at most 10 per run; automatic weekday reports are built but switched off (owner's choice: reports by hand, about weekly). Phase 4 is merged and checked by the owner; its last open check is expiry after Friday Nov 6. Next: the owner's check of Phase 5, then **Phase 6** (calendar).
+**Phase 6: Calendar (F5)**: built on branch `claude/wonderful-clarke-pr4ane`, waiting for the owner's check and merge (one database change: run `uv run alembic upgrade head` after pulling). Earnings for "my tickers" (watchlists + portfolio) from Yahoo, CPI/jobs/PCE/GDP dates from FRED (needs the owner's free FRED key; missing until then), Fed meetings from `config/fomc_dates.yaml` (2026 only). Phase 5 is merged (PR #15); its real-data check waits until the owner adds YouTube channels. Next: the owner's checks, then **Phase 7** (report v3: valuation, institutional, unusual options).
 
 ## Phases
 Each phase ends with a working app, passing tests, and the docs updated.
@@ -31,12 +31,12 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - Bought/Sold buttons with auto-filled prices, positions and P&L, annualized return for short options, spread linking, expiry handling. *(Part B built 2026-11-03: F2.5b and F3.1–F3.9 have automated tests, including the three F3.6 known answers; owner check pending.)*
   - **Done when:** F2.1–F2.7 and F3.1–F3.9 pass, including the F2.3 and F3.6 numeric test cases.
 
-- [ ] **Phase 5 — Report v2: YouTube + blogs + morning schedule (F4)** *(built 2026-11-04, owner check pending)*
+- [ ] **Phase 5 — Report v2: YouTube + blogs + morning schedule (F4)** *(built and merged 2026-11-04, PR #15; owner's real-data check waits for the YouTube channel list)*
   - YouTube plug-in (trusted channels' RSS feeds → Gemini summarizes the video), blog RSS plug-in, starter `config/sources.yaml` for me to edit.
   - Weekday 7:30am ET scheduler (off by default, owner 2026-11-04).
   - **Done when:** F4.5 and F4.9 pass; a 25-ticker run completes in < 10 minutes. *(F4.5 and F4.9 have automated tests. Speed: offline, a 25-ticker run downloads each blog/channel feed once and watches 3 videos at a time; the real time can only be measured on the owner's computer, estimate 5–9 minutes, see Known issues.)*
 
-- [ ] **Phase 6 — Calendar (F5)**
+- [ ] **Phase 6 — Calendar (F5)** *(built 2026-11-04, owner check pending; F5.1–F5.6 have automated tests)*
   - Watchlist earnings dates, macro releases from FRED, FOMC dates file, week/list views, filters, top-3 on home page.
   - **Done when:** F5.1–F5.6 pass.
 
@@ -57,21 +57,29 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - **Done when:** F7.1–F7.3 pass and the security review has no open high-severity findings.
 
 ## Next up
-1. **Owner: check Phase 5, then merge** (README "Updating to a new version": `uv sync` installs the new APScheduler library; no database change):
-   - **Blogs and channels:** add one or two YouTube channels (and blogs, if you like) to `config/sources.yaml` (README "Adding YouTube channels and blogs"), restart, and generate a report for a ticker those channels talk about.
-   - In the report's Sources list, videos are labelled YOUTUBE with 3–5 points; click a time (e.g. **3:15**): the video should open at that moment, and the point should match what's said there.
-   - Generate the same report again: the run should be quick and the videos not watched again (same points).
-   - **Timing:** for your largest watchlist, note how long a run takes (start and finish times on the run page). The goal is under 10 minutes.
-   - Reports page: "Automatic reports are off" with how to switch them on.
-2. **Owner: still open from Phase 4 and the report-period fix:**
+1. **Owner: check Phase 6, then merge** (README "Updating to a new version"; this time `uv run alembic upgrade head` adds the calendar tables; no new libraries):
+   - **FRED key** (2 minutes, README "Setting up the calendar"), then restart.
+   - Open **Calendar**: the next 14 days should list your stocks' earnings (with "Before the open" / "After the close" where Yahoo knows it), CPI, the jobs report, PCE and GDP at 8:30 AM ET, and Fed events. Compare one or two earnings dates and the next CPI date with Yahoo's and FRED's own pages (the source links).
+   - Try **Week**, the previous/next week links, and the two filters.
+   - Home page: "Coming up" shows the next 3 high-impact events.
+2. **Owner: Phase 5 with real data, when you add YouTube channels** (README "Adding YouTube channels and blogs"): generate a report for a ticker the channels discuss; check the video points and their time links, that a second run doesn't re-watch, and how long your largest watchlist takes (goal: under 10 minutes).
+3. **Owner: still open from Phase 4 and the report-period fix:**
    - **Expiry (after Friday Nov 6, 4 PM ET):** record a contract expiring Friday before then; afterwards the Portfolio page should ask "Expired worthless" or "Assigned".
    - **After 4 PM ET**, refresh a watchlist: prices should be that day's close, with the change labelled "today".
    - **Placeholder IVs:** during market hours, do IVs of exactly 50%, 25%, 12.5%… still appear on far out-of-the-money strikes? If yes, we'll hide IV and greeks for strikes with no bid and no ask (see Known issues).
    - **AMZN report:** it should reach back to AMZN news the AI never processed (up to 7 days), with AI-written developments, working citation numbers, and an insider trade matching the SEC's own Form 4 page.
-3. **Phase 6: Calendar (F5)**, after the owner's Phase 5 check. Propose a plan first.
-4. Owner: after seeing which outlets show up, decide whether to switch on `trusted_outlets_only` in `config/sources.yaml`.
+4. **Phase 7: Report v3 (valuation, institutional, unusual options; F4.7, F4.8)**, after the owner's Phase 6 check. Propose a plan first (peer lists per ticker come from the owner).
+5. Owner: when the Fed publishes its 2027 meeting dates, add them to `config/fomc_dates.yaml` (or ask Claude to).
+6. Owner: after seeing which outlets show up, decide whether to switch on `trusted_outlets_only` in `config/sources.yaml`.
 
 ## Done (recent)
+- 2026-11-04 **Phase 6 calendar**, in four commits on `claude/wonderful-clarke-pr4ane` (restarted from `main` after PR #15), with the owner's answers (my tickers = watchlists + portfolio; impact levels as proposed, earnings high; FRED key later; 2027 Fed dates left empty):
+  1. **Calendar data** (F5.1, F5.2): Yahoo's earnings calendar for all my tickers in one request (date, time, before the open / after the close), falling back to the earnings date saved with watchlist prices; FRED release dates for CPI, jobs report, PCE, GDP (`app/providers/fred.py`, key never logged); Fed decisions and minutes from `config/fomc_dates.yaml`. New tables `calendar_events` and `calendar_fetches` (migration checked on a copy: existing rows kept, undo works). Refreshed once a day, 15 minutes after a failure.
+  2. **Calendar page** (F5.3–F5.5): **Calendar** in the menu; next 14 days (past events drop off) or a week view; "my tickers only" and "high impact only"; time in US Eastern (or before the open / after the close / time not announced), impact and source link per event; notes for missing sources and for the Fed dates running out.
+  3. **Home page** (F5.6): next 3 high-impact events. Layout check with screenshots (laptop and phone) found and fixed two things: an out-of-date saved earnings date showing next to Yahoo's calendar entry in another week, and the top menu running off the edge on a phone.
+  4. Docs: README "Setting up the calendar" (FRED key, Fed dates), SPEC F5.1/F5.4 wording (portfolio tickers), DECISIONS, ARCHITECTURE.
+  Tests: 603 pass (up from 561), all offline. No new libraries.
+- 2026-11-04 Owner merged Phase 5 (PR #15). YouTube channels to be added later.
 - 2026-11-04 **Phase 5 report v2**, in four commits on `claude/wonderful-clarke-pr4ane`, with the owner's answers (channel list later; about 10 videos per run and never the same video twice; schedule off for now, reports by hand about weekly; holidays not relevant):
   1. **Blogs and YouTube channels** (F4.3, F4.4, F4.5): one source per blog/channel from `config/sources.yaml`; a post or video counts when its title or description mentions the ticker (`$` needed for 1–2 letter tickers), the SEC company name, or an `also_known_as` name (Google for GOOG/GOOGL); YouTube only the last 7 days; each feed downloaded once per run.
   2. **Videos watched by the AI** (F4.5): Gemini watches the public video from its link (low resolution, first 60 minutes) and writes 3–5 points with times; each links to that moment. The answer is kept and reused for other tickers and later runs (never watched twice); at most 10 new per run, newest first, 3 at a time; the rest wait for the next run. A run now collects for every ticker, then watches, then writes; the progress box shows the step.
@@ -120,6 +128,10 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - 2026-11-01 Kickoff: interviewed owner; wrote SPEC, ARCHITECTURE, PLAN, DECISIONS; filled in stack and commands in CLAUDE.md. No application code yet.
 
 ## Known issues / bugs
+- **Phase 6 samples are hand-made** (`tests/fixtures/yahoo_earnings_calendar.json`, `fred_release_dates_cpi.json`): the cloud build machine can't reach Yahoo or FRED. The first real run is the real test of: Yahoo's earnings-calendar answer (we call yfinance's internal request function with our own ticker filter; a yfinance update could break it, which shows as "earnings dates missing"), FRED returning future release dates, and the FRED release ids (10 CPI, 50 jobs, 54 PCE, 53 GDP).
+- Release times are the usual ones (8:30 AM ET) from the settings, not FRED's (FRED gives dates only). A release moved to another hour would show the usual time.
+- Fed minutes default to three weeks after the decision when the dates file doesn't give the minutes date; the Fed sometimes shifts them around holidays.
+- If yfinance's earnings calendar answers but leaves a ticker out, that ticker shows the date saved with its watchlist price ("date only"), which can be out of date until the watchlist is refreshed. Stocks held only in the portfolio have no saved date, so they show nothing then.
 - **Phase 5 samples are hand-made** (`tests/fixtures/sources/youtube_channel.xml`, `blog_feed.xml`): the cloud build machine can't reach YouTube or Gemini, so the first real run is the real test of: the channel feed's format, Gemini accepting the 60-minute cut-off on YouTube links (if it refuses, the whole video is watched once instead, costing more on long videos), and whether its times are accurate.
 - **Speed of a real 25-ticker run isn't measured yet.** Estimate: collecting 2–4 minutes, two AI calls per ticker (one after another) 3–5 minutes, watching 10 new videos 3 at a time 1–3 minutes, so roughly 5–9 minutes, close to the 10-minute goal. If it's over, the next step is doing the per-ticker AI calls a few at a time too.
 - A video the AI couldn't watch (private, members-only, a scheduled premiere that hadn't aired yet) is marked as such for good and rated from its description; it isn't retried later.
@@ -157,7 +169,9 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - *(Fixed in Phase 2: the day change was always labelled "today", and the quote page fetched from Yahoo on every lookup.)*
 
 ## Handoff note
-Phase 5 is built on branch `claude/wonderful-clarke-pr4ane` (561 tests green), not merged yet; everything before it is merged into `main`. Next session: if the owner reports problems from the Phase 5 check (first real YouTube/Gemini video run, the timing of a big run) or the Phase 4 expiry check, fix those first; otherwise plan Phase 6 (calendar). After each merge, remind the owner to update their folder (README, "Updating to a new version").
+Phase 6 is built on branch `claude/wonderful-clarke-pr4ane` (603 tests green), not merged yet; Phase 5 and everything before it are merged into `main`. Next session: if the owner reports problems from the Phase 6 check (first real Yahoo earnings calendar and FRED run), the Phase 5 real-data check or the Phase 4 checks, fix those first; otherwise plan Phase 7. After each merge, remind the owner to update their folder (README, "Updating to a new version").
+- Calendar code map: `app/services/calendar.py` (`my_tickers()`, `refresh_if_due()`, `load_events()`, `fomc_events()`, `filtered()`, `by_day()`, `upcoming()`, `notes()`, `prepare()`, `next_high_impact()`; `CalendarSetup` on `app.state.calendar`), `app/providers/fred.py`, `YahooMarketData.get_earnings()` + `earnings_from_calendar()`, `app/web/calendar_routes.py`, templates `calendar.html` and the "Coming up" box in `home.html`. Settings: `calendar:` in `config/settings.yaml`, `config/fomc_dates.yaml`, `FRED_API_KEY` in `.env`.
+- Calendar tests: `tests/test_calendar.py` (adapters + service, clock passed in as `NOW`), `tests/test_web_calendar.py` (`clock` fixture patches `utc_now` in `calendar_routes` and `routes`). Fakes: `FakeMarketData.earnings` / `earnings_down` / `earnings_calls`, `FakeFred` (`fake_fred` fixture: CPI Nov 12 + Dec 10, jobs Nov 6 + Dec 4, PCE and GDP Nov 25; `down`, `is_set_up`), `fomc` fixture (`TEST_FOMC`); `create_app(..., fred=, fomc=)`.
 - Video code map: `app/sources/youtube.py` (finds videos, `watch_url()`, `at_time()`), `app/sources/blogs.py`, `app/sources/feeds.py` (`CachedFeed`: one download per 10 minutes), `app/sources/mentions.py`, `app/services/videos.py` (`watch_new_videos()`: reuse kept answers, budget, parallel watching; answers in `SourceItemRow.data["points"]` / `["watch_error"]`), `GeminiLLM.watch_video()`. `reports.execute_run` = `prepare_ticker()` for all → `watch_videos()` → `finish_ticker_report()` each; `build_ticker_report()` does all three for one ticker.
 - Video tests: `tests/test_reports_videos.py` (uses `make_services()` with the sample channel `UCsampleChannelAAAAAAAAA` and blog `https://blog.example.com/feed/`), `test_sources_blogs_youtube.py`, `test_scheduler.py`. `FakeLLM.watch_video` returns three points (1:15, no time, 1:02:05); set `unwatchable`, `video_fail` or `video_seconds` (and read `most_at_once`).
 - Portfolio code map: `app/services/positions.py` (pure: `build_positions()` replays trades), `app/services/portfolio.py` (`resolve_target()`, `suggest_price()`, `record_trade()`, `portfolio_view()`, `link_spread()`, `settle_expired()`), `app/web/portfolio_routes.py`, templates `portfolio.html` / `trade_form.html`. Formulas in `options_math.py`. Option prices for pages come from `options.contract_quotes()` (shared with watchlists).

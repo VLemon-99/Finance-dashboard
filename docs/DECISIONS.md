@@ -2,6 +2,21 @@
 
 > One entry per meaningful choice, newest at the top. This stops future sessions from quietly undoing past decisions.
 
+## 2026-11-04 — Phase 6: market events calendar
+- **Decision** (owner's answers to the Phase 6 plan):
+  - **"My tickers"** = every stock in my watchlists **and** every stock I hold in the virtual portfolio (including the stocks behind option positions and watchlist contracts). SPEC F5.1 and F5.4 reworded. "My tickers only" therefore hides the economic events.
+  - **Impact levels:** high = Fed rate decisions, CPI, jobs report, and my stocks' earnings; medium = Fed minutes, PCE, GDP. The home page's "next 3 high-impact events" therefore includes my earnings (owner: OK that earnings season fills it). All in `config/settings.yaml` → `calendar:`.
+  - **FRED key:** needed for CPI/jobs/PCE/GDP dates; until it's in `.env` those show as missing (README "Setting up the calendar").
+  - **Fed meetings:** from `config/fomc_dates.yaml`, 2026 only (Oct 28 and Dec 9 with their minutes, from the Fed's published schedule); **2027 left empty** for now. The calendar warns once no future meeting is listed.
+- **How (small choices):**
+  - **Earnings from Yahoo's earnings calendar** (the JSON behind Yahoo's calendar page, through yfinance), because it gives the time and "before the open" / "after the close" and takes all my tickers in one request. yfinance's public function can't filter by ticker, so we call its internal request function with our own ticker filter (pinned by `uv.lock`; a yfinance update could break it, which shows as "earnings dates missing" and falls back to the date saved with watchlist prices). Not chosen: yfinance's `get_earnings_dates` (reads Yahoo's web page, i.e. page scraping, which our rules avoid) and Yahoo's company calendar alone (date only, already used for the watchlist's "next earnings").
+  - **Release dates from FRED's release calendar** (`fred/release/dates` with future dates included); release ids 10 (CPI), 50 (Employment Situation), 54 (Personal Income and Outlays, which carries PCE), 53 (GDP) are in the settings, with the usual 8:30 AM ET release time. The FRED key is sent in the address (FRED's rule), so addresses are never logged and error messages never include them.
+  - **Stored and refreshed once a day** (two new tables: `calendar_events`, `calendar_fetches`), retried 15 minutes after a failure; old dates are kept and flagged when a source is down. Fed meetings aren't stored. The page and home page never break on a source problem.
+  - **List view** = today plus the next 13 days, past events dropped (an event with a known time drops off at that time; a date-only event at the end of its day). **Week view** = Monday to Sunday, every day listed, past days greyed, previous/next links; filters are kept when moving.
+  - No new libraries.
+- **Alternatives considered:** a paid calendar API (cost); Yahoo's economic-events calendar (unofficial, no impact levels, changes often); scraping the Fed's web page for meeting dates (fragile; a yearly edit is simpler).
+- **Revisit if:** yfinance changes its calendar code (earnings show as missing), FRED changes release ids, or the owner wants other events (e.g. ex-dividend dates, options expiration Fridays, holidays).
+
 ## 2026-11-04 — Phase 5: blogs, YouTube videos watched once (10 per run), schedule off by default
 - **Decision** (owner's answers to the Phase 5 plan):
   - **YouTube:** the AI watches each new video **once, ever**. Its answer (3–5 points, each with its time in the video) is kept with the stored item and reused when the same video turns up for another ticker or in a later run. At most **10 new videos per run** (`ai.max_videos_per_run`), newest first across the whole run; the rest wait for the next run (the next report's period reaches back to them). The channel list starts empty; the owner fills it in later.

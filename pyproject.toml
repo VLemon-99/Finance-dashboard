@@ -46,4 +46,8 @@ select = ["E", "F", "I", "B", "UP", "S"]
 testpaths = ["tests"]
 addopts = "-q"
 # Starlette suggests a newer test HTTP client; httpx works fine for now.
-filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]
+# yfinance's earnings-calendar code uses a pandas style pandas plans to drop (not our code).
+filterwarnings = [
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+    "ignore:The inplace keyword in DataFrame",
+]

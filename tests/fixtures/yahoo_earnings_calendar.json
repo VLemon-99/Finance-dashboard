@@ -1,0 +1,32 @@
+{
+  "_note": "Hand-made sample in the format of Yahoo's earnings calendar (the request yfinance's Calendars makes). Dates, times and numbers are invented.",
+  "finance": {
+    "result": [
+      {
+        "documents": [
+          {
+            "columns": [
+              {"label": "Symbol", "type": "STRING"},
+              {"label": "Company Name", "type": "STRING"},
+              {"label": "Market Cap (Intraday)", "type": "NUMBER"},
+              {"label": "Event Name", "type": "STRING"},
+              {"label": "Event Start Date", "type": "DATETIME"},
+              {"label": "Event Start Date", "type": "STRING"},
+              {"label": "EPS Estimate", "type": "NUMBER"},
+              {"label": "Reported EPS", "type": "NUMBER"},
+              {"label": "Surprise (%)", "type": "NUMBER"}
+            ],
+            "rows": [
+              ["NVDA", "NVIDIA Corporation", 4500000000000, "Q3 2027 Earnings Release", "2026-11-18T21:00:00.000Z", "AMC", 1.25, null, null],
+              ["WMT", "Walmart Inc.", 800000000000, "Q3 2027 Earnings Release", "2026-11-19T12:00:00.000Z", "BMO", 0.6, null, null],
+              ["SOFI", "SoFi Technologies, Inc.", 30000000000, "Q4 2026 Earnings Release", "2027-01-26T05:00:00.000Z", "TNS", 0.12, null, null],
+              ["ZM", "Zoom Communications, Inc.", 25000000000, "Q3 2027 Earnings Call", "2026-11-23T22:00:00.000Z", "TAS", 1.4, null, null],
+              ["ZZZZ", "Not Asked For Inc.", 1000000000, "Earnings Release", "2026-11-20T21:00:00.000Z", "AMC", 0.1, null, null]
+            ]
+          }
+        ]
+      }
+    ],
+    "error": null
+  }
+}

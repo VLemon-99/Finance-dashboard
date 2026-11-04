@@ -104,10 +104,10 @@ Acceptance criteria:
 Upcoming events that can move my stocks or the market.
 
 Acceptance criteria:
-- [ ] F5.1 Shows earnings dates (with before-open / after-close timing when known) for every ticker in my watchlists.
+- [ ] F5.1 Shows earnings dates (with before-open / after-close timing when known) for every ticker in my watchlists and every stock I hold (or hold options on) in the virtual portfolio (owner 2026-11-04).
 - [ ] F5.2 Shows the main US macro events: FOMC rate decisions (and minutes), CPI, PCE, the jobs report (employment situation), GDP; each tagged high / medium impact.
 - [ ] F5.3 Has a week view and a list view. The default list shows the next 14 days.
-- [ ] F5.4 I can filter by "my tickers only" and by "high impact only".
+- [ ] F5.4 I can filter by "my tickers only" (watchlists + portfolio; economic events are hidden) and by "high impact only".
 - [ ] F5.5 Each event shows the date, time (US Eastern), and source. Past events drop off the default view.
 - [ ] F5.6 The dashboard home page shows the next 3 high-impact events.
 

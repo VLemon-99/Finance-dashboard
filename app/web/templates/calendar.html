@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Calendar · Finance Dashboard{% endblock %}
+{% macro link(view, week=None) -%}
+/calendar?view={{ view }}{% if week %}&amp;week={{ week.isoformat() }}{% endif %}{% if mine %}&amp;mine=1{% endif %}{% if high %}&amp;high=1{% endif %}
+{%- endmacro %}
+{% block content %}
+<h1>Market events calendar</h1>
+{% if error %}<p class="note error" role="alert">{{ error }}</p>{% endif %}
+
+<nav class="segmented" aria-label="Calendar view">
+  <a href="{{ link('list') }}"{% if view == 'list' %} aria-current="page"{% endif %}>Next {{ list_days }} days</a>
+  <a href="{{ link('week', monday if view == 'week' else this_monday) }}"{% if view == 'week' %} aria-current="page"{% endif %}>Week</a>
+</nav>
+
+<form method="get" action="/calendar" class="inline-form calendar-filters">
+  <input type="hidden" name="view" value="{{ view }}">
+  {% if view == 'week' %}<input type="hidden" name="week" value="{{ monday.isoformat() }}">{% endif %}
+  <label><input type="checkbox" name="mine" value="1"{% if mine %} checked{% endif %}> My tickers only</label>
+  <label><input type="checkbox" name="high" value="1"{% if high %} checked{% endif %}> High impact only</label>
+  <button type="submit">Apply</button>
+</form>
+<p class="muted small">My tickers: {% if tickers %}{{ tickers | join(", ") }}{% else %}none yet (add stocks to a watchlist, or record a trade){% endif %}. Times are US Eastern.</p>
+
+{% if notes %}
+<div class="note warning" role="status">
+  <ul class="missing">{% for n in notes %}<li>{{ n }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+{% if view == 'week' %}
+<p class="week-nav">
+  <a href="{{ link('week', previous_week) }}">‹ Previous week</a>
+  <strong>Week of {{ monday | short_date }}</strong>
+  {% if monday != this_monday %}<a href="{{ link('week', this_monday) }}">This week</a>{% endif %}
+  <a href="{{ link('week', next_week) }}">Next week ›</a>
+</p>
+{% else %}
+<p class="muted small">From today to {{ end | short_date }}. Events that have already happened drop off.</p>
+{% endif %}
+
+{% set any_events = groups | selectattr("events") | list %}
+{% if not any_events %}
+<p class="muted">Nothing scheduled{% if mine or high %} that matches the filters{% endif %} {% if view == 'week' %}this week{% else %}in the next {{ list_days }} days{% endif %}.</p>
+{% endif %}
+{% if any_events or view == 'week' %}
+<div class="calendar">
+{% for g in groups %}
+  <section class="calendar-day{% if g.day == today %} today{% elif g.day < today %} past{% endif %}">
+    <h2 class="day-heading">{{ "{:%a}".format(g.day) }}, {{ g.day | short_date }}{% if g.day == today %} <span class="badge plain">today</span>{% endif %}</h2>
+    {% if g.events %}
+    <ul class="events">{% for e in g.events %}
+      <li class="event {{ e.kind }}{% if e.is_past(now) %} past{% endif %}">
+        <span class="event-time">{{ e.time_label }}</span>
+        <span class="event-title">{% if e.ticker %}<a href="/lookup?ticker={{ e.ticker }}">{{ e.title }}</a>{% else %}{{ e.title }}{% endif %}</span>
+        <span class="impact {{ e.impact }}">{{ e.impact }}</span>
+        <span class="event-source small muted">{% if e.source_url %}<a href="{{ e.source_url }}" rel="noopener noreferrer" target="_blank">{{ e.source }}</a>{% else %}{{ e.source }}{% endif %}</span>
+      </li>{% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted small">Nothing scheduled.</p>
+    {% endif %}
+  </section>
+{% endfor %}
+</div>
+{% endif %}
+<p class="muted small">Earnings come from Yahoo Finance, economic releases from FRED's release calendar, and Fed meetings from config/fomc_dates.yaml. Release times and impact levels are in config/settings.yaml.</p>
+{% endblock %}

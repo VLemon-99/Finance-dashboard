@@ -1,6 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Watchlists · Finance Dashboard{% endblock %}
 {% block content %}
+<section class="home-events" aria-labelledby="coming-up">
+  <h2 id="coming-up">Coming up: high-impact events</h2>
+  {% if events %}
+  <ul class="events">{% for e in events %}
+    <li class="event {{ e.kind }}">
+      <span class="event-time">{{ "{:%a}".format(e.day) }}, {{ e.day | short_date }}</span>
+      <span class="event-title">{% if e.ticker %}<a href="/lookup?ticker={{ e.ticker }}">{{ e.title }}</a>{% else %}{{ e.title }}{% endif %}</span>
+      <span class="muted small">{{ e.time_label }}</span>
+    </li>{% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No high-impact events found.</p>
+  {% endif %}
+  <p class="small"><a href="/calendar">Full calendar</a>{% if calendar_notes %} <span class="muted">· some dates may be missing (see the calendar)</span>{% endif %}</p>
+</section>
+
 <h1>Watchlists</h1>
 {% if error %}<p class="note error" role="alert">{{ error }}</p>{% endif %}
 {% if watchlists %}

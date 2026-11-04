@@ -63,6 +63,19 @@ class OptionChainData:
     source: str
 
 
+EarningsTiming = Literal["before_open", "after_close", "at_time", "unknown"]
+
+
+@dataclass(frozen=True)
+class EarningsData:
+    """One scheduled earnings report (SPEC F5.1)."""
+
+    symbol: str
+    day: date  # US Eastern calendar day
+    starts_at: datetime | None  # UTC, when the source gives a time
+    timing: EarningsTiming  # before the open, after the close, at `starts_at`, or unknown
+
+
 class MarketDataError(Exception):
     """The data source failed (down, timed out, rate-limited, bad response)."""
 
@@ -101,4 +114,9 @@ class MarketData(Protocol):
     def get_daily_close(self, symbol: str, day: date) -> float | None:
         """Closing price on that day, for a stock or an option contract symbol. None if the
         source has no price for that day (weekend, holiday, no trades). Raises MarketDataError."""
+        ...
+
+    def get_earnings(self, symbols: list[str], start: date, end: date) -> list[EarningsData]:
+        """Scheduled earnings reports of these stocks between two days (both included).
+        Stocks the source has no date for are simply absent. Raises MarketDataError."""
         ...

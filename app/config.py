@@ -10,6 +10,7 @@ from datetime import date
 from datetime import time as clock_time
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -44,6 +45,12 @@ class Settings(BaseSettings):
 
     # Gemini API key from Google AI Studio. Empty = AI summaries are switched off.
     gemini_api_key: str = ""
+
+    # FRED (St. Louis Fed) API key for economic release dates. Empty = those are missing.
+    fred_api_key: str = ""
+
+    # Fed meeting dates for the calendar (see FomcConfig below).
+    fomc_dates_file: Path = PROJECT_ROOT / "config" / "fomc_dates.yaml"
 
 
 @lru_cache
@@ -127,6 +134,40 @@ class ScheduleConfig(_Section):
     time: clock_time = clock_time(7, 30)  # US Eastern
 
 
+Impact = Literal["high", "medium"]
+
+
+class MacroRelease(_Section):
+    """One economic release whose dates come from FRED's release calendar (SPEC F5.2)."""
+
+    name: str = Field(min_length=1, max_length=80)  # shown in the calendar
+    fred_release_id: int = Field(ge=1)
+    time: clock_time = clock_time(8, 30)  # US Eastern: the usual release time
+    impact: Impact = "medium"
+
+
+class CalendarConfig(_Section):
+    # The list view shows this many days from today (SPEC F5.3).
+    list_days: int = Field(default=14, ge=1, le=90)
+    # Dates are checked again after this many hours, or this many minutes after a failure.
+    refresh_hours: int = Field(default=24, ge=1, le=168)
+    retry_minutes: int = Field(default=15, ge=1, le=1440)
+    # How far ahead earnings dates are fetched.
+    earnings_days_ahead: int = Field(default=90, ge=7, le=365)
+    # Impact tags (SPEC F5.2), owner 2026-11-04.
+    earnings_impact: Impact = "high"
+    fomc_decision_impact: Impact = "high"
+    fomc_minutes_impact: Impact = "medium"
+    # Events shown on the home page (SPEC F5.6).
+    home_events: int = Field(default=3, ge=1, le=10)
+    macro_releases: list[MacroRelease] = [
+        MacroRelease(name="CPI (consumer prices)", fred_release_id=10, impact="high"),
+        MacroRelease(name="Jobs report (employment situation)", fred_release_id=50, impact="high"),
+        MacroRelease(name="PCE (personal income and outlays)", fred_release_id=54),
+        MacroRelease(name="GDP", fred_release_id=53),
+    ]
+
+
 class AppConfig(_Section):
     watchlists: WatchlistLimits = WatchlistLimits()
     market_data: MarketDataConfig = MarketDataConfig()
@@ -135,6 +176,26 @@ class AppConfig(_Section):
     reports: ReportsConfig = ReportsConfig()
     ai: AIConfig = AIConfig()
     schedule: ScheduleConfig = ScheduleConfig()
+    calendar: CalendarConfig = CalendarConfig()
+
+
+# --- config/fomc_dates.yaml (Fed meetings, SPEC F5.2) ---------------------------------
+
+
+class FomcMeeting(_Section):
+    decision: date  # the meeting's last day, when the rate decision is announced
+    minutes: date | None = None  # when the minutes come out; None = three weeks later
+
+
+class FomcConfig(_Section):
+    decision_time: clock_time = clock_time(14, 0)  # US Eastern
+    minutes_time: clock_time = clock_time(14, 0)
+    meetings: list[FomcMeeting] = []
+
+
+def load_fomc_config(path: Path) -> FomcConfig:
+    """Read config/fomc_dates.yaml."""
+    return _load_yaml(path, FomcConfig, "Fed meeting dates")
 
 
 # --- config/sources.yaml (trusted sources, SPEC F4.4) ---------------------------------
