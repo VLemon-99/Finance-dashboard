@@ -261,3 +261,67 @@ def test_f2_5b_bought_sold_links(web):
     assert (
         'href="/portfolio/trade?symbol=AAPL&amp;side=sold"' in web.get("/lookup?ticker=AAPL").text
     )
+
+
+# --- the trade date and the filled-in price always match (bug seen 2026-11-03) --------------
+
+
+def test_changing_the_date_then_saving_does_not_keep_the_old_price(web, engine):
+    """The owner changed the date to Oct 1 and pressed Save: the trade was saved at the
+    price filled in for today. Now Save shows that day's price instead of saving."""
+    html = form(web).text
+    assert field(html, "price_date") == "2026-11-03"
+    response = save(
+        web, date="2026-10-29", price="259.58", suggested_price="259.58", price_date="2026-11-03"
+    )
+    assert response.status_code == 400
+    page = unescape(response.text)
+    assert "The price shown was for Nov 3, 2026, not Oct 29, 2026." in page
+    assert field(page, "price") == "258.04"  # Oct 29's close
+    assert field(page, "price_date") == "2026-10-29"
+    assert field(page, "quantity") == "10"  # what was typed is kept
+    assert trades(engine) == []
+    # Saving again (now the price belongs to the date) works.
+    response = save(
+        web, date="2026-10-29", price="258.04", suggested_price="258.04", price_date="2026-10-29"
+    )
+    assert response.status_code == 303
+    [trade] = trades(engine)
+    assert (trade.price, trade.price_source) == (258.04, "auto")
+
+
+def test_a_typed_price_is_saved_whatever_date(web, engine):
+    response = save(
+        web, date="2026-10-29", price="257.00", suggested_price="259.58", price_date="2026-11-03"
+    )
+    assert response.status_code == 303
+    assert (trades(engine)[0].price, trades(engine)[0].price_source) == (257.00, "manual")
+
+
+def test_price_part_refreshes_for_a_new_date(web):
+    """HTMX asks for this when the date field changes."""
+    html = web.get("/portfolio/trade/price", params={"symbol": "AAPL", "date": "2026-10-29"}).text
+    assert "<html" not in html  # only the price part
+    assert field(html, "price") == "258.04"
+    assert field(html, "price_date") == "2026-10-29"
+    assert "Filled in: closing price on Oct 29, 2026. You can change it." in html
+
+
+def test_price_part_for_an_option_includes_the_stock_price(web, fake_market_data):
+    web.get(CHAIN_URL)
+    fake_market_data.option_closes[(P250, date(2026, 10, 30))] = 3.15
+    html = web.get("/portfolio/trade/price", params={"symbol": P250, "date": "2026-10-30"}).text
+    assert field(html, "price") == "3.15"
+    assert field(html, "underlying_price") == "259.58"
+
+
+def test_date_field_asks_for_the_price_part_when_changed(web):
+    html = form(web).text
+    assert 'hx-get="/portfolio/trade/price"' in html and 'hx-trigger="change"' in html
+    assert "Filled in: last price, today." in html
+
+
+def test_price_part_with_a_bad_symbol(web):
+    response = web.get("/portfolio/trade/price", params={"symbol": "<b>x</b>", "date": ""})
+    assert response.status_code == 400
+    assert "<b>" not in response.text
