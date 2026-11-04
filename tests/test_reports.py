@@ -388,3 +388,40 @@ def test_a_run_that_needed_no_ai_counts_as_complete(
     monkeypatch.setattr(reports_service, "utc_now", lambda: sources_now + timedelta(hours=11))
     run_for(session, engine, user_id, services)
     assert latest_report(session).period_start == quiet.period_end
+
+
+def test_news_left_without_ai_is_caught_up_even_after_a_quiet_report(
+    session, engine, user_id, services, sources_now, monkeypatch, fake_llm
+):
+    """Owner, 2026-11-04 (after the first fix): 12:05 the AI failed (402), so that news was
+    never summarized. 12:12 a quiet report ran with the AI working but nothing new in its 7
+    minutes, so it counted as a report "with AI". Every later report started after it, and
+    the 12:05 news was never summarized. The news itself must be checked, not just reports."""
+    fake_llm.fail = "The AI service answered with an error (402)."
+    run_for(session, engine, user_id, services)  # "12:05": AI fails, news stays unsummarized
+    failed = latest_report(session)
+    assert failed.body["stories"] and all(s["summary"] is None for s in failed.body["stories"])
+
+    # "12:12": a quiet report with no AI problems, as the old code made it.
+    session.add(
+        Report(
+            user_id=user_id,
+            run_id=0,
+            ticker="AAPL",
+            period_start=failed.period_end,
+            period_end=failed.period_end + timedelta(minutes=7),
+            body={"ai_complete": True, "stories": []},
+            missing=[],
+        )
+    )
+    session.commit()
+
+    fake_llm.fail = None
+    later = sources_now + timedelta(minutes=23)  # "12:28"
+    monkeypatch.setattr(reports_service, "utc_now", lambda: later)
+    run_for(session, engine, user_id, services)
+    report = latest_report(session)
+    assert len(report.body["stories"]) == 8  # the news from the failed run is back...
+    news = [s for s in report.body["stories"] if s["source_type"] == "news"]
+    assert news and all(s["summary"] for s in news)  # ...with AI summaries
+    assert report.body["developments"]
