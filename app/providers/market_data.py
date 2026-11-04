@@ -76,6 +76,82 @@ class EarningsData:
     timing: EarningsTiming  # before the open, after the close, at `starts_at`, or unknown
 
 
+@dataclass(frozen=True)
+class Multiples:
+    """Valuation multiples (SPEC F4.7). None = the source has none, or it isn't meaningful."""
+
+    trailing_pe: float | None = None  # price / last 12 months' earnings per share
+    forward_pe: float | None = None  # price / analysts' expected earnings per share
+    ev_ebitda: float | None = None  # enterprise value / EBITDA
+    price_to_sales: float | None = None  # market cap / last 12 months' revenue
+
+
+@dataclass(frozen=True)
+class CompanyProfile:
+    """A stock's valuation facts, classification and analyst targets (SPEC F4.7)."""
+
+    symbol: str
+    name: str | None
+    sector: str | None  # e.g. "Consumer Cyclical"
+    sector_key: str | None  # e.g. "consumer-cyclical" (used to ask for its largest companies)
+    industry: str | None  # e.g. "Internet Retail"
+    industry_key: str | None  # e.g. "internet-retail"
+    price: float | None
+    market_cap: float | None
+    shares_outstanding: float | None
+    multiples: Multiples
+    target_low: float | None = None
+    target_mean: float | None = None
+    target_high: float | None = None
+    analyst_count: int | None = None
+
+
+@dataclass(frozen=True)
+class AnnualFigures:
+    """One fiscal year's figures, and the share price at the year's end (SPEC F4.7 history)."""
+
+    period_end: date
+    price: float | None  # closing price on the last trading day up to period_end
+    diluted_eps: float | None = None
+    revenue: float | None = None
+    ebitda: float | None = None
+    total_debt: float | None = None
+    cash: float | None = None  # cash, equivalents and short-term investments
+    shares: float | None = None  # shares outstanding at the year's end
+
+
+@dataclass(frozen=True)
+class GroupMembers:
+    """A sector's or industry's largest companies, biggest first."""
+
+    kind: Literal["sector", "industry"]
+    key: str  # e.g. "technology", "internet-retail"
+    name: str  # e.g. "Technology"
+    symbols: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class HolderData:
+    """One institution's stake from its latest 13F report (SPEC F4.8)."""
+
+    name: str
+    shares: float | None
+    pct_held: float | None  # fraction of the company's shares: 0.07 = 7%
+    pct_change: float | None  # change in its share count since its previous report: 0.1 = +10%
+    value: float | None  # dollars
+    reported: date | None  # the quarter end the stake is as of
+
+
+@dataclass(frozen=True)
+class OwnershipData:
+    """Who owns the stock (SPEC F4.8)."""
+
+    symbol: str
+    institutions_pct: float | None  # fraction of shares held by institutions
+    institutions_count: int | None
+    top_institutions: tuple[HolderData, ...]
+
+
 class MarketDataError(Exception):
     """The data source failed (down, timed out, rate-limited, bad response)."""
 
@@ -119,4 +195,23 @@ class MarketData(Protocol):
     def get_earnings(self, symbols: list[str], start: date, end: date) -> list[EarningsData]:
         """Scheduled earnings reports of these stocks between two days (both included).
         Stocks the source has no date for are simply absent. Raises MarketDataError."""
+        ...
+
+    def get_profile(self, symbol: str) -> CompanyProfile:
+        """Multiples, sector/industry and analyst targets. Raises TickerNotFound /
+        MarketDataError."""
+        ...
+
+    def get_annual_figures(self, symbol: str) -> list[AnnualFigures]:
+        """The fiscal years the source has (usually about 4), oldest first, each with the
+        price at the year's end. Raises MarketDataError."""
+        ...
+
+    def get_group_members(self, kind: Literal["sector", "industry"], key: str) -> GroupMembers:
+        """A sector's or industry's largest US companies, biggest first. Raises
+        MarketDataError."""
+        ...
+
+    def get_ownership(self, symbol: str) -> OwnershipData:
+        """Institutional ownership and the top institutional holders. Raises MarketDataError."""
         ...

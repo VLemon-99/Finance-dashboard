@@ -38,9 +38,13 @@ from app.providers.market_data import (
     TickerNotFound,
 )
 from app.providers.yahoo import (
+    annual_figures_from_yahoo,
     chain_from_yahoo,
     close_on,
     expirations_from_yahoo,
+    group_from_yahoo,
+    ownership_from_yahoo,
+    profile_from_info,
     quote_from_history,
     search_results_from_quotes,
 )
@@ -75,6 +79,55 @@ def load_yahoo_options(name: str = "yahoo_options_AAPL.json") -> dict:
     for side in ("calls", "puts"):
         raw[side] = pd.DataFrame(raw[side])
     return raw
+
+
+def load_yahoo_research(name: str = "yahoo_research.json") -> dict:
+    """The Phase 7 sample (valuation, sector/industry, holders) as yfinance returns it:
+    'info' dicts, 'groups' -> (name, top-companies DataFrame), 'income'/'balance'
+    DataFrames (rows = items, columns = year ends), 'history' daily closes,
+    'institutions'/'breakdown' holders DataFrames."""
+    raw = json.loads((FIXTURES / name).read_text())
+    groups = {
+        key: (
+            g["name"],
+            pd.DataFrame(g["top"], columns=["symbol", "name", "rating", "market weight"]).set_index(
+                "symbol"
+            ),
+        )
+        for key, g in raw["groups"].items()
+    }
+
+    def statement(rows: dict) -> pd.DataFrame:
+        df = pd.DataFrame(rows).T
+        df.columns = pd.to_datetime(df.columns)
+        return df[sorted(df.columns, reverse=True)]  # yfinance: newest year first
+
+    fin = raw["financials"]
+    history = pd.DataFrame({"Close": list(fin["closes"].values())})
+    history.index = pd.DatetimeIndex(pd.to_datetime(list(fin["closes"]))).tz_localize(
+        "America/New_York"
+    )
+    institutions = pd.DataFrame(raw["holders"]["institutional_holders"])
+    institutions["reportDate"] = pd.to_datetime(institutions["reportDate"], unit="s")
+    institutions = institutions.rename(
+        columns={
+            "reportDate": "Date Reported",
+            "organization": "Holder",
+            "position": "Shares",
+            "value": "Value",
+        }
+    )
+    breakdown = pd.DataFrame.from_dict(raw["holders"]["major_holders"], orient="index")
+    breakdown = breakdown.rename(columns={breakdown.columns[0]: "Value"})
+    return {
+        "info": raw["info"],
+        "groups": groups,
+        "income": statement(fin["income_stmt"]),
+        "balance": statement(fin["balance_sheet"]),
+        "history": history,
+        "institutions": institutions,
+        "breakdown": breakdown,
+    }
 
 
 # Known answers for the option sample.
@@ -143,6 +196,10 @@ class FakeMarketData:
         self.earnings: list[EarningsData] = []
         self.earnings_down = False
         self.earnings_calls: list[list[str]] = []
+        # Valuation and holders (Phase 7). `research_down` holds what fails, e.g.
+        # "profile:AAPL", "figures:AAPL", "group:sector:technology", "ownership:AAPL".
+        self.research_down: set[str] = set()
+        self.research_calls: list[str] = []
 
     def get_quote(self, symbol: str) -> QuoteData:
         self.calls.append(symbol)
@@ -209,6 +266,32 @@ class FakeMarketData:
         if self.mode != "ok" or self.earnings_down:
             raise MarketDataError("Yahoo Finance did not respond properly (Timeout).")
         return [e for e in self.earnings if e.symbol in symbols and start <= e.day <= end]
+
+    def _research(self, what: str) -> dict:
+        self.research_calls.append(what)
+        if self.mode in ("down", "crash") or what in self.research_down:
+            raise MarketDataError("Yahoo Finance did not respond properly (Timeout).")
+        return load_yahoo_research()
+
+    def get_profile(self, symbol: str):
+        info = self._research(f"profile:{symbol}")["info"].get(symbol)
+        if info is None:
+            raise TickerNotFound(symbol)
+        return profile_from_info(symbol, info)
+
+    def get_annual_figures(self, symbol: str):
+        s = self._research(f"figures:{symbol}")
+        return annual_figures_from_yahoo(s["income"], s["balance"], s["history"])
+
+    def get_group_members(self, kind: str, key: str):
+        found = self._research(f"group:{kind}:{key}")["groups"].get(f"{kind}:{key}")
+        if found is None:
+            raise MarketDataError(f"Yahoo Finance listed no companies for the {kind} '{key}'.")
+        return group_from_yahoo(kind, key, *found)
+
+    def get_ownership(self, symbol: str):
+        s = self._research(f"ownership:{symbol}")
+        return ownership_from_yahoo(symbol, s["institutions"], s["breakdown"])
 
     def get_risk_free_rate(self) -> float:
         self.rate_calls += 1
