@@ -1,6 +1,6 @@
 # Trusted sources for the research report (SPEC F4.4).
 # Edit this file, then restart the app to apply the changes. No secrets here.
-# Later phases add blogs, YouTube channels, X accounts and subreddits.
+# Later phases add X accounts and subreddits.
 
 news:
   google_news:
@@ -62,3 +62,34 @@ sec_edgar:
   insider_lookback_days: 90
   # Longest filing text (characters) handed to the AI. Longer filings are cut off.
   max_text_chars: 150000
+
+# Blogs (SPEC F4.3, F4.4). Each blog needs a name (shown in reports) and the address of its
+# RSS or Atom feed (often the blog's address followed by /feed). A post is used when its
+# title or summary mentions the ticker or the company's name.
+blogs:
+  enabled: true
+  feeds: []
+  # Example (remove the "#" at the start of both lines and the [] above to use it):
+  # - name: Example Blog
+  #   feed: https://blog.example.com/feed/
+
+# YouTube channels (SPEC F4.5). Videos from the last `lookback_days` days whose title or
+# description mentions the ticker or the company's name are watched by the AI and
+# summarized in 3-5 points, each linked to its moment in the video.
+# The channel id starts with "UC": on the channel's page, open "...more" under the channel
+# name, then "Share channel" -> "Copy channel ID".
+youtube:
+  enabled: true
+  lookback_days: 7
+  channels: []
+  # Example (remove the "#" at the start of both lines and the [] above to use it):
+  # - name: Example Channel
+  #   channel_id: UCxxxxxxxxxxxxxxxxxxxxxx
+
+# Other names that count as a mention of a ticker in blog posts and video titles.
+# The ticker itself and the SEC's company name (e.g. "Alphabet") always count.
+# Tickers of one or two letters only count when written with a $ (e.g. "$F"), because
+# words like "ON" or "AI" appear in many titles.
+also_known_as:
+  GOOGL: [Google]
+  GOOG: [Google]

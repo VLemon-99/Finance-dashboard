@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hand-made sample in YouTube's channel feed format. Channel, videos and dates are invented. -->
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/" xmlns="http://www.w3.org/2005/Atom">
+ <link rel="self" href="http://www.youtube.com/feeds/videos.xml?channel_id=UCsampleChannelAAAAAAAAA"/>
+ <id>yt:channel:sampleChannelAAAAAAAAA</id>
+ <yt:channelId>UCsampleChannelAAAAAAAAA</yt:channelId>
+ <title>Sample Markets Channel</title>
+ <link rel="alternate" href="https://www.youtube.com/channel/UCsampleChannelAAAAAAAAA"/>
+ <author><name>Sample Markets Channel</name><uri>https://www.youtube.com/channel/UCsampleChannelAAAAAAAAA</uri></author>
+ <published>2019-03-01T10:00:00+00:00</published>
+ <entry>
+  <id>yt:video:sampleVid01</id>
+  <yt:videoId>sampleVid01</yt:videoId>
+  <yt:channelId>UCsampleChannelAAAAAAAAA</yt:channelId>
+  <title>Apple earnings: what the iPhone numbers really say</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=sampleVid01"/>
+  <author><name>Sample Markets Channel</name><uri>https://www.youtube.com/channel/UCsampleChannelAAAAAAAAA</uri></author>
+  <published>2026-11-01T14:00:00+00:00</published>
+  <updated>2026-11-01T14:00:00+00:00</updated>
+  <media:group>
+   <media:title>Apple earnings: what the iPhone numbers really say</media:title>
+   <media:content url="https://www.youtube.com/v/sampleVid01?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i1.ytimg.com/vi/sampleVid01/hqdefault.jpg" width="480" height="360"/>
+   <media:description>We go through Apple's September quarter line by line.
+Chapters:
+0:00 Intro
+3:15 iPhone</media:description>
+   <media:community><media:starRating count="120" average="5.00" min="1" max="5"/><media:statistics views="4200"/></media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:sampleVid02</id>
+  <yt:videoId>sampleVid02</yt:videoId>
+  <yt:channelId>UCsampleChannelAAAAAAAAA</yt:channelId>
+  <title>Three stocks I'm watching this week</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=sampleVid02"/>
+  <author><name>Sample Markets Channel</name><uri>https://www.youtube.com/channel/UCsampleChannelAAAAAAAAA</uri></author>
+  <published>2026-10-31T16:30:00+00:00</published>
+  <updated>2026-10-31T16:30:00+00:00</updated>
+  <media:group>
+   <media:title>Three stocks I'm watching this week</media:title>
+   <media:content url="https://www.youtube.com/v/sampleVid02?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i1.ytimg.com/vi/sampleVid02/hqdefault.jpg" width="480" height="360"/>
+   <media:description>Covering $AAPL, $MSFT and $NVDA ahead of the Fed meeting. Not financial advice.</media:description>
+   <media:community><media:starRating count="120" average="5.00" min="1" max="5"/><media:statistics views="4200"/></media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:sampleVid03</id>
+  <yt:videoId>sampleVid03</yt:videoId>
+  <yt:channelId>UCsampleChannelAAAAAAAAA</yt:channelId>
+  <title>Why the Fed matters for your portfolio</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=sampleVid03"/>
+  <author><name>Sample Markets Channel</name><uri>https://www.youtube.com/channel/UCsampleChannelAAAAAAAAA</uri></author>
+  <published>2026-10-30T12:00:00+00:00</published>
+  <updated>2026-10-30T12:00:00+00:00</updated>
+  <media:group>
+   <media:title>Why the Fed matters for your portfolio</media:title>
+   <media:content url="https://www.youtube.com/v/sampleVid03?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i1.ytimg.com/vi/sampleVid03/hqdefault.jpg" width="480" height="360"/>
+   <media:description>A look at interest rates and what they mean for markets.</media:description>
+   <media:community><media:starRating count="120" average="5.00" min="1" max="5"/><media:statistics views="4200"/></media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:sampleVid04</id>
+  <yt:videoId>sampleVid04</yt:videoId>
+  <yt:channelId>UCsampleChannelAAAAAAAAA</yt:channelId>
+  <title>Apple's new chips explained</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=sampleVid04"/>
+  <author><name>Sample Markets Channel</name><uri>https://www.youtube.com/channel/UCsampleChannelAAAAAAAAA</uri></author>
+  <published>2026-10-20T12:00:00+00:00</published>
+  <updated>2026-10-20T12:00:00+00:00</updated>
+  <media:group>
+   <media:title>Apple's new chips explained</media:title>
+   <media:content url="https://www.youtube.com/v/sampleVid04?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i1.ytimg.com/vi/sampleVid04/hqdefault.jpg" width="480" height="360"/>
+   <media:description>An older video, outside the 7-day window.</media:description>
+   <media:community><media:starRating count="120" average="5.00" min="1" max="5"/><media:statistics views="4200"/></media:community>
+  </media:group>
+ </entry>
+</feed>

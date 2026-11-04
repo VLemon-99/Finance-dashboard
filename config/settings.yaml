@@ -73,3 +73,19 @@ ai:
   # Most statements in the "Major developments" and "Rumors & speculation" sections.
   max_developments: 6
   max_rumors: 4
+  # YouTube videos (SPEC F4.5). The AI watches each new video once and keeps its summary,
+  # so a video is never watched twice (not even for another ticker).
+  # The most new videos watched in one run; the rest wait for the next run.
+  max_videos_per_run: 10
+  # How much of each video is watched, in minutes from the start. Longer videos cost more
+  # AI credit (roughly a few cents per 20 minutes on a Flash model).
+  max_video_minutes: 60
+  # How many videos are watched at the same time (faster runs).
+  parallel_videos: 3
+
+schedule:
+  # Automatic reports for every watchlist on weekdays (SPEC F4.9). Off for now: reports are
+  # started with "Generate now". To switch them on, change false to true and restart the app.
+  enabled: false
+  # Time of day, US Eastern, 24-hour clock. Keep the quotes.
+  time: "07:30"

@@ -234,6 +234,10 @@ SOURCES_NOW = datetime(2026, 11, 2, 12, 0, tzinfo=UTC)
 # Address (or the start of one) -> sample file. Checked in order; first match wins.
 DEFAULT_ROUTES = {
     "https://news.google.com/rss/search": "google_news_aapl.xml",
+    "https://www.youtube.com/feeds/videos.xml?channel_id=UCsampleChannelAAAAAAAAA": (
+        "youtube_channel.xml"
+    ),
+    "https://blog.example.com/feed/": "blog_feed.xml",
     "https://feeds.finance.yahoo.com/rss/2.0/headline?s=AAPL": "yahoo_news_aapl.xml",
     "https://www.sec.gov/files/company_tickers.json": "sec_company_tickers.json",
     "https://data.sec.gov/submissions/CIK0000320193.json": "sec_submissions_aapl.json",
@@ -290,8 +294,14 @@ def sources_now(monkeypatch):
     import app.services.reports
     import app.sources.edgar
     import app.sources.news_rss
+    import app.sources.youtube
 
-    for module in (app.sources.edgar, app.sources.news_rss, app.services.reports):
+    for module in (
+        app.sources.edgar,
+        app.sources.news_rss,
+        app.sources.youtube,
+        app.services.reports,
+    ):
         monkeypatch.setattr(module, "utc_now", lambda: SOURCES_NOW)
     return SOURCES_NOW
 

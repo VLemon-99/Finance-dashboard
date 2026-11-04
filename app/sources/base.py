@@ -1,5 +1,5 @@
-"""The source plug-in interface. Each research source (news feeds, SEC EDGAR, later YouTube,
-blogs, X, Reddit) is a small class with the same two methods, so the report pipeline can
+"""The source plug-in interface. Each research source (news feeds, SEC EDGAR, blogs, YouTube,
+later X and Reddit) is a small class with the same two methods, so the report pipeline can
 treat them all alike and one broken source never stops the others (SPEC F4.11).
 
 To add a source: write a class with `name`, `label`, `source_type`, `fetch()` and `enrich()`,
@@ -11,14 +11,13 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Literal, Protocol
 
-# Source types decide the sentiment weight (SPEC F4.6). Later phases add
-# "blog", "youtube", "x" and "reddit".
-SourceType = Literal["news", "filing"]
+# Source types decide the sentiment weight (SPEC F4.6). Later phases add "x" and "reddit".
+SourceType = Literal["news", "filing", "blog", "youtube"]
 
 
 @dataclass(frozen=True)
 class SourceItem:
-    """One piece of public content about a ticker: an article, a filing, later a video..."""
+    """One piece of public content about a ticker: an article, a filing, a blog post, a video."""
 
     source: str  # plug-in name, e.g. "google_news", "sec_edgar"
     source_type: SourceType

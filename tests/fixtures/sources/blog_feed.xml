@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hand-made sample in a typical WordPress RSS format. Blog, posts and dates are invented. -->
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<channel>
+<title>Sample Tech Strategy Blog</title>
+<link>https://blog.example.com</link>
+<description>Invented posts for tests</description>
+<item>
+  <title>Apple's services flywheel keeps spinning</title>
+  <link>https://blog.example.com/2026/11/01/apple-services-flywheel/</link>
+  <dc:creator>Sample Author</dc:creator>
+  <pubDate>Sun, 01 Nov 2026 13:00:00 +0000</pubDate>
+  <guid isPermaLink="false">https://blog.example.com/?p=101</guid>
+  <description><![CDATA[<p>Services revenue grew again. A short excerpt.</p>]]></description>
+  <content:encoded><![CDATA[<p>Services revenue grew again this quarter, and the margin keeps widening.</p><p>The full post continues with a longer argument about the App Store, subscriptions and what it means for the next few years.</p>]]></content:encoded>
+</item>
+<item>
+  <title>Notes on cloud capex</title>
+  <link>https://blog.example.com/2026/10/31/cloud-capex/</link>
+  <pubDate>Sat, 31 Oct 2026 10:00:00 +0000</pubDate>
+  <guid isPermaLink="false">https://blog.example.com/?p=100</guid>
+  <description><![CDATA[<p>$MSFT and $AMZN keep spending on data centres.</p>]]></description>
+</item>
+<item>
+  <title>Weekly links</title>
+  <link>https://blog.example.com/2026/10/30/weekly-links/</link>
+  <pubDate>Fri, 30 Oct 2026 18:00:00 +0000</pubDate>
+  <guid isPermaLink="false">https://blog.example.com/?p=99</guid>
+  <description><![CDATA[<p>This week: AAPL results, rates, and a book review.</p>]]></description>
+</item>
+<item>
+  <title>An older post about Apple</title>
+  <link>https://blog.example.com/2026/10/01/older-apple/</link>
+  <pubDate>Thu, 01 Oct 2026 12:00:00 +0000</pubDate>
+  <guid isPermaLink="false">https://blog.example.com/?p=90</guid>
+  <description><![CDATA[<p>Outside the report window.</p>]]></description>
+</item>
+</channel>
+</rss>
