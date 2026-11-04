@@ -1,7 +1,8 @@
 """Build research reports (SPEC F4): collect -> summarize -> compose -> store.
 
 For each ticker:
-1. Work out the period: since this ticker's previous report, at most `max_days` (F4.14).
+1. Work out the period: since this ticker's last report with AI summaries, at most `max_days`
+   back (F4.14; a report where the AI failed doesn't use up the period, owner 2026-11-04).
 2. Collect new items from every source (F4.11: failures are listed, not fatal).
 3. Have the AI summarize and rate new items (public content only, F4.13).
 4. Ask the AI for the "Major developments" and "Rumors & speculation" statements. Every
@@ -144,17 +145,36 @@ def watchlist_summary(reports: Sequence[Report]) -> dict[str, Any]:
 # --- one ticker -----------------------------------------------------------------------
 
 
+AI_NOTE_PREFIXES = ("AI summaries:", "AI report writing:")
+
+
+def had_ai(report: Report) -> bool:
+    """True if the report got its AI summaries and statements. Reports made before this flag
+    existed are judged by their "missing" notes."""
+    if "ai_complete" in (report.body or {}):
+        return bool(report.body["ai_complete"])
+    return not any(str(note).startswith(AI_NOTE_PREFIXES) for note in report.missing or [])
+
+
 def report_period(
     session: Session, user_id: int, ticker: str, now: datetime, max_days: int
 ) -> tuple[datetime, datetime]:
-    """Since the previous report for this ticker, but never more than `max_days` back."""
+    """Since the end of this ticker's last report that had AI summaries, but never more than
+    `max_days` back. A report where the AI failed or was off doesn't use up the period, so
+    the next one summarizes that news (bug seen 2026-11-04: after a failed AI run, the next
+    AMZN report covered only 7 minutes). A source being down doesn't extend the period."""
     earliest = now - timedelta(days=max_days)
     previous = session.exec(
-        select(Report.period_end)
-        .where(Report.user_id == user_id, Report.ticker == ticker)
+        select(Report)
+        .where(
+            Report.user_id == user_id,
+            Report.ticker == ticker,
+            col(Report.period_end) > earliest,
+        )
         .order_by(col(Report.period_end).desc())
-    ).first()
-    start = max(as_utc(previous), earliest) if previous else earliest
+    )
+    last_with_ai = next((r for r in previous if had_ai(r)), None)
+    start = max(as_utc(last_with_ai.period_end), earliest) if last_with_ai else earliest
     return start, now
 
 
@@ -206,6 +226,9 @@ def build_ticker_report(
         },
         "stories": stories,
         "ai_model": services.llm.model_name if services.llm else None,
+        # False if any AI step failed or AI is off: the next report then covers this
+        # period again (see report_period).
+        "ai_complete": not any(str(note).startswith(AI_NOTE_PREFIXES) for note in missing),
     }
     report = Report(
         user_id=run.user_id,
