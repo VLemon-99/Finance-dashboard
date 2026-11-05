@@ -61,6 +61,12 @@ class Settings(BaseSettings):
     # Funds followed and unusual options thresholds (see InstitutionalConfig, SPEC F4.8).
     institutional_file: Path = PROJECT_ROOT / "config" / "institutional.yaml"
 
+    # X (Twitter) posts in reports (see XConfig below, SPEC F4.3). Off unless switched on.
+    x_config_file: Path = PROJECT_ROOT / "config" / "x.yaml"
+
+    # X API "Bearer Token" (developer console -> your app -> Keys and tokens). Empty = X off.
+    x_bearer_token: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:
@@ -349,6 +355,47 @@ class InstitutionalConfig(_Section):
 def load_institutional_config(path: Path) -> InstitutionalConfig:
     """Read config/institutional.yaml."""
     return _load_yaml(path, InstitutionalConfig, "Institutional activity")
+
+
+# --- config/x.yaml (X/Twitter posts, SPEC F4.3, DECISIONS 2026-11-05) -----------------
+
+_X_HANDLE = re.compile(r"^[A-Za-z0-9_]{1,15}$")
+
+
+class XConfig(_Section):
+    """X posts in reports: trusted accounts first, then a $TICKER search, within a budget."""
+
+    enabled: bool = False
+    # Trusted accounts, by handle (with or without the "@").
+    accounts: list[str] = Field(default=[], max_length=100)
+    # Also search all of X for "$TICKER" with whatever budget the trusted accounts leave.
+    ticker_search: bool = True
+    # Hard spending limits (US dollars). The app stops asking X once either is reached.
+    monthly_budget_usd: float = Field(default=5.0, ge=0, le=1000)
+    daily_budget_usd: float = Field(default=0.22, ge=0, le=100)
+    # X's pay-per-use prices: each post read, and each account (user) record read.
+    price_per_post_usd: float = Field(default=0.005, gt=0, le=1)
+    price_per_user_usd: float = Field(default=0.010, gt=0, le=1)
+    # Posts asked for per search (X's smallest allowed answer is 10, its largest 100).
+    posts_per_search: int = Field(default=10, ge=10, le=100)
+    # Search posts naming more "$TICKERS" than this are skipped as likely spam.
+    max_cashtags_per_post: int = Field(default=5, ge=1, le=50)
+
+    @field_validator("accounts")
+    @classmethod
+    def _handles(cls, value: list[str]) -> list[str]:
+        handles = []
+        for raw in value:
+            handle = str(raw).strip().removeprefix("@")
+            if not _X_HANDLE.match(handle):
+                raise ValueError(f"'{raw}' isn't an X handle (up to 15 letters, digits or _)")
+            handles.append(handle)
+        return list(dict.fromkeys(h.lower() for h in handles))
+
+
+def load_x_config(path: Path) -> XConfig:
+    """Read config/x.yaml."""
+    return _load_yaml(path, XConfig, "X (Twitter)")
 
 
 # --- config/fomc_dates.yaml (Fed meetings, SPEC F5.2) ---------------------------------

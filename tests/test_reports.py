@@ -112,7 +112,8 @@ def test_sentiment_section(session, engine, user_id, services):
     assert sentiment["counts"] == {"bullish": 2, "neutral": 6, "bearish": 0}
     assert sentiment["score"] == 25
     assert sentiment["rated"] == 8
-    assert sentiment["weights"]["news"] == 1.0 and sentiment["weights"]["reddit"] == 0.3
+    # Only the switched-on source types are listed (Phase 8: an off source leaves the list).
+    assert sentiment["weights"] == {"filing": 1.0, "news": 1.0}
 
 
 def test_insider_section(session, engine, user_id, services):

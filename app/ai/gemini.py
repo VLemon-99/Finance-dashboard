@@ -49,8 +49,9 @@ For each item about {subject}, return:
 - is_rumor: true if the item reports something unconfirmed (anonymous sources, "reportedly",
   "in talks", speculation), false for confirmed facts, filings and official announcements.
 Items with kind="blog" are blog posts. Items with kind="video" are YouTube videos: their
-text is a summary of what the video says, plus its description. Opinions and predictions in
-blogs and videos are the author's views, not confirmed facts.
+text is a summary of what the video says, plus its description. Items with kind="post" are
+posts on X (Twitter). Opinions and predictions in blogs, videos and posts are the author's
+views, not confirmed facts; a post claiming news nobody else reports is unconfirmed.
 Skip items that aren't actually about {subject}.
 """
 )

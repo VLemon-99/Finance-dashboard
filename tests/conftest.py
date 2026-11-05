@@ -420,16 +420,64 @@ def sources_now(monkeypatch):
     import app.services.reports
     import app.sources.edgar
     import app.sources.news_rss
+    import app.sources.x
     import app.sources.youtube
 
     for module in (
         app.sources.edgar,
         app.sources.news_rss,
+        app.sources.x,
         app.sources.youtube,
         app.services.reports,
     ):
         monkeypatch.setattr(module, "utc_now", lambda: SOURCES_NOW)
     return SOURCES_NOW
+
+
+# --- X (Phase 8): a fake X server -----------------------------------------------------
+
+
+FAKE_BEARER = "fake-test-value"  # stands in for X_BEARER_TOKEN
+
+
+class FakeX:
+    """Stands in for X's recent search. Searches with "from:" get the trusted-accounts sample,
+    others the $TICKER sample. Set `status` to answer with an error, `answer` to send other
+    bytes, `empty` for no posts. Records every request's query parameters in `requests`."""
+
+    def __init__(self) -> None:
+        self.status = 200
+        self.answer: bytes | None = None
+        self.empty = False
+        self.requests: list[dict[str, str]] = []
+
+    def handler(self, request):
+        import httpx
+
+        self.requests.append(dict(request.url.params))
+        if self.status != 200:
+            return httpx.Response(self.status, json={"title": "Error", "detail": "Sample error"})
+        if self.answer is not None:
+            return httpx.Response(200, content=self.answer)
+        query = request.url.params.get("query", "")
+        name = (
+            "x_search_empty.json"
+            if self.empty
+            else ("x_search_accounts.json" if "from:" in query else "x_search_ticker.json")
+        )
+        return httpx.Response(200, content=(SOURCE_FIXTURES / name).read_bytes())
+
+    def api(self, token: str = FAKE_BEARER):
+        import httpx
+
+        from app.sources.x import XApi
+
+        return XApi(token, transport=httpx.MockTransport(self.handler))
+
+
+@pytest.fixture
+def fake_x():
+    return FakeX()
 
 
 # --- the AI (Phase 3): always faked in tests ------------------------------------------

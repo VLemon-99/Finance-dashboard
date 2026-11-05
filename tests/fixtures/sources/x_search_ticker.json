@@ -1,0 +1,30 @@
+{
+  "_note": "Hand-made sample in the format of X's GET /2/tweets/search/recent answer (no expansions). Invented posts and numbers. The last post is cashtag spam.",
+  "data": [
+    {
+      "id": "1985000000000000013",
+      "text": "$AAPL breaking above its 50-day average on heavy volume this morning.",
+      "created_at": "2026-11-02T10:05:00.000Z",
+      "author_id": "333",
+      "edit_history_tweet_ids": ["1985000000000000013"],
+      "public_metrics": {"retweet_count": 30, "reply_count": 8, "like_count": 410, "quote_count": 2}
+    },
+    {
+      "id": "1985000000000000012",
+      "text": "Rumor: Apple in talks to buy a streaming service? Unconfirmed. $AAPL",
+      "created_at": "2026-11-01T20:40:00.000Z",
+      "author_id": "444",
+      "edit_history_tweet_ids": ["1985000000000000012"],
+      "public_metrics": {"retweet_count": 2, "reply_count": 5, "like_count": 22, "quote_count": 0}
+    },
+    {
+      "id": "1985000000000000011",
+      "text": "FREE SIGNALS $AAPL $TSLA $NVDA $AMD $META $AMZN $GOOG join now",
+      "created_at": "2026-11-01T18:00:00.000Z",
+      "author_id": "555",
+      "edit_history_tweet_ids": ["1985000000000000011"],
+      "public_metrics": {"retweet_count": 0, "reply_count": 0, "like_count": 1, "quote_count": 0}
+    }
+  ],
+  "meta": {"newest_id": "1985000000000000013", "oldest_id": "1985000000000000011", "result_count": 3}
+}

@@ -45,7 +45,13 @@ def pending_items(session: Session, ticker: str, since: datetime) -> list[Source
 
 def item_kind(source_type: str) -> ItemKind:
     """How an item is labelled for the AI and on report pages."""
-    return {"filing": "filing", "blog": "blog", "youtube": "video"}.get(source_type, "news")
+    kinds: dict[str, ItemKind] = {
+        "filing": "filing",
+        "blog": "blog",
+        "youtube": "video",
+        "x": "post",
+    }
+    return kinds.get(source_type, "news")
 
 
 def public_item(row: SourceItemRow, max_chars: int) -> PublicItem:
