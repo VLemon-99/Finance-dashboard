@@ -93,6 +93,12 @@ Reports use only the channels and blogs you list in `config/sources.yaml` (open 
 
 A video or post is used when its title or description mentions the ticker (e.g. `AMZN` or `$AMZN`) or the company's name. If a company goes by another name (Alphabet → Google), add it under `also_known_as`. The AI watches each new video once (never twice, even for another ticker), at most 10 per run; the rest wait for the next run. Change the limit in `config/settings.yaml` → `ai: max_videos_per_run`. Each 20-minute video costs roughly 4–6 cents of AI credit.
 
+**Valuation comparisons and funds you follow** (optional)
+
+Each report's "Valuation snapshot" compares the stock with its own past years, its industry's largest companies, its sector's largest companies and Professor Damodaran's industry average (free, no key). Nothing needs setting up. To change a comparison for one stock (another sector, your own peer list), open `config/benchmarks.yaml`: AMZN is already set to Technology, and the file shows an example.
+
+The "Institutional & insider activity" part lists which of the funds you follow hold the stock and whether they bought or sold last quarter (from their 13F reports at the SEC; needs the SEC contact above). The list is in `config/institutional.yaml` and starts with 10 well-known investors (Berkshire Hathaway, Pershing Square and others); add or remove funds there. The same file has the thresholds for unusual options activity. Restart the app after editing either file.
+
 **Setting up the calendar** (one time, about 2 minutes)
 
 The Calendar page (and the "Coming up" box on the home page) shows your stocks' earnings dates, Fed meetings, and the dates of CPI, the jobs report, PCE and GDP. Those four come from FRED, the St. Louis Fed's free data service, which needs a free key. Without it they show as missing; everything else works.

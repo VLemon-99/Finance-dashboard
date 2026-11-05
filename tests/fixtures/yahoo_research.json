@@ -1,0 +1,44 @@
+{
+  "_note": "Hand-made sample in yfinance's formats (Phase 7). All companies' numbers are INVENTED; the cloud build machine can't reach Yahoo. 'info' is a subset of Ticker.info; 'groups' are Sector/Industry.top_companies (symbol, name, rating, market weight; biggest first); 'financials' are Ticker.income_stmt / balance_sheet as {row: {year-end: value}} plus daily closes; 'holders' are Ticker.institutional_holders rows (reportDate in seconds) and major_holders values.",
+  "info": {
+    "AAPL": {"quoteType": "EQUITY", "longName": "Apple Inc.", "sector": "Technology", "sectorKey": "technology", "industry": "Consumer Electronics", "industryKey": "consumer-electronics", "currentPrice": 200.0, "marketCap": 3000000000000, "sharesOutstanding": 15000000000, "trailingPE": 30.0, "forwardPE": 27.0, "enterpriseToEbitda": 22.0, "priceToSalesTrailing12Months": 7.5, "targetLowPrice": 180.0, "targetMeanPrice": 230.0, "targetHighPrice": 260.0, "numberOfAnalystOpinions": 40},
+    "MSFT": {"quoteType": "EQUITY", "longName": "Microsoft Corporation", "sector": "Technology", "sectorKey": "technology", "industry": "Software - Infrastructure", "industryKey": "software-infrastructure", "currentPrice": 400.0, "marketCap": 3000000000000, "sharesOutstanding": 7500000000, "trailingPE": 35.0, "forwardPE": 30.0, "enterpriseToEbitda": 24.0, "priceToSalesTrailing12Months": 12.0},
+    "NVDA": {"quoteType": "EQUITY", "longName": "NVIDIA Corporation", "sector": "Technology", "sectorKey": "technology", "industry": "Semiconductors", "industryKey": "semiconductors", "currentPrice": 150.0, "marketCap": 3600000000000, "sharesOutstanding": 24000000000, "trailingPE": 50.0, "forwardPE": 35.0, "enterpriseToEbitda": 40.0, "priceToSalesTrailing12Months": 25.0},
+    "ORCL": {"quoteType": "EQUITY", "longName": "Oracle Corporation", "sector": "Technology", "sectorKey": "technology", "industry": "Software - Infrastructure", "industryKey": "software-infrastructure", "currentPrice": 180.0, "marketCap": 500000000000, "sharesOutstanding": 2800000000, "trailingPE": 40.0, "forwardPE": 25.0, "enterpriseToEbitda": 20.0, "priceToSalesTrailing12Months": 9.0},
+    "SONY": {"quoteType": "EQUITY", "longName": "Sony Group Corporation", "sector": "Technology", "sectorKey": "technology", "industry": "Consumer Electronics", "industryKey": "consumer-electronics", "currentPrice": 25.0, "marketCap": 150000000000, "sharesOutstanding": 6000000000, "trailingPE": 20.0, "forwardPE": 18.0, "enterpriseToEbitda": 12.0, "priceToSalesTrailing12Months": 1.5},
+    "GPRO": {"quoteType": "EQUITY", "longName": "GoPro, Inc.", "sector": "Technology", "sectorKey": "technology", "industry": "Consumer Electronics", "industryKey": "consumer-electronics", "currentPrice": 1.2, "marketCap": 190000000, "sharesOutstanding": 158000000, "trailingPE": "Infinity", "forwardPE": 40.0, "enterpriseToEbitda": -5.0, "priceToSalesTrailing12Months": 0.6},
+    "LPL": {"quoteType": "EQUITY", "longName": "LG Display Co., Ltd.", "sector": "Technology", "sectorKey": "technology", "industry": "Consumer Electronics", "industryKey": "consumer-electronics", "currentPrice": 4.0, "marketCap": 4000000000, "sharesOutstanding": 1000000000, "trailingPE": 10.0, "forwardPE": 9.0, "enterpriseToEbitda": 4.0, "priceToSalesTrailing12Months": 0.3},
+    "AMZN": {"quoteType": "EQUITY", "longName": "Amazon.com, Inc.", "sector": "Consumer Cyclical", "sectorKey": "consumer-cyclical", "industry": "Internet Retail", "industryKey": "internet-retail", "currentPrice": 250.0, "marketCap": 2650000000000, "sharesOutstanding": 10600000000, "trailingPE": 36.0, "forwardPE": 30.0, "enterpriseToEbitda": 19.0, "priceToSalesTrailing12Months": 3.9, "targetLowPrice": 220.0, "targetMeanPrice": 290.0, "targetHighPrice": 340.0, "numberOfAnalystOpinions": 55},
+    "BABA": {"quoteType": "EQUITY", "longName": "Alibaba Group Holding Limited", "sector": "Consumer Cyclical", "sectorKey": "consumer-cyclical", "industry": "Internet Retail", "industryKey": "internet-retail", "currentPrice": 120.0, "marketCap": 280000000000, "sharesOutstanding": 2300000000, "trailingPE": 15.0, "forwardPE": 12.0, "enterpriseToEbitda": 10.0, "priceToSalesTrailing12Months": 2.0},
+    "MELI": {"quoteType": "EQUITY", "longName": "MercadoLibre, Inc.", "sector": "Consumer Cyclical", "sectorKey": "consumer-cyclical", "industry": "Internet Retail", "industryKey": "internet-retail", "currentPrice": 2000.0, "marketCap": 100000000000, "sharesOutstanding": 50000000, "trailingPE": 55.0, "forwardPE": 40.0, "enterpriseToEbitda": 30.0, "priceToSalesTrailing12Months": 4.5},
+    "TSLA": {"quoteType": "EQUITY", "longName": "Tesla, Inc.", "sector": "Consumer Cyclical", "sectorKey": "consumer-cyclical", "industry": "Auto Manufacturers", "industryKey": "auto-manufacturers", "currentPrice": 400.0, "marketCap": 1300000000000, "sharesOutstanding": 3200000000, "trailingPE": 180.0, "forwardPE": 120.0, "enterpriseToEbitda": 90.0, "priceToSalesTrailing12Months": 13.0},
+    "HD": {"quoteType": "EQUITY", "longName": "The Home Depot, Inc.", "sector": "Consumer Cyclical", "sectorKey": "consumer-cyclical", "industry": "Home Improvement Retail", "industryKey": "home-improvement-retail", "currentPrice": 380.0, "marketCap": 380000000000, "sharesOutstanding": 1000000000, "trailingPE": 25.0, "forwardPE": 23.0, "enterpriseToEbitda": 17.0, "priceToSalesTrailing12Months": 2.4}
+  },
+  "groups": {
+    "industry:consumer-electronics": {"name": "Consumer Electronics", "top": [["AAPL", "Apple Inc.", "Buy", 0.9], ["SONY", "Sony Group Corporation", "Buy", 0.05], ["6758.T", "Sony (Tokyo listing)", null, 0.03], ["GPRO", "GoPro, Inc.", "Hold", 0.01], ["LPL", "LG Display Co., Ltd.", "Hold", 0.01]]},
+    "industry:internet-retail": {"name": "Internet Retail", "top": [["AMZN", "Amazon.com, Inc.", "Buy", 0.8], ["BABA", "Alibaba Group Holding Limited", "Buy", 0.1], ["MELI", "MercadoLibre, Inc.", "Buy", 0.05]]},
+    "sector:technology": {"name": "Technology", "top": [["NVDA", "NVIDIA Corporation", "Buy", 0.2], ["MSFT", "Microsoft Corporation", "Buy", 0.18], ["AAPL", "Apple Inc.", "Buy", 0.17], ["ORCL", "Oracle Corporation", "Buy", 0.03]]},
+    "sector:consumer-cyclical": {"name": "Consumer Cyclical", "top": [["AMZN", "Amazon.com, Inc.", "Buy", 0.3], ["TSLA", "Tesla, Inc.", "Hold", 0.2], ["HD", "The Home Depot, Inc.", "Buy", 0.06]]}
+  },
+  "financials": {
+    "income_stmt": {
+      "Diluted EPS": {"2022-09-30": 5.0, "2023-09-30": 6.0, "2024-09-30": 4.0, "2025-09-30": -1.0},
+      "Total Revenue": {"2022-09-30": 300000000000, "2023-09-30": 360000000000, "2024-09-30": 400000000000, "2025-09-30": 420000000000},
+      "EBITDA": {"2022-09-30": 100000000000, "2023-09-30": 120000000000, "2024-09-30": 130000000000, "2025-09-30": 140000000000}
+    },
+    "balance_sheet": {
+      "Total Debt": {"2022-09-30": 100000000000, "2023-09-30": 100000000000, "2024-09-30": 100000000000, "2025-09-30": 100000000000},
+      "Cash Cash Equivalents And Short Term Investments": {"2022-09-30": 50000000000, "2023-09-30": 50000000000, "2024-09-30": 50000000000, "2025-09-30": 50000000000},
+      "Ordinary Shares Number": {"2022-09-30": 15000000000, "2023-09-30": 15000000000, "2024-09-30": 15000000000, "2025-09-30": 15000000000}
+    },
+    "closes": {"2022-09-29": 99.0, "2022-09-30": 100.0, "2023-09-29": 150.0, "2024-09-27": 160.0, "2024-09-30": 120.0, "2025-09-26": 170.0}
+  },
+  "holders": {
+    "institutional_holders": [
+      {"reportDate": 1751241600, "organization": "Vanguard Group Inc", "pctHeld": 0.0912, "position": 1368000000, "value": 273600000000, "pctChange": 0.0123},
+      {"reportDate": 1751241600, "organization": "Blackrock Inc.", "pctHeld": 0.0745, "position": 1117500000, "value": 223500000000, "pctChange": -0.0081},
+      {"reportDate": 1751241600, "organization": "State Street Corporation", "pctHeld": 0.0398, "position": 597000000, "value": 119400000000, "pctChange": 0.21}
+    ],
+    "major_holders": {"insidersPercentHeld": 0.021, "institutionsPercentHeld": 0.6231, "institutionsFloatPercentHeld": 0.6367, "institutionsCount": 6512}
+  }
+}

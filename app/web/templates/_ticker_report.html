@@ -39,6 +39,32 @@
   <section>
     {% set ins = body.insider %}
     <h3>Institutional &amp; insider activity</h3>
+    {% set inst = body.institutional %}
+    {% if inst and inst.ownership %}{% set o = inst.ownership %}
+    <p>Institutions hold <strong>{{ o.institutions_pct | percent }}</strong> of the shares{% if o.institutions_count %} ({{ o.institutions_count | whole }} institutions{% if o.as_of %}, as of {{ o.as_of | iso_day }}{% endif %}){% endif %}.</p>
+    {% if o.top %}
+    <details class="more"><summary>Top {{ o.top | length }} institutional holders</summary>
+      <div class="table-wrap"><table class="stocks compact">
+        <thead><tr><th>Holder</th><th class="num">% of shares</th><th class="num">Change in stake</th></tr></thead>
+        <tbody>{% for h in o.top %}
+          <tr><td>{{ h.name }}</td><td class="num">{{ h.pct_held | percent(2) }}</td><td class="num {{ h.pct_change | trend(3) }}">{{ h.pct_change | vs if h.pct_change is not none else "—" }}</td></tr>{% endfor %}
+        </tbody>
+      </table></div>
+      <p class="muted small">From each institution's latest quarterly 13F report (via Yahoo Finance); the change is since its previous report.</p>
+    </details>
+    {% endif %}
+    {% endif %}
+    {% if inst and inst.funds %}{% set f = inst.funds %}
+    <p>Funds you follow{% if f.period %} (13F reports for the quarter ending {{ f.period | iso_day }}){% endif %}:
+      {% if f.positions %}</p>
+    <ul class="compact-list">{% for p in f.positions %}
+      <li><strong>{{ p.fund }}</strong>
+        <span class="{{ 'up' if p.status in ('new', 'added') else ('down' if p.status in ('reduced', 'sold') else 'flat') }}">{{ fund_status[p.status] }}{% if p.status in ('added', 'reduced') %} {{ p.change | vs }}{% endif %}</span>{% if p.status != 'sold' %}
+        <span class="muted small">· {{ p.shares | compact }} shares{% if p.portfolio_pct is not none %}, {{ p.portfolio_pct | percent }} of its portfolio{% endif %}</span>{% endif %}
+        {% if p.url %}<a class="small" href="{{ p.url }}" rel="noopener noreferrer" target="_blank">13F</a>{% endif %}</li>{% endfor %}
+    </ul>
+      {% else %}none of the {{ f.checked }} hold it.</p>{% endif %}
+    {% endif %}
     {% set sec_off = ins.available is defined and not ins.available %}
     {% if sec_off %}
     <p class="note warning">SEC filings couldn't be collected for this report (see "Missing from this report" above), so insider trades and 5%+ holder reports are {% if ins.trades or ins.holder_filings %}shown only from earlier downloads and may be incomplete{% else %}not available{% endif %}.</p>
@@ -74,12 +100,76 @@
     <ul>{% for h in ins.holder_filings %}<li><a href="{{ h.source.url }}" rel="noopener noreferrer" target="_blank">{{ h.source.title }}</a> <span class="muted small">{{ h.source.outlet }}, {{ h.source.published_at | from_iso | eastern }}</span></li>{% endfor %}</ul>
       {% else %}none.</p>{% endif %}
     {% endif %}
-    <p class="muted small">Top institutional holders and unusual options activity come in a later phase.</p>
+    {% set uo = body.unusual_options %}
+    {% if uo %}
+    <p>Unusual options activity:
+      {% if uo.count %}<strong>{{ uo.count }} contract{{ "" if uo.count == 1 else "s" }}</strong>: {{ uo.calls }} call{{ "" if uo.calls == 1 else "s" }} ({{ uo.call_volume | whole }} traded), {{ uo.puts }} put{{ "" if uo.puts == 1 else "s" }} ({{ uo.put_volume | whole }} traded).</p>
+    <details class="more"><summary>Contracts</summary>
+      <div class="table-wrap"><table class="stocks compact">
+        <thead><tr><th>Contract</th><th class="num">Volume</th><th class="num">Open interest</th><th class="num">Volume ÷ OI</th><th class="num">Last</th><th class="num">IV</th></tr></thead>
+        <tbody>{% for c in uo.contracts %}
+          <tr><td>{{ c.expiration | iso_day }} {{ c.strike | strike }} {{ c.type }}</td><td class="num">{{ c.volume | whole }}</td><td class="num">{{ c.open_interest | whole }}</td><td class="num">{{ c.ratio | number(1) if c.ratio is not none else "new" }}</td><td class="num">{{ c.last_price | money }}</td><td class="num">{{ c.implied_volatility | percent }}</td></tr>{% endfor %}
+        </tbody>
+      </table></div>
+      <p class="muted small">{% if uo.count > uo.contracts | length %}The {{ uo.contracts | length }} with the most volume of {{ uo.count }}. {% endif %}Checked {{ uo.as_of | from_iso | eastern }}; outside market hours, volume is the last session's.</p>
+    </details>
+      {% else %}{% if uo.expirations %}no unusual contracts today{% else %}no listed options in the next {{ uo.days_ahead }} days{% endif %}.</p>{% endif %}
+    <p class="muted small">Unusual: volume over {{ uo.volume_to_open_interest | number(1) }}× open interest and at least {{ uo.min_volume | whole }} contracts, expirations in the next {{ uo.days_ahead }} days.</p>
+    {% endif %}
   </section>
 
   <section>
     <h3>Valuation snapshot</h3>
-    <p class="muted">Coming in a later phase (P/E, EV/EBITDA, P/S against the stock's history and peers; analyst targets).</p>
+    {% set v = body.valuation %}
+    {% if v %}
+    {% set ns = namespace(cols=[]) %}
+    {% for key, label, shown in [("history", "Own history", v.history), ("industry", "Peers", v.industry_peers), ("sector", "Sector", v.sector_group), ("damodaran", "Industry avg", v.damodaran)] %}{% if shown %}{% set ns.cols = ns.cols + [(key, label)] %}{% endif %}{% endfor %}
+    <div class="table-wrap"><table class="stocks compact valuation">
+      <thead><tr><th></th><th class="num">Now</th>{% for key, label in ns.cols %}<th class="num">{{ label }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for r in v.rows %}
+        <tr><th scope="row">{{ r.label }}</th><td class="num"><strong>{{ r.now | multiple }}</strong></td>
+          {% for key, label in ns.cols %}{% set cell = r[key] %}
+          <td class="num"{% if key == "history" and cell %} title="{{ v.history.span }}: {{ cell.low | multiple }} to {{ cell.high | multiple }}"{% endif %}>{% if cell %}{{ (cell.average if key == "history" else cell.value) | multiple }}<span class="vs">{{ cell.vs | vs }}</span>{% else %}—{% endif %}</td>{% endfor %}
+        </tr>{% endfor %}
+      </tbody>
+    </table></div>
+    <p class="muted small">
+      {%- set parts = [] -%}
+      {%- if v.history %}{% set parts = parts + ["Own history: " ~ v.history.span ~ " average"] %}{% endif -%}
+      {%- if v.industry_peers %}{% set parts = parts + ["Peers: " ~ ("your list" if v.industry_peers.custom else v.industry_peers.name ~ "'s " ~ (v.industry_peers.peers | length) ~ " largest")] %}{% endif -%}
+      {%- if v.sector_group %}{% set parts = parts + ["Sector: " ~ v.sector_group.name ~ "'s " ~ v.sector_group.count ~ " largest" ~ (" (your setting)" if v.sector_group.override else "")] %}{% endif -%}
+      {%- if v.damodaran %}{% set parts = parts + ["Industry avg: Damodaran, " ~ v.damodaran.industry ~ ((", " ~ v.damodaran.updated) if v.damodaran.updated else "")] %}{% endif -%}
+      {{ parts | join(" · ") }}. Groups use the median; ±% = this stock above or below each.</p>
+    {% if v.targets %}{% set t = v.targets %}
+    <p>Analyst targets{% if t.analysts %} ({{ t.analysts }}){% endif %}:
+      {% for k, label in [("low", "low"), ("mean", "average"), ("high", "high")] %}{% if t[k] %}{{ label }} ${{ t[k] | money }} <span class="vs">{{ t[k ~ "_vs"] | vs }}</span>{{ " · " if not loop.last }}{% endif %}{% endfor %}</p>
+    {% endif %}
+    {% if v.industry_peers or v.history %}
+    <details class="more"><summary>Peers and yearly figures</summary>
+      {% if v.industry_peers %}
+      <div class="table-wrap"><table class="stocks compact">
+        <thead><tr><th>Peer</th>{% for r in v.rows %}<th class="num">{{ r.label }}</th>{% endfor %}</tr></thead>
+        <tbody>{% for peer in v.industry_peers.peers %}
+          <tr><td>{{ peer.symbol }} <span class="muted small">{{ peer.name }}</span></td>{% for r in v.rows %}<td class="num">{{ peer[r.key] | multiple }}</td>{% endfor %}</tr>{% endfor %}
+        </tbody>
+      </table></div>
+      {% endif %}
+      {% if v.history %}
+      <div class="table-wrap"><table class="stocks compact">
+        <thead><tr><th>Fiscal year</th><th class="num">P/E</th><th class="num">EV/EBITDA</th><th class="num">P/S</th></tr></thead>
+        <tbody>{% for y in v.history.years %}
+          <tr><td>{{ y.year }}</td><td class="num">{{ y.pe | multiple }}</td><td class="num">{{ y.ev_ebitda | multiple }}</td><td class="num">{{ y.ps | multiple }}</td></tr>{% endfor %}
+        </tbody>
+      </table></div>
+      <p class="muted small">Each year's figures with the share price at the year's end. "—" = a loss (not meaningful).{% if v.history.skipped %} {{ v.history.skipped }} earlier year(s) left out: their share count doesn't match today's (a stock split).{% endif %}</p>
+      {% endif %}
+    </details>
+    {% endif %}
+    {% elif body.institutional is defined %}
+    <p class="muted">Not available for this ticker (see "Missing from this report" above).</p>
+    {% else %}
+    <p class="muted">Not part of reports made before valuations were added.</p>
+    {% endif %}
   </section>
 
   <section>

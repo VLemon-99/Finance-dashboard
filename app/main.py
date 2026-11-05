@@ -17,15 +17,20 @@ from app.config import (
     Settings,
     get_settings,
     load_app_config,
+    load_benchmarks_config,
     load_fomc_config,
+    load_institutional_config,
     load_sources_config,
 )
 from app.db.session import database_is_set_up, database_is_up_to_date, make_engine
+from app.providers.damodaran import DamodaranClient
 from app.providers.fred import FredClient
 from app.providers.market_data import MarketData
+from app.providers.sec_13f import ThirteenFClient
 from app.providers.yahoo import YahooMarketData
 from app.scheduler import start_scheduler
 from app.services.calendar import CalendarSetup
+from app.services.market_facts import MarketFacts
 from app.services.options import RiskFreeRate
 from app.services.portfolio import TradeNotFound
 from app.services.reports import ReportServices, execute_run, mark_interrupted_runs
@@ -58,19 +63,32 @@ def run_in_background(
     thread.start()
 
 
-def build_report_services(settings: Settings, app_config: AppConfig) -> ReportServices:
+def build_report_services(
+    settings: Settings, app_config: AppConfig, market_data: MarketData
+) -> ReportServices:
     sources_config = load_sources_config(settings.sources_config_file)
+    sources = build_sources(settings, sources_config)
     try:
         llm = GeminiLLM(settings.gemini_api_key, app_config.ai.model, app_config.ai.timeout_seconds)
         problem = None
     except AIError as exc:  # no key yet: reports still work, without AI text
         llm, problem = None, str(exc)
+    benchmarks = load_benchmarks_config(settings.benchmarks_file)
+    facts = MarketFacts(
+        market_data=market_data,
+        benchmarks=benchmarks,
+        damodaran=DamodaranClient(sources.web_fetch, benchmarks.damodaran),
+        funds=ThirteenFClient(sources.sec_fetch, settings.sec_user_agent),
+        institutional=load_institutional_config(settings.institutional_file),
+        max_parallel=app_config.market_data.max_parallel_fetches,
+    )
     return ReportServices(
-        sources=build_sources(settings, sources_config),
+        sources=sources,
         llm=llm,
         llm_problem=problem,
         config=app_config,
         sources_config=sources_config,
+        facts=facts,
     )
 
 
@@ -88,7 +106,7 @@ def create_app(
     app_config = app_config or load_app_config(settings.app_config_file)
     engine = engine or make_engine(settings.database_url)
     market_data = market_data or YahooMarketData(settings.market_data_timeout_seconds)
-    report_services = report_services or build_report_services(settings, app_config)
+    report_services = report_services or build_report_services(settings, app_config, market_data)
     fred = fred or FredClient(settings.fred_api_key, settings.source_timeout_seconds)
     fomc = fomc or load_fomc_config(settings.fomc_dates_file)
 

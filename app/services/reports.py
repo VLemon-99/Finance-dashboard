@@ -7,7 +7,9 @@ For each ticker:
    then summarize and rate new items (public content only, F4.13).
 4. Ask the AI for the "Major developments" and "Rumors & speculation" statements. Every
    statement must cite stories we gave it; anything uncited is dropped (F4.2).
-5. Work out the sentiment score and insider totals in code (F4.6, F4.8).
+5. Work out the sentiment score and insider totals in code (F4.6, F4.8). Valuation,
+   institutional holders and unusual options (F4.7, F4.8) come from market_facts.py,
+   fetched for all of a run's tickers together.
 6. Save the report as structured JSON. Pages render it; nothing is re-asked of the AI.
 
 A whole watchlist run collects for every ticker first, then watches the run's new videos
@@ -30,6 +32,7 @@ from app.config import AppConfig, SourcesConfig
 from app.db.models import Report, ReportRun, SourceItemRow
 from app.services.collect import CollectResult, collect_for_ticker
 from app.services.insider import insider_summary
+from app.services.market_facts import MarketFacts, TickerFacts
 from app.services.sentiment import sentiment_score
 from app.services.summarize import is_form4, item_kind, summarize_pending
 from app.services.videos import (
@@ -59,6 +62,8 @@ class ReportServices:
     llm_problem: str | None  # why there's no AI, shown in the report
     config: AppConfig
     sources_config: SourcesConfig
+    # Valuation, holders, unusual options (Phase 7). None leaves those sections out.
+    facts: MarketFacts | None = None
 
 
 # --- runs (one ticker or a whole watchlist) ------------------------------------------
@@ -124,6 +129,7 @@ def execute_run(
                     run.done += 1
                     session.commit()
 
+            facts = gather_facts(session, run, [p.ticker for p in prepared], services)
             notes = watch_videos(session, run, prepared, services)
 
             for item in prepared:
@@ -131,7 +137,12 @@ def execute_run(
                 try:
                     reports.append(
                         finish_ticker_report(
-                            session, run, item, services, notes.get(item.ticker, [])
+                            session,
+                            run,
+                            item,
+                            services,
+                            notes.get(item.ticker, []),
+                            facts.get(item.ticker),
                         )
                     )
                 except Exception:
@@ -191,6 +202,29 @@ def watch_videos(
             p.ticker: [f"{AI_VIDEO_NOTE} unexpected error (details in the app log)."]
             for p in prepared
         }
+
+
+FACTS_FAILED = "Valuation, holders and options: unexpected error (details in the app log)."
+
+
+def gather_facts(
+    session: Session, run: ReportRun, tickers: Sequence[str], services: ReportServices
+) -> dict[str, TickerFacts]:
+    """Valuation, holders and unusual options for these tickers (F4.7, F4.8)."""
+    if services.facts is None or not tickers:
+        return {}
+    _set_stage(session, run, "Fetching valuation, holders and options data")
+    edgar = services.sources.edgar
+
+    def sec_name(ticker: str) -> str | None:
+        found = edgar.company(ticker) if edgar else None
+        return found[1] if found else None
+
+    try:
+        return services.facts.gather(tickers, company_names=sec_name)
+    except Exception:  # the reports are still made, saying this part is missing
+        log.exception("Fetching market facts failed unexpectedly")
+        return {t: TickerFacts(missing=[FACTS_FAILED]) for t in tickers}
 
 
 def watchlist_summary(reports: Sequence[Report]) -> dict[str, Any]:
@@ -254,8 +288,11 @@ def build_ticker_report(
 ) -> Report:
     """One ticker from start to finish (collect, watch its videos, summarize, write)."""
     prepared = prepare_ticker(session, run, ticker, services)
+    facts = gather_facts(session, run, [ticker], services)
     notes = watch_videos(session, run, [prepared], services)
-    return finish_ticker_report(session, run, prepared, services, notes.get(ticker, []))
+    return finish_ticker_report(
+        session, run, prepared, services, notes.get(ticker, []), facts.get(ticker)
+    )
 
 
 def finish_ticker_report(
@@ -264,12 +301,14 @@ def finish_ticker_report(
     prepared: PreparedTicker,
     services: ReportServices,
     video_notes: Sequence[str] = (),
+    facts: TickerFacts | None = None,
 ) -> Report:
     cfg = services.config
     ticker, start, end = prepared.ticker, prepared.start, prepared.end
     now = end
     collected = prepared.collected
-    missing = list(collected.missing) + list(video_notes)
+    facts = facts or TickerFacts()
+    missing = list(collected.missing) + list(video_notes) + list(facts.missing)
     company = collected.company
 
     if services.llm is None:
@@ -300,7 +339,10 @@ def finish_ticker_report(
             # switched off): the page then says "not available" instead of "none".
             "available": _sec_collected(services, collected.failed_sources),
         },
-        "valuation": None,  # Phase 7 (F4.7)
+        # Phase 7 (F4.7, F4.8). None = not available; older reports don't have the last two.
+        "valuation": facts.valuation,
+        "institutional": facts.institutional,
+        "unusual_options": facts.unusual_options,
         "sentiment": {
             "score": score.score,
             "counts": score.counts,

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hand-made sample in the SEC 13F information table format (Phase 7). Holdings are INVENTED. -->
+<ns1:informationTable xmlns:ns1="http://www.sec.gov/edgar/document/thirteenf/informationtable">
+  <ns1:infoTable>
+    <ns1:nameOfIssuer>APPLE INC</ns1:nameOfIssuer>
+    <ns1:titleOfClass>COM</ns1:titleOfClass>
+    <ns1:cusip>037833100</ns1:cusip>
+    <ns1:value>70000000000</ns1:value>
+    <ns1:shrsOrPrnAmt><ns1:sshPrnamt>300000000</ns1:sshPrnamt><ns1:sshPrnamtType>SH</ns1:sshPrnamtType></ns1:shrsOrPrnAmt>
+    <ns1:investmentDiscretion>DFND</ns1:investmentDiscretion>
+    <ns1:votingAuthority><ns1:Sole>300000000</ns1:Sole><ns1:Shared>0</ns1:Shared><ns1:None>0</ns1:None></ns1:votingAuthority>
+  </ns1:infoTable>
+  <ns1:infoTable>
+    <ns1:nameOfIssuer>AMAZON COM INC</ns1:nameOfIssuer>
+    <ns1:titleOfClass>COM</ns1:titleOfClass>
+    <ns1:cusip>023135106</ns1:cusip>
+    <ns1:value>2800000000</ns1:value>
+    <ns1:shrsOrPrnAmt><ns1:sshPrnamt>12500000</ns1:sshPrnamt><ns1:sshPrnamtType>SH</ns1:sshPrnamtType></ns1:shrsOrPrnAmt>
+    <ns1:investmentDiscretion>DFND</ns1:investmentDiscretion>
+    <ns1:votingAuthority><ns1:Sole>12500000</ns1:Sole><ns1:Shared>0</ns1:Shared><ns1:None>0</ns1:None></ns1:votingAuthority>
+  </ns1:infoTable>
+  <ns1:infoTable>
+    <ns1:nameOfIssuer>FACEBOOK INC</ns1:nameOfIssuer>
+    <ns1:titleOfClass>CL A</ns1:titleOfClass>
+    <ns1:cusip>30303M102</ns1:cusip>
+    <ns1:value>6000000000</ns1:value>
+    <ns1:shrsOrPrnAmt><ns1:sshPrnamt>10000000</ns1:sshPrnamt><ns1:sshPrnamtType>SH</ns1:sshPrnamtType></ns1:shrsOrPrnAmt>
+    <ns1:investmentDiscretion>DFND</ns1:investmentDiscretion>
+    <ns1:votingAuthority><ns1:Sole>10000000</ns1:Sole><ns1:Shared>0</ns1:Shared><ns1:None>0</ns1:None></ns1:votingAuthority>
+  </ns1:infoTable>
+  <ns1:infoTable>
+    <ns1:nameOfIssuer>VISA INC</ns1:nameOfIssuer>
+    <ns1:titleOfClass>COM CL A</ns1:titleOfClass>
+    <ns1:cusip>92826C839</ns1:cusip>
+    <ns1:value>3000000000</ns1:value>
+    <ns1:shrsOrPrnAmt><ns1:sshPrnamt>9000000</ns1:sshPrnamt><ns1:sshPrnamtType>SH</ns1:sshPrnamtType></ns1:shrsOrPrnAmt>
+    <ns1:investmentDiscretion>DFND</ns1:investmentDiscretion>
+    <ns1:votingAuthority><ns1:Sole>9000000</ns1:Sole><ns1:Shared>0</ns1:Shared><ns1:None>0</ns1:None></ns1:votingAuthority>
+  </ns1:infoTable>
+</ns1:informationTable>

@@ -6,6 +6,7 @@ Two places, on purpose:
 - Limits and timings you may want to tweak live in `config/settings.yaml`. That's `AppConfig`.
 """
 
+import re
 from datetime import date
 from datetime import time as clock_time
 from functools import lru_cache
@@ -13,8 +14,10 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.tickers import InvalidTicker, normalize_ticker
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -51,6 +54,12 @@ class Settings(BaseSettings):
 
     # Fed meeting dates for the calendar (see FomcConfig below).
     fomc_dates_file: Path = PROJECT_ROOT / "config" / "fomc_dates.yaml"
+
+    # What each stock's valuation is compared with (see BenchmarksConfig below, SPEC F4.7).
+    benchmarks_file: Path = PROJECT_ROOT / "config" / "benchmarks.yaml"
+
+    # Funds followed and unusual options thresholds (see InstitutionalConfig, SPEC F4.8).
+    institutional_file: Path = PROJECT_ROOT / "config" / "institutional.yaml"
 
 
 @lru_cache
@@ -177,6 +186,169 @@ class AppConfig(_Section):
     ai: AIConfig = AIConfig()
     schedule: ScheduleConfig = ScheduleConfig()
     calendar: CalendarConfig = CalendarConfig()
+
+
+# --- config/benchmarks.yaml (what valuations are compared with, SPEC F4.7) ------------
+
+# Yahoo's 11 sectors: the key it uses -> the name it shows.
+YAHOO_SECTORS = {
+    "basic-materials": "Basic Materials",
+    "communication-services": "Communication Services",
+    "consumer-cyclical": "Consumer Cyclical",
+    "consumer-defensive": "Consumer Defensive",
+    "energy": "Energy",
+    "financial-services": "Financial Services",
+    "healthcare": "Healthcare",
+    "industrials": "Industrials",
+    "real-estate": "Real Estate",
+    "technology": "Technology",
+    "utilities": "Utilities",
+}
+
+
+def slug(text: str) -> str:
+    """'Consumer Cyclical' -> 'consumer-cyclical'; 'Software - Infrastructure' ->
+    'software-infrastructure' (the form Yahoo uses for its sector and industry keys)."""
+    return "-".join(re.findall(r"[a-z0-9]+", text.lower().replace("&", " ")))
+
+
+def _tickers(values: list[str] | None) -> list[str] | None:
+    if values is None:
+        return None
+    try:
+        return list(dict.fromkeys(normalize_ticker(v) for v in values))
+    except InvalidTicker as exc:
+        raise ValueError(f"'{exc}' isn't a valid ticker") from exc
+
+
+class TickerBenchmarks(_Section):
+    """Changes to the automatic comparison groups for one ticker. Leave out what's fine."""
+
+    # One of Yahoo's 11 sectors, by name ("Technology") or key ("technology").
+    sector: str | None = None
+    # A Yahoo industry name or key, e.g. "Software - Infrastructure".
+    industry: str | None = None
+    # Your own peer tickers, used instead of the industry's largest companies.
+    peers: list[str] | None = Field(default=None, min_length=1, max_length=30)
+    # The Damodaran industry to compare with, e.g. "Software (System & Application)".
+    damodaran_industry: str | None = Field(default=None, min_length=1, max_length=80)
+
+    @field_validator("sector")
+    @classmethod
+    def _known_sector(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        key = slug(value)
+        if key not in YAHOO_SECTORS:
+            names = ", ".join(YAHOO_SECTORS.values())
+            raise ValueError(f"'{value}' isn't one of Yahoo's sectors: {names}")
+        return key
+
+    @field_validator("industry")
+    @classmethod
+    def _industry_key(cls, value: str | None) -> str | None:
+        return (slug(value) or None) if value is not None else None
+
+    @field_validator("peers")
+    @classmethod
+    def _peer_tickers(cls, value: list[str] | None) -> list[str] | None:
+        return _tickers(value)
+
+
+class DamodaranConfig(_Section):
+    enabled: bool = True
+    # Professor Damodaran's (NYU Stern) US industry averages, updated every January.
+    pe_url: str = Field(
+        default="https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/pedata.html",
+        pattern=r"^https://\S+$",
+    )
+    ev_ebitda_url: str = Field(
+        default="https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/vebitda.html",
+        pattern=r"^https://\S+$",
+    )
+    price_to_sales_url: str = Field(
+        default="https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/psdata.html",
+        pattern=r"^https://\S+$",
+    )
+    # Yahoo industry name -> Damodaran industry name.
+    industries: dict[str, str] = {}
+
+
+class BenchmarksConfig(_Section):
+    # The industry's largest companies used as peers (the stock itself left out).
+    industry_peers: int = Field(default=10, ge=1, le=30)
+    # The sector's largest companies used for the sector benchmark.
+    sector_companies: int = Field(default=25, ge=1, le=50)
+    # Peer figures and group lists are reused for this many hours.
+    refresh_hours: int = Field(default=24, ge=1, le=168)
+    tickers: dict[str, TickerBenchmarks] = {}
+    damodaran: DamodaranConfig = DamodaranConfig()
+
+    @field_validator("tickers")
+    @classmethod
+    def _ticker_keys(cls, value: dict[str, TickerBenchmarks]) -> dict[str, TickerBenchmarks]:
+        return dict(zip(_tickers(list(value)) or [], value.values(), strict=True))
+
+    def for_ticker(self, ticker: str) -> TickerBenchmarks:
+        return self.tickers.get(ticker) or TickerBenchmarks()
+
+
+def load_benchmarks_config(path: Path) -> BenchmarksConfig:
+    """Read config/benchmarks.yaml."""
+    return _load_yaml(path, BenchmarksConfig, "Valuation benchmarks")
+
+
+# --- config/institutional.yaml (funds followed, unusual options, SPEC F4.8) ---------
+
+
+class FollowedFund(_Section):
+    name: str = Field(min_length=1, max_length=100)  # shown in reports
+    cik: int = Field(ge=1, le=9_999_999_999)  # the SEC's id number for the fund
+
+
+class FollowedFundsConfig(_Section):
+    """Funds whose quarterly 13F holdings are shown in reports (SPEC F4.8)."""
+
+    enabled: bool = True
+    funds: list[FollowedFund] = Field(default=[], max_length=50)
+    # Ticker -> CUSIP, for a stock the 13F reports don't name the way Yahoo/the SEC do.
+    cusips: dict[str, str] = {}
+
+    @field_validator("cusips")
+    @classmethod
+    def _cusips(cls, value: dict[str, str]) -> dict[str, str]:
+        checked = {}
+        for ticker, cusip in value.items():
+            if not re.fullmatch(r"[0-9A-Za-z]{9}", str(cusip)):
+                raise ValueError(f"'{cusip}' isn't a CUSIP (9 letters and digits)")
+            checked[(_tickers([ticker]) or [ticker])[0]] = str(cusip).upper()
+        return checked
+
+
+class UnusualOptionsConfig(_Section):
+    """Option contracts traded far more than usual today (SPEC F4.8)."""
+
+    enabled: bool = True
+    # A contract is unusual when today's volume is more than this many times its open
+    # interest (contracts open at the start of the day)...
+    volume_to_open_interest: float = Field(default=2.0, ge=0.5, le=100)
+    # ...and at least this many contracts traded.
+    min_volume: int = Field(default=500, ge=1)
+    # Only expiration dates within this many days, at most this many of them per stock.
+    days_ahead: int = Field(default=60, ge=1, le=730)
+    max_expirations: int = Field(default=6, ge=1, le=30)
+    # Most contracts listed per stock (the biggest volume first).
+    max_rows: int = Field(default=10, ge=1, le=50)
+
+
+class InstitutionalConfig(_Section):
+    followed_funds: FollowedFundsConfig = FollowedFundsConfig()
+    unusual_options: UnusualOptionsConfig = UnusualOptionsConfig()
+
+
+def load_institutional_config(path: Path) -> InstitutionalConfig:
+    """Read config/institutional.yaml."""
+    return _load_yaml(path, InstitutionalConfig, "Institutional activity")
 
 
 # --- config/fomc_dates.yaml (Fed meetings, SPEC F5.2) ---------------------------------

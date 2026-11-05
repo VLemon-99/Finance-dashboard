@@ -47,6 +47,20 @@ def percent(fraction: float | None, decimals: int = 1) -> str:
     return DASH if fraction is None else f"{_shown(fraction * 100, decimals):.{decimals}f}%"
 
 
+def multiple(value: float | None) -> str:
+    """A valuation multiple: 28.456 -> '28.5'."""
+    return number(value, 1)
+
+
+def vs(fraction: float | None) -> str:
+    """Above (+) or below (-) a benchmark, whole percent: 0.204 -> '+20%', -0.05 -> '-5%'.
+    Empty when there's nothing to compare."""
+    if fraction is None:
+        return ""
+    shown = _shown(fraction * 100, 0)
+    return "0%" if shown == 0 else f"{shown:+,.0f}%".replace("-", "−")
+
+
 def strike(value: float) -> str:
     """260.0 -> '260', 262.5 -> '262.50'."""
     return f"{value:,.0f}" if value == int(value) else f"{value:,.2f}"
@@ -73,6 +87,16 @@ def compact(value: float | None) -> str:
         if abs(value) >= size:
             return f"{value / size:.2f}{suffix}"
     return f"{value:,.0f}"
+
+
+def iso_day(text: str | None) -> str:
+    """'2026-06-30' -> 'Jun 30, 2026' (dates saved in reports as text)."""
+    if not text:
+        return DASH
+    try:
+        return short_date(date.fromisoformat(text[:10]))
+    except ValueError:
+        return DASH
 
 
 def short_date(value: date | None) -> str:

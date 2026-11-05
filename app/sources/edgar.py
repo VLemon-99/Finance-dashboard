@@ -110,7 +110,7 @@ class EdgarSource:
     def __init__(self, fetch: Fetch, config: EdgarConfig, user_agent: str) -> None:
         self._fetch = fetch
         self._config = config
-        self._user_agent_ok = _looks_like_contact(user_agent)
+        self._user_agent_ok = looks_like_contact(user_agent)
         self._companies: dict[str, tuple[int, str]] = {}
         self._companies_loaded_at: datetime | None = None
         self._lock = threading.Lock()
@@ -377,7 +377,7 @@ def _decode(body: bytes) -> str:
     return body.decode("utf-8", errors="replace")
 
 
-def _looks_like_contact(user_agent: str) -> bool:
+def looks_like_contact(user_agent: str) -> bool:
     """The SEC wants a name and email. Reject the empty value and the .env.example placeholder."""
     ua = user_agent.strip()
     return "@" in ua and "example.com" not in ua and " " in ua

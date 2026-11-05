@@ -21,6 +21,9 @@ class SourceSet:
 
     sources: list[Source]
     edgar: EdgarSource | None
+    # The downloaders, shared with the funds' 13F reader (same SEC pace) and Damodaran's pages.
+    web_fetch: Fetch | None = None
+    sec_fetch: Fetch | None = None
 
 
 def build_sources(settings: Settings, config: SourcesConfig) -> SourceSet:
@@ -39,7 +42,7 @@ def build_sources(settings: Settings, config: SourcesConfig) -> SourceSet:
     if config.sec_edgar.enabled:
         sources.append(edgar)
     sources += blog_and_video_sources(news_fetch, config)
-    return SourceSet(sources=sources, edgar=edgar)
+    return SourceSet(sources=sources, edgar=edgar, web_fetch=news_fetch, sec_fetch=sec_fetch)
 
 
 def blog_and_video_sources(fetch: Fetch, config: SourcesConfig) -> list[Source]:

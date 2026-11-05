@@ -16,12 +16,23 @@ asked for as JSON through yfinance) gives each report's date, time and "before o
 Options (Phase 4): Yahoo's option chain gives bid, ask, last, volume, open interest and IV
 per strike, plus the stock price at that moment. Yahoo has no greeks; we calculate them
 (app/services/options_math.py). The risk-free rate is the 13-week T-bill yield (^IRX).
+
+Valuation and holders (Phase 7, SPEC F4.7, F4.8):
+- The company's "info" -> multiples (trailing/forward P/E, EV/EBITDA, P/S), sector and
+  industry, share count and the analysts' low/average/high price targets.
+- The annual income statement and balance sheet (about 4 fiscal years) plus the closing
+  price at each year's end -> the stock's own valuation history (worked out in
+  app/services/valuation.py).
+- Yahoo's sector and industry pages -> their largest companies (automatic peers).
+- The holders page -> % held by institutions and the top 10 institutions with the change
+  in their stakes (from their 13F reports).
 """
 
 import logging
 import math
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
+from typing import Literal
 
 import pandas as pd
 import yfinance as yf
@@ -29,11 +40,17 @@ from yfinance.calendars import CalendarQuery
 from yfinance.exceptions import YFPricesMissingError, YFTickerMissingError, YFTzMissingError
 
 from app.providers.market_data import (
+    AnnualFigures,
+    CompanyProfile,
     EarningsData,
+    GroupMembers,
+    HolderData,
     MarketDataError,
+    Multiples,
     NoOptionChain,
     OptionChainData,
     OptionContractData,
+    OwnershipData,
     QuoteData,
     SearchResult,
     TickerNotFound,
@@ -191,6 +208,63 @@ class YahooMarketData:
             results += earnings_from_calendar(table, set(batch))
         return results
 
+    def get_profile(self, symbol: str) -> CompanyProfile:
+        try:
+            info = yf.Ticker(symbol).info
+        except _NOT_FOUND_ERRORS as exc:
+            raise TickerNotFound(symbol) from exc
+        except Exception as exc:
+            log.warning("Yahoo company info failed for %s: %s", symbol, exc)
+            raise MarketDataError(
+                f"Yahoo Finance did not respond properly ({type(exc).__name__})."
+            ) from exc
+        return profile_from_info(symbol, info)
+
+    def get_annual_figures(self, symbol: str) -> list[AnnualFigures]:
+        try:
+            ticker = yf.Ticker(symbol)
+            income = ticker.income_stmt
+            balance = ticker.balance_sheet
+            ends = year_ends(income)
+            history = None
+            if ends:
+                history = ticker.history(
+                    start=(min(ends) - timedelta(days=10)).isoformat(),
+                    end=(max(ends) + timedelta(days=1)).isoformat(),
+                    interval="1d",
+                    auto_adjust=False,  # split-adjusted, not dividend-adjusted
+                    timeout=self.timeout_seconds,
+                )
+        except Exception as exc:
+            log.warning("Yahoo annual figures failed for %s: %s", symbol, exc)
+            raise MarketDataError(
+                f"Yahoo Finance did not respond properly ({type(exc).__name__})."
+            ) from exc
+        return annual_figures_from_yahoo(income, balance, history)
+
+    def get_group_members(self, kind: Literal["sector", "industry"], key: str) -> GroupMembers:
+        try:
+            group = yf.Sector(key) if kind == "sector" else yf.Industry(key)
+            name, top = group.name, group.top_companies
+        except Exception as exc:
+            log.warning("Yahoo %s page failed for %s: %s", kind, key, exc)
+            raise MarketDataError(
+                f"Yahoo Finance did not respond properly ({type(exc).__name__})."
+            ) from exc
+        return group_from_yahoo(kind, key, name, top)
+
+    def get_ownership(self, symbol: str) -> OwnershipData:
+        try:
+            ticker = yf.Ticker(symbol)
+            institutions = ticker.institutional_holders
+            breakdown = ticker.major_holders
+        except Exception as exc:
+            log.warning("Yahoo holders failed for %s: %s", symbol, exc)
+            raise MarketDataError(
+                f"Yahoo Finance did not respond properly ({type(exc).__name__})."
+            ) from exc
+        return ownership_from_yahoo(symbol, institutions, breakdown)
+
 
 # Tickers per earnings-calendar request (Yahoo returns at most 100 rows per request).
 EARNINGS_BATCH = 25
@@ -241,6 +315,158 @@ def earnings_from_calendar(table: pd.DataFrame | None, wanted: set[str]) -> list
             )
         )
     return results
+
+
+def profile_from_info(symbol: str, info: dict | None) -> CompanyProfile:
+    """Yahoo's company "info" -> CompanyProfile. Zero or negative multiples (losses) -> None."""
+    info = info or {}
+    if not info.get("quoteType") and not info.get("shortName") and not info.get("longName"):
+        raise TickerNotFound(symbol)
+    price = _positive(info.get("currentPrice")) or _positive(info.get("regularMarketPrice"))
+    analysts = _whole_number(info.get("numberOfAnalystOpinions"))
+    return CompanyProfile(
+        symbol=symbol,
+        name=info.get("longName") or info.get("shortName"),
+        sector=info.get("sector") or None,
+        sector_key=info.get("sectorKey") or None,
+        industry=info.get("industry") or None,
+        industry_key=info.get("industryKey") or None,
+        price=price,
+        market_cap=_positive(info.get("marketCap")),
+        shares_outstanding=_positive(info.get("sharesOutstanding")),
+        multiples=Multiples(
+            trailing_pe=_positive(info.get("trailingPE")),
+            forward_pe=_positive(info.get("forwardPE")),
+            ev_ebitda=_positive(info.get("enterpriseToEbitda")),
+            price_to_sales=_positive(info.get("priceToSalesTrailing12Months")),
+        ),
+        target_low=_positive(info.get("targetLowPrice")),
+        target_mean=_positive(info.get("targetMeanPrice")),
+        target_high=_positive(info.get("targetHighPrice")),
+        analyst_count=analysts if analysts and analysts > 0 else None,
+    )
+
+
+# Row names in yfinance's annual statements, most preferred first.
+_EPS_ROWS = ("Diluted EPS",)
+_REVENUE_ROWS = ("Total Revenue", "Operating Revenue")
+_EBITDA_ROWS = ("EBITDA", "Normalized EBITDA")
+_DEBT_ROWS = ("Total Debt",)
+_CASH_ROWS = (
+    "Cash Cash Equivalents And Short Term Investments",
+    "Cash And Cash Equivalents",
+)
+_SHARE_ROWS = ("Ordinary Shares Number", "Share Issued")
+
+
+def year_ends(statement: pd.DataFrame | None) -> list[date]:
+    """The fiscal year-end dates (the statement's columns)."""
+    if statement is None or statement.empty:
+        return []
+    return sorted({pd.Timestamp(c).date() for c in statement.columns})
+
+
+def annual_figures_from_yahoo(
+    income: pd.DataFrame | None,
+    balance: pd.DataFrame | None,
+    history: pd.DataFrame | None,
+) -> list[AnnualFigures]:
+    """yfinance's annual income statement + balance sheet (rows = items, columns = year ends)
+    and a daily price history -> one AnnualFigures per fiscal year, oldest first."""
+    figures = []
+    for end in year_ends(income):
+        figures.append(
+            AnnualFigures(
+                period_end=end,
+                price=close_on_or_before(history, end),
+                diluted_eps=_cell(income, _EPS_ROWS, end),
+                revenue=_cell(income, _REVENUE_ROWS, end),
+                ebitda=_cell(income, _EBITDA_ROWS, end),
+                total_debt=_cell(balance, _DEBT_ROWS, end),
+                cash=_cell(balance, _CASH_ROWS, end),
+                shares=_cell(balance, _SHARE_ROWS, end),
+            )
+        )
+    return figures
+
+
+def close_on_or_before(history: pd.DataFrame | None, day: date) -> float | None:
+    """Closing price of the last trading day up to `day` (a year can end on a weekend)."""
+    if history is None or history.empty or "Close" not in history:
+        return None
+    best = None
+    for stamp, close in history["Close"].items():
+        if stamp.date() <= day:
+            price = _positive(close)
+            if price:
+                best = price
+    return best
+
+
+def _cell(table: pd.DataFrame | None, rows: tuple[str, ...], end: date) -> float | None:
+    if table is None or table.empty:
+        return None
+    columns = [c for c in table.columns if pd.Timestamp(c).date() == end]
+    if not columns:
+        return None
+    for row in rows:
+        if row in table.index:
+            value = _number(table.at[row, columns[0]])
+            if value is not None and math.isfinite(value):
+                return value
+    return None
+
+
+def group_from_yahoo(
+    kind: Literal["sector", "industry"], key: str, name: str | None, top: pd.DataFrame | None
+) -> GroupMembers:
+    """yfinance's sector/industry "top companies" table (indexed by symbol, biggest first)."""
+    if top is None or top.empty:
+        raise MarketDataError(f"Yahoo Finance listed no companies for the {kind} '{key}'.")
+    symbols = []
+    for raw in top.index:
+        try:
+            symbol = normalize_ticker(str(raw))
+        except InvalidTicker:
+            continue  # foreign listings like "7203.T"
+        if symbol not in symbols:
+            symbols.append(symbol)
+    return GroupMembers(kind=kind, key=key, name=name or key, symbols=tuple(symbols))
+
+
+def ownership_from_yahoo(
+    symbol: str, institutions: pd.DataFrame | None, breakdown: pd.DataFrame | None
+) -> OwnershipData:
+    """yfinance's institutional holders table and holders breakdown -> OwnershipData."""
+    holders = []
+    if institutions is not None and not institutions.empty:
+        for row in institutions.to_dict("records"):
+            name = str(row.get("Holder") or "").strip()
+            if not name:
+                continue
+            reported = row.get("Date Reported")
+            holders.append(
+                HolderData(
+                    name=name,
+                    shares=_number(row.get("Shares")),
+                    pct_held=_number(row.get("pctHeld")),
+                    pct_change=_number(row.get("pctChange")),
+                    value=_number(row.get("Value")),
+                    reported=pd.Timestamp(reported).date()
+                    if reported is not None and not pd.isna(reported)
+                    else None,
+                )
+            )
+    values: dict[str, object] = {}
+    if breakdown is not None and not breakdown.empty and "Value" in breakdown:
+        values = breakdown["Value"].to_dict()
+    count = _whole_number(values.get("institutionsCount"))
+    return OwnershipData(
+        symbol=symbol,
+        institutions_pct=_number(values.get("institutionsPercentHeld")),
+        institutions_count=count if count and count > 0 else None,
+        top_institutions=tuple(holders),
+    )
 
 
 def quote_from_history(symbol: str, history: pd.DataFrame, currency: str | None) -> QuoteData:
@@ -455,6 +681,12 @@ def _number(value: object) -> float | None:
     except (TypeError, ValueError):
         return None
     return None if math.isnan(number) else number
+
+
+def _positive(value: object) -> float | None:
+    """A finite number above zero, else None (Yahoo sends "Infinity" or 0 for "no value")."""
+    number = _number(value)
+    return number if number is not None and math.isfinite(number) and number > 0 else None
 
 
 def _whole_number(value: object) -> int | None:
