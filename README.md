@@ -110,6 +110,19 @@ The Calendar page (and the "Coming up" box on the home page) shows your stocks' 
 
 Fed meeting dates are in `config/fomc_dates.yaml` (2026 only for now). When the Fed publishes next year's dates (usually in the summer, at https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm), add them the same way as the ones already there; the calendar reminds you once no future meeting is listed. Release times and the high/medium impact levels are in `config/settings.yaml` under `calendar:`.
 
+**Setting up X (Twitter)** (optional, about 10 minutes; costs money)
+
+Reports can include posts on X: first new posts from accounts you trust that mention the stock, then (with the budget left that day) a search of all of X for "$TICKER". X charges for every post it sends, from credit you buy in advance (no subscription). The app keeps to the budgets in `config/x.yaml`: $5 a month and $0.22 a day to start. It is off until you do the steps below. X's site changes often, so the button names may differ slightly.
+
+1. Go to https://developer.x.com and sign in with your X account. Sign up for developer access ("pay-per-use"); for the use description, something like "Personal research dashboard that reads public posts about stocks I follow; no posting, no resale" is fine.
+2. In the developer console, create an app (any name, e.g. "Finance dashboard"). Under **Keys and tokens**, generate the **Bearer Token** and copy it right away (it is shown once).
+3. Put it in `.env`: `X_BEARER_TOKEN=` followed by the token (no spaces or quotes).
+4. In the console's billing page, buy a small amount of credit (e.g. $5) and **set a monthly spending limit of $5**. That's a second safety net besides the app's own budget.
+5. Open `config/x.yaml`, change `enabled: false` to `enabled: true`, and add the accounts you trust under `accounts:` (their handles, the name after the "@"; the file shows an example).
+6. Restart the app and generate a report. X posts show with an "X" label under Sources, and the end of the Sources section shows what X has cost so far today and this month.
+
+When a budget is used up, the report says so under "Missing from this report" and carries on without X. To switch X off again, set `enabled: false` and restart. Reddit isn't included: Reddit closed its free access for personal projects (see `docs/DECISIONS.md`).
+
 **Automatic morning reports** (off for now)
 
 To have every watchlist reported on weekdays at 7:30am Eastern while the app is running, open `config/settings.yaml`, find `schedule:`, change `enabled: false` to `enabled: true`, and restart the app. The Reports page then shows when the next run is. If your computer is asleep or the app is closed at 7:30, that day's run happens only if the app is back by 8:00.
@@ -135,7 +148,7 @@ uv run uvicorn app.main:app --reload
 ```
 Wait for the line `Application startup complete.`, then open http://localhost:8000. Leave this terminal window open while you use the app.
 
-`uv sync` installs any new libraries and `alembic upgrade head` applies any database changes; both do nothing if nothing changed. If `git pull` shows an error or mentions conflicts, stop and ask before going further. If the app stops with an error instead of `Application startup complete.`, copy the last few lines of the terminal and send them to Claude.
+`uv sync` installs any new libraries and `alembic upgrade head` applies any database changes (Phase 8 adds two small tables for X's spending); both do nothing if nothing changed. If `git pull` shows an error or mentions conflicts, stop and ask before going further. If the app stops with an error instead of `Application startup complete.`, copy the last few lines of the terminal and send them to Claude.
 
 **Checks (optional)**
 ```bash

@@ -1,5 +1,5 @@
 """The source plug-in interface. Each research source (news feeds, SEC EDGAR, blogs, YouTube,
-later X and Reddit) is a small class with the same two methods, so the report pipeline can
+X) is a small class with the same two methods, so the report pipeline can
 treat them all alike and one broken source never stops the others (SPEC F4.11).
 
 To add a source: write a class with `name`, `label`, `source_type`, `fetch()` and `enrich()`,
@@ -11,8 +11,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Literal, Protocol
 
-# Source types decide the sentiment weight (SPEC F4.6). Later phases add "x" and "reddit".
-SourceType = Literal["news", "filing", "blog", "youtube"]
+# Source types decide the sentiment weight (SPEC F4.6).
+SourceType = Literal["news", "filing", "blog", "youtube", "x"]
 
 
 @dataclass(frozen=True)
@@ -56,4 +56,13 @@ class Source(Protocol):
 
         Only called for items we haven't stored before. Raises SourceError.
         """
+        ...
+
+
+class LateSource(Source, Protocol):
+    """A source that runs after every ticker of a run is collected (the X $TICKER search),
+    so it only uses what the other sources left of a shared budget."""
+
+    def order(self, tickers: list[str]) -> list[str]:
+        """The order to go through the run's tickers (e.g. searched longest ago first)."""
         ...

@@ -191,7 +191,7 @@
     <ol class="sources">{% for st in body.stories %}
       <li id="r{{ rid }}-s{{ loop.index }}">
         <p class="source-title"><a href="{{ st["items"][0].url }}" rel="noopener noreferrer" target="_blank">{{ st.title }}</a>
-          {% if st.kind in ("filing", "video", "blog") %}<span class="badge plain">{{ "YouTube" if st.kind == "video" else st.kind }}</span>{% endif %}
+          {% if st.kind in ("filing", "video", "blog", "post") %}<span class="badge plain">{{ {"video": "YouTube", "post": "X"}.get(st.kind, st.kind) }}</span>{% endif %}
           {% if st.is_rumor %}<span class="badge">unconfirmed</span>{% endif %}</p>
         {% if st.summary %}<p>{{ st.summary }}</p>{% endif %}
         {% if st.kind == "video" %}
@@ -213,7 +213,10 @@
       </li>{% endfor %}
     </ol>
     {% else %}
-    <p class="muted">No news, filings, blog posts or videos found in this period.</p>
+    <p class="muted">No news, filings, blog posts, videos or X posts found in this period.</p>
+    {% endif %}
+    {% if body.x_spending %}{% set xs = body.x_spending %}
+    <p class="muted small">X spending so far: ${{ "%.2f"|format(xs.today_usd) }} of ${{ "%.2f"|format(xs.daily_budget_usd) }} today, ${{ "%.2f"|format(xs.month_usd) }} of ${{ "%.2f"|format(xs.monthly_budget_usd) }} this month (counted on the high side; budgets in config/x.yaml).</p>
     {% endif %}
   </section>
 </article>

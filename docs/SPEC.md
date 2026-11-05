@@ -87,8 +87,8 @@ One digest per ticker, about one page each, with a short summary of the whole wa
 Acceptance criteria:
 - [ ] F4.1 Each ticker's report has these sections: Major developments · Rumors & speculation (each labelled "unconfirmed") · Institutional & insider activity · Valuation snapshot · Sentiment · Sources.
 - [ ] F4.2 Every statement in the report links to at least one source item (title, outlet, date, URL). Nothing appears without a source.
-- [ ] F4.3 Sources by phase: news (Yahoo Finance, Google News RSS, company press releases) and SEC filings (8-K, 10-Q, 10-K, Form 4, 13D/G) first; then YouTube and blogs; then X and Reddit.
-- [ ] F4.4 Only sources on my trusted list (`config/sources.yaml`: outlets, blogs, YouTube channels, X accounts, subreddits) are used, except for SEC filings and the main news feeds. I can edit the list without code changes.
+- [ ] F4.3 Sources by phase: news (Yahoo Finance, Google News RSS, company press releases) and SEC filings (8-K, 10-Q, 10-K, Form 4, 13D/G) first; then YouTube and blogs; then X and Reddit. *(2026-11-05: Reddit is parked because Reddit closed free access for personal projects; see DECISIONS.)*
+- [ ] F4.4 Only sources on my trusted list (`config/sources.yaml`: outlets, blogs, YouTube channels, X accounts, subreddits; X accounts are in `config/x.yaml`) are used, except for SEC filings and the main news feeds. I can edit the list without code changes.
 - [ ] F4.5 YouTube: recent videos (default: last 7 days) from trusted channels that mention the ticker or company in the title or description are summarized from the video itself in 3–5 bullet points, linked with a timestamp where possible.
 - [ ] F4.6 Sentiment: each source item is rated bullish / neutral / bearish with a one-line reason. The ticker gets an overall score from −100 to +100, weighted by source type (default weights: filings & news 1.0, blogs 0.8, YouTube 0.7, X 0.5, Reddit 0.3, set in config). The report shows the score, the counts by rating and the weights used.
 - [ ] F4.7 Valuation snapshot: trailing and forward P/E, EV/EBITDA, P/S, and how each compares with the stock's own history (its past fiscal years, as much as the source provides), with peers picked automatically (its industry's largest companies; owner 2026-11-04: no hand-made lists), with its sector's largest companies, and with Damodaran's industry average; each comparison is a median, shown as % above/below. Per-ticker overrides (sector, industry, own peer list, Damodaran industry) live in a config file (AMZN is compared with Technology, owner 2026-11-04). Plus the analyst target (low / average / high) and the % gap to the current price.
@@ -149,6 +149,6 @@ Acceptance criteria (initial):
 - Every finance calculation (greeks, DTE, returns, P&L, sentiment score) has automated tests with known answers.
 
 ## Open questions
-- **X/Twitter source** (needed by the X phase): pick between X's official pay-per-use API and a third-party read API, within about $5/month and X's terms. Check current prices then.
+- ~~**X/Twitter source**~~ settled 2026-11-05: X's official pay-per-use API, $5/month (DECISIONS 2026-11-05).
 - **Macro indicators (F6):** final list, especially retail trading volume, fund inflows/outflows and overall sentiment measures. Their free data sources need confirming.
 - **Report delivery:** in the app only for now. Is email or PDF wanted later?

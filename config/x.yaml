@@ -1,0 +1,38 @@
+# X (Twitter) posts in research reports (SPEC F4.3, DECISIONS 2026-11-05).
+# Restart the app after editing. No secrets here: the key goes in .env as X_BEARER_TOKEN.
+#
+# How it works: X charges for every post it sends us (prepaid credit, no subscription).
+# Each report first reads new posts from your trusted accounts that mention the stock, then,
+# with the budget left that day, searches all of X for "$TICKER" (the stocks searched
+# longest ago go first). Nothing is read twice: each search only asks for posts newer than
+# the last one. When a budget is used up, the report says so and carries on without X.
+
+# Change to true once X_BEARER_TOKEN is in .env (README: "Setting up X").
+enabled: false
+
+# Trusted accounts, by handle (the name after the "@"), up to 100. Example:
+#   accounts:
+#     - SomeAnalyst
+#     - AnotherAccount
+accounts: []
+
+# Also search all of X for "$TICKER" posts (English, no reposts or replies, the most
+# relevant first) with whatever budget the trusted accounts leave.
+ticker_search: true
+
+# Hard spending limits in US dollars. The app adds up what each request could cost at
+# most before sending it, and doesn't send it if that could go over either limit. It counts
+# on the high side (X doesn't charge twice for the same post or account on the same day),
+# so the real bill is usually lower. Also set a spending limit in X's developer console.
+monthly_budget_usd: 5.00
+daily_budget_usd: 0.22 # about $5 spread over a month's weekdays
+
+# X's pay-per-use prices (check the developer console; update here if they change).
+price_per_post_usd: 0.005 # each post read
+price_per_user_usd: 0.010 # each account's name read (trusted-account posts only)
+
+# Posts asked for per search: X's smallest allowed number is 10.
+posts_per_search: 10
+
+# Search posts naming more "$TICKERS" than this are skipped as likely spam.
+max_cashtags_per_post: 5

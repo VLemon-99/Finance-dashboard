@@ -8,6 +8,7 @@
 
 import logging
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from difflib import SequenceMatcher
@@ -42,20 +43,52 @@ def collect_for_ticker(
     company = _company_name(sources, ticker)
     result = CollectResult(ticker=ticker, company=company)
     for source in sources.sources:
-        try:
-            items = source.fetch(ticker, company, since)
-        except SourceError as exc:
-            result.missing.append(f"{source.label}: {exc}")
-            result.failed_sources.add(source.name)
-            continue
-        except Exception:  # a bug or surprise in one source must not stop the report
-            log.exception("Source %s failed unexpectedly for %s", source.name, ticker)
-            result.missing.append(f"{source.label}: unexpected error (details in the app log).")
-            result.failed_sources.add(source.name)
-            continue
-        result.new_items += _store_new(session, source, items, config, result)
-    session.commit()
+        _collect_from(session, source, result, since, config)
     return result
+
+
+def collect_late(
+    session: Session,
+    sources: SourceSet,
+    tickers: Sequence[tuple[CollectResult, datetime]],
+    config: ReportsConfig,
+) -> None:
+    """Run the late sources (the X $TICKER search) once every ticker is collected, so they
+    only spend what the other sources left. `tickers`: (collect result, period start)."""
+    by_ticker = {result.ticker: (result, since) for result, since in tickers}
+    for source in sources.late_sources:
+        try:
+            order = source.order(list(by_ticker))
+        except Exception:
+            log.exception("Source %s couldn't order the tickers", source.name)
+            order = list(by_ticker)
+        for ticker in order:
+            result, since = by_ticker[ticker]
+            _collect_from(session, source, result, since, config)
+
+
+def _collect_from(
+    session: Session,
+    source: Source,
+    result: CollectResult,
+    since: datetime,
+    config: ReportsConfig,
+) -> None:
+    """One source for one ticker. Saved straight away, so a source that keeps its own
+    records in the database (X's spending) never waits for this one."""
+    try:
+        items = source.fetch(result.ticker, result.company, since)
+    except SourceError as exc:
+        result.missing.append(f"{source.label}: {exc}")
+        result.failed_sources.add(source.name)
+        return
+    except Exception:  # a bug or surprise in one source must not stop the report
+        log.exception("Source %s failed unexpectedly for %s", source.name, result.ticker)
+        result.missing.append(f"{source.label}: unexpected error (details in the app log).")
+        result.failed_sources.add(source.name)
+        return
+    result.new_items += _store_new(session, source, items, config, result)
+    session.commit()
 
 
 def _company_name(sources: SourceSet, ticker: str) -> str | None:

@@ -30,7 +30,7 @@ from sqlmodel import Session, col, select
 from app.ai.llm import LLM, AIError, Claim, PublicStory
 from app.config import AppConfig, SourcesConfig
 from app.db.models import Report, ReportRun, SourceItemRow
-from app.services.collect import CollectResult, collect_for_ticker
+from app.services.collect import CollectResult, collect_for_ticker, collect_late
 from app.services.insider import insider_summary
 from app.services.market_facts import MarketFacts, TickerFacts
 from app.services.sentiment import sentiment_score
@@ -129,6 +129,7 @@ def execute_run(
                     run.done += 1
                     session.commit()
 
+            collect_late_sources(session, run, prepared, services)
             facts = gather_facts(session, run, [p.ticker for p in prepared], services)
             notes = watch_videos(session, run, prepared, services)
 
@@ -160,6 +161,32 @@ def execute_run(
             run.error = "Something unexpected went wrong (details in the app log)."
         run.finished_at = utc_now()
         session.commit()
+
+
+def collect_late_sources(
+    session: Session,
+    run: ReportRun,
+    prepared: Sequence["PreparedTicker"],
+    services: ReportServices,
+) -> None:
+    """The X $TICKER search, once every ticker has its trusted-account posts (SPEC F4.3)."""
+    if not services.sources.late_sources or not prepared:
+        return
+    _set_stage(session, run, "Searching X for $TICKER posts")
+    try:
+        collect_late(
+            session,
+            services.sources,
+            [(p.collected, p.start) for p in prepared],
+            services.config.reports,
+        )
+    except Exception:  # the reports are still made from what was collected
+        session.rollback()
+        log.exception("The late sources failed unexpectedly")
+        for p in prepared:
+            p.collected.missing.append(
+                "X: $TICKER search: unexpected error (details in the app log)."
+            )
 
 
 def _set_stage(session: Session, run: ReportRun, text: str) -> None:
@@ -288,6 +315,7 @@ def build_ticker_report(
 ) -> Report:
     """One ticker from start to finish (collect, watch its videos, summarize, write)."""
     prepared = prepare_ticker(session, run, ticker, services)
+    collect_late_sources(session, run, [prepared], services)
     facts = gather_facts(session, run, [ticker], services)
     notes = watch_videos(session, run, [prepared], services)
     return finish_ticker_report(
@@ -346,10 +374,12 @@ def finish_ticker_report(
         "sentiment": {
             "score": score.score,
             "counts": score.counts,
-            "weights": dict(cfg.reports.sentiment_weights),
+            "weights": weights_used(cfg.reports.sentiment_weights, services.sources.source_types()),
             "rated": len(rated),
         },
         "stories": stories,
+        # X spending so far (SPEC F4.3); None when X is off.
+        "x_spending": services.sources.x_ledger.summary(now) if services.sources.x_ledger else None,
         "ai_model": services.llm.model_name if services.llm else None,
         # False if any AI step failed or AI is off (kept for the record; every report
         # covers the last 7 days anyway, so the next one catches up).
@@ -369,6 +399,11 @@ def finish_ticker_report(
     session.commit()
     session.refresh(report)
     return report
+
+
+def weights_used(weights: dict[str, float], source_types: set[str]) -> dict[str, float]:
+    """The weights of the source types switched on: a source turned off leaves the list."""
+    return {kind: weight for kind, weight in weights.items() if kind in source_types}
 
 
 def _sec_collected(services: ReportServices, failed_sources: set[str]) -> bool:

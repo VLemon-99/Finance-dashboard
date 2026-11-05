@@ -264,3 +264,37 @@ class CalendarFetch(SQLModel, table=True):
     fetched_at: datetime
     ok: bool = True
     message: str | None = Field(default=None, max_length=300)  # why it failed
+
+
+class XSpending(SQLModel, table=True):
+    """What the app has spent on X's pay-per-use API, per UTC day (SPEC F4.3).
+
+    The app's own running total, used to stop before the daily and monthly budgets in
+    config/x.yaml are reached. App-wide (one X key for the app), so no `user_id`, like
+    `calendar_fetches`.
+    """
+
+    __tablename__ = "x_spending"
+
+    id: int | None = Field(default=None, primary_key=True)
+    day: date = Field(unique=True, index=True)  # UTC day (X counts its days in UTC)
+    posts: int = 0  # posts X sent us
+    users: int = 0  # account records X sent us
+    cost_usd: float = 0.0  # counted on the high side (see app/sources/x.py)
+
+
+class XCheck(SQLModel, table=True):
+    """Up to when X was last searched, per ticker and search, so no post is paid for twice.
+
+    `kind` is "search" (the $TICKER search) or "accounts:<id>" (one group of trusted
+    accounts). Public facts about searches, so no `user_id`.
+    """
+
+    __tablename__ = "x_checks"
+    __table_args__ = (UniqueConstraint("ticker", "kind", name="uq_x_checks_ticker_kind"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    ticker: str = Field(max_length=32, index=True)
+    kind: str = Field(max_length=40)
+    checked_until: datetime  # posts up to this time (UTC) have been read
+    checked_at: datetime  # when that search was made

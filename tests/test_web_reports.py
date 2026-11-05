@@ -84,7 +84,7 @@ def test_insider_and_sentiment_sections_show_code_numbers(client):
     assert "-$3,527,500.00" in html
     assert ">+25</strong>" in html
     assert "2 bullish · 6 neutral · 0 bearish" in html
-    assert "news 1.0" in html and "reddit 0.3" in html
+    assert "Weights used: filing 1.0 · news 1.0." in html  # switched-on sources only
 
 
 def test_f4_11_missing_sources_are_shown(client, fake_fetch):

@@ -2,7 +2,7 @@
 
 Privacy rule (SPEC F4.13): only public content goes to the AI. That's enforced by shape:
 the methods below accept only these small public-content records (a ticker, a company
-name, articles/filings/blog posts, and public YouTube video links), never free text,
+name, articles/filings/blog posts/X posts, and public YouTube video links), never free text,
 watchlists, positions or trades.
 """
 
@@ -11,7 +11,7 @@ from typing import Literal, Protocol
 
 Sentiment = Literal["bullish", "neutral", "bearish"]
 SENTIMENTS: tuple[Sentiment, ...] = ("bullish", "neutral", "bearish")
-ItemKind = Literal["news", "filing", "blog", "video"]
+ItemKind = Literal["news", "filing", "blog", "video", "post"]  # post: on X (Twitter)
 
 
 @dataclass(frozen=True)

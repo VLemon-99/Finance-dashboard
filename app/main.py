@@ -21,6 +21,7 @@ from app.config import (
     load_fomc_config,
     load_institutional_config,
     load_sources_config,
+    load_x_config,
 )
 from app.db.session import database_is_set_up, database_is_up_to_date, make_engine
 from app.providers.damodaran import DamodaranClient
@@ -64,10 +65,11 @@ def run_in_background(
 
 
 def build_report_services(
-    settings: Settings, app_config: AppConfig, market_data: MarketData
+    settings: Settings, app_config: AppConfig, market_data: MarketData, engine: Engine
 ) -> ReportServices:
     sources_config = load_sources_config(settings.sources_config_file)
-    sources = build_sources(settings, sources_config)
+    x_config = load_x_config(settings.x_config_file)
+    sources = build_sources(settings, sources_config, x_config, engine)
     try:
         llm = GeminiLLM(settings.gemini_api_key, app_config.ai.model, app_config.ai.timeout_seconds)
         problem = None
@@ -106,7 +108,9 @@ def create_app(
     app_config = app_config or load_app_config(settings.app_config_file)
     engine = engine or make_engine(settings.database_url)
     market_data = market_data or YahooMarketData(settings.market_data_timeout_seconds)
-    report_services = report_services or build_report_services(settings, app_config, market_data)
+    report_services = report_services or build_report_services(
+        settings, app_config, market_data, engine
+    )
     fred = fred or FredClient(settings.fred_api_key, settings.source_timeout_seconds)
     fomc = fomc or load_fomc_config(settings.fomc_dates_file)
 
