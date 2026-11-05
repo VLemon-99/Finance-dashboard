@@ -159,6 +159,56 @@ def test_a_failed_feed_is_not_retried_for_every_ticker(fake_fetch):
     assert len(feed.entries()) == 4
 
 
+class FlakyFetch:
+    """Fails the first `failures` downloads with the given error, then answers normally."""
+
+    def __init__(self, fetch, failures: int, message: str) -> None:
+        self.fetch, self.failures, self.message = fetch, failures, message
+        self.calls = 0
+
+    def __call__(self, url: str) -> bytes:
+        self.calls += 1
+        if self.calls <= self.failures:
+            raise SourceError(self.message)
+        return self.fetch(url)
+
+
+def test_youtube_feed_is_tried_again_after_a_moment(fake_fetch, since, no_feed_retry_wait):
+    # Seen 2026-11-04: a channel's feed answered 500, and worked again later.
+    flaky = FlakyFetch(fake_fetch, 1, "The site answered with an error (500).")
+    source = YouTubeSource(flaky, CHANNEL, YouTubeConfig(), {})
+    assert source.fetch("AAPL", "Apple", since)  # the second try worked
+    assert flaky.calls == 2
+    assert no_feed_retry_wait == [5.0]  # waited 5 seconds in between
+    source.fetch("MSFT", "Microsoft", since)
+    assert flaky.calls == 2  # still once per run, not per ticker
+
+
+def test_youtube_feed_failing_twice_is_reported_once(fake_fetch, since, no_feed_retry_wait):
+    flaky = FlakyFetch(fake_fetch, 5, "The site says this page doesn't exist (404).")
+    source = YouTubeSource(flaky, CHANNEL, YouTubeConfig(), {})
+    for ticker in ("AAPL", "MSFT"):
+        with pytest.raises(SourceError, match="404"):
+            source.fetch(ticker, None, since)
+    assert flaky.calls == 2  # one try plus one retry, shared by both tickers
+    assert no_feed_retry_wait == [5.0]
+
+
+def test_retries_follow_the_settings(fake_fetch, since, no_feed_retry_wait):
+    flaky = FlakyFetch(fake_fetch, 5, "The site answered with an error (500).")
+    source = YouTubeSource(flaky, CHANNEL, YouTubeConfig(retries=0), {})
+    with pytest.raises(SourceError):
+        source.fetch("AAPL", None, since)
+    assert flaky.calls == 1 and no_feed_retry_wait == []
+
+
+def test_blogs_are_not_retried(fake_fetch, since, no_feed_retry_wait):
+    flaky = FlakyFetch(fake_fetch, 1, "The site answered with an error (500).")
+    with pytest.raises(SourceError):
+        BlogSource(flaky, BLOG, {}).fetch("AAPL", "Apple", since)
+    assert flaky.calls == 1
+
+
 def test_one_source_per_blog_and_channel(fake_fetch):
     config = SourcesConfig.model_validate(
         {

@@ -409,6 +409,16 @@ class FakeFetch:
         raise SourceError("The site says this page doesn't exist (404).")
 
 
+@pytest.fixture(autouse=True)
+def no_feed_retry_wait(monkeypatch):
+    """A failed YouTube feed is tried again after a few seconds; tests don't wait."""
+    import app.sources.feeds
+
+    waits: list[float] = []
+    monkeypatch.setattr(app.sources.feeds, "pause", waits.append)
+    return waits
+
+
 @pytest.fixture
 def fake_fetch():
     return FakeFetch()

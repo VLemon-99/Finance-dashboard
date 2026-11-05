@@ -474,6 +474,10 @@ class YouTubeConfig(_Section):
     # Only videos published in the last this-many days are used (SPEC F4.5).
     lookback_days: int = Field(default=7, ge=1, le=31)
     channels: list[YouTubeChannel] = []
+    # YouTube's channel feeds often fail for a moment (404 or 500). After a failure, wait
+    # this many seconds and try again, this many times (once per channel per run).
+    retries: int = Field(default=1, ge=0, le=3)
+    retry_wait_seconds: float = Field(default=5.0, ge=0, le=60)
 
 
 class SourcesConfig(_Section):

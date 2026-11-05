@@ -2,6 +2,11 @@
 
 > One entry per meaningful choice, newest at the top. This stops future sessions from quietly undoing past decisions.
 
+## 2026-11-05 — YouTube feeds are tried once more after a failure
+- **Finding** (owner's AMZN report, Nov 4 late evening): two channels' feeds failed (404 and 500) although the same settings worked that morning. YouTube's channel feeds have been failing on and off since late 2025 (widely reported; no statement from Google).
+- **Decision** (owner agreed): after a failed download, wait 5 seconds and try once more. The answer (or the failure) is still shared by every ticker in the run, so this costs at most one extra request and 5 seconds per failing channel per run. Settings `retries: 1` and `retry_wait_seconds: 5` under `youtube:` work in `config/sources.yaml`, but aren't written into that file (the owner edits it locally; `git pull` would refuse). Blogs aren't retried (no sign they need it).
+- **Revisit if:** YouTube feeds keep failing for whole runs (then: try again later in the run, or a different way to list a channel's videos).
+
 ## 2026-11-05 — Phase 8: X through its official pay-per-use API, $5/month; Reddit parked
 - **Findings (checked 2026-11-05, from news sites and developer blogs; X's own docs site couldn't be reached from the build machine):** X dropped its monthly API plans in Feb 2026 for **pay-per-use**: you buy credit in advance; about **$0.005 per post** read and **$0.010 per account record**; the same post or account isn't charged twice in one UTC day; a spending limit can be set in X's developer console. **Reddit** has required its approval for every API app since late 2025 (personal projects included, rarely approved; one source says new requests stopped on Oct 31, 2026), and its no-sign-up RSS feeds are reported to end on **Nov 13, 2026**.
 - **Decision (owner: "$5 per month", "trusted accounts first, then ticker", "park Reddit", "empty list for now"):**

@@ -54,7 +54,11 @@ class YouTubeSource:
         self._config = config
         self._also_known_as = also_known_as
         self._feed = CachedFeed(
-            fetch, CHANNEL_FEED_URL.format(channel_id=channel.channel_id), self.label
+            fetch,
+            CHANNEL_FEED_URL.format(channel_id=channel.channel_id),
+            self.label,
+            retries=config.retries,
+            retry_wait=config.retry_wait_seconds,
         )
 
     def fetch(self, ticker: str, company: str | None, since: datetime) -> list[SourceItem]:
