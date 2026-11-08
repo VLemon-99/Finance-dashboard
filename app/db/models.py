@@ -298,3 +298,38 @@ class XCheck(SQLModel, table=True):
     kind: str = Field(max_length=40)
     checked_until: datetime  # posts up to this time (UTC) have been read
     checked_at: datetime  # when that search was made
+
+
+class MacroObservation(SQLModel, table=True):
+    """One dated value of a macro dashboard series (SPEC F6): a FRED value, ICI's weekly
+    total, or a reading the app saved itself (an index fund's P/E, the largest companies'
+    forward P/E). Public market facts, so no `user_id`.
+
+    FRED series are replaced in full on each refresh (FRED revises past values); the
+    app's own readings and ICI's weeks are added one date at a time.
+    """
+
+    __tablename__ = "macro_observations"
+    __table_args__ = (
+        UniqueConstraint("series_key", "obs_date", name="uq_macro_observations_series_date"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    # "fred:T10Y2Y", "ici:mmf_total", "yahoo:SPY:trailing_pe", "calc:largest_forward_pe"
+    series_key: str = Field(max_length=60, index=True)
+    obs_date: date
+    value: float
+
+
+class MacroFetch(SQLModel, table=True):
+    """When each macro series was last checked, whether it worked, and what the source said
+    (e.g. how many companies the forward P/E is based on)."""
+
+    __tablename__ = "macro_fetches"
+
+    id: int | None = Field(default=None, primary_key=True)
+    series_key: str = Field(max_length=60, unique=True)
+    fetched_at: datetime
+    ok: bool = True
+    message: str | None = Field(default=None, max_length=300)  # why it failed
+    detail: str | None = Field(default=None, max_length=300)  # extra facts from a success

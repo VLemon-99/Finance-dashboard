@@ -4,12 +4,17 @@ to FRED.
 Phase 6 uses FRED's release calendar: the dates when CPI, the jobs report, PCE and GDP come
 out (SPEC F5.2). FRED gives dates only; the usual release times are in config/settings.yaml.
 
+Phase 9 reads series (dated values, e.g. the 10-year minus 2-year Treasury yield) for the
+macro dashboard (SPEC F6). Any FRED series id works, so indicators are added in
+config/macro.yaml without code changes (F6.3).
+
 The API key travels in the address (FRED's rule), so addresses are never logged or shown:
 errors say what went wrong without the address.
 """
 
 import json
 import logging
+import math
 from datetime import date
 
 import httpx
@@ -20,6 +25,8 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 RELEASE_DATES_URL = "https://api.stlouisfed.org/fred/release/dates"
 RELEASE_PAGE_URL = "https://fred.stlouisfed.org/release?rid={release_id}"
+OBSERVATIONS_URL = "https://api.stlouisfed.org/fred/series/observations"
+SERIES_PAGE_URL = "https://fred.stlouisfed.org/series/{series_id}"
 
 # The value in .env.example: treated as "no key yet".
 _PLACEHOLDER_KEY = "your-fred-key-here"
@@ -43,12 +50,8 @@ class FredClient:
 
     def release_dates(self, release_id: int, start: date, end: date) -> list[date]:
         """The release's dates between two days (both included), including scheduled ones."""
-        if not self.is_set_up:
-            raise FredError("set FRED_API_KEY in the .env file (free, see the README).")
         params = {
             "release_id": release_id,
-            "api_key": self._key,
-            "file_type": "json",
             "realtime_start": start.isoformat(),
             "realtime_end": "9999-12-31",
             # Without this, FRED leaves out future dates (no data yet), which are the ones
@@ -57,8 +60,29 @@ class FredClient:
             "sort_order": "asc",
             "limit": 1000,
         }
+        body = self._get(RELEASE_DATES_URL, params)
+        return [d for d in dates_from_fred(body) if start <= d <= end]
+
+    def series_observations(self, series_id: str, start: date) -> list[tuple[date, float]]:
+        """A series' values from `start` on, oldest first, as (date, value). Days FRED has
+        no value for (holidays) are left out."""
+        params = {"series_id": series_id, "observation_start": start.isoformat()}
         try:
-            response = self._client.get(RELEASE_DATES_URL, params=params)
+            body = self._get(OBSERVATIONS_URL, params)
+        except FredError as exc:
+            if "does not exist" in str(exc):
+                raise FredError(
+                    f"FRED has no series called {series_id}: check its id in config/macro.yaml."
+                ) from exc
+            raise
+        return observations_from_fred(body)
+
+    def _get(self, url: str, params: dict) -> bytes:
+        if not self.is_set_up:
+            raise FredError("set FRED_API_KEY in the .env file (free, see the README).")
+        params = {**params, "api_key": self._key, "file_type": "json"}
+        try:
+            response = self._client.get(url, params=params)
         except httpx.TimeoutException as exc:
             raise FredError("FRED didn't answer in time.") from exc
         except httpx.HTTPError as exc:
@@ -66,11 +90,13 @@ class FredClient:
             raise FredError(f"Couldn't reach FRED ({type(exc).__name__}).") from exc
         if response.status_code in (400, 403) and "api_key" in response.text:
             raise FredError("FRED refused the key: check FRED_API_KEY in the .env file.")
+        if response.status_code == 400 and "does not exist" in response.text.lower():
+            raise FredError("FRED says that series does not exist.")
         if response.status_code == 429:
             raise FredError("FRED says we're asking too often; try again later.")
         if response.status_code >= 400:
             raise FredError(f"FRED answered with an error ({response.status_code}).")
-        return [d for d in dates_from_fred(response.content) if start <= d <= end]
+        return response.content
 
 
 def dates_from_fred(body: bytes) -> list[date]:
@@ -80,3 +106,21 @@ def dates_from_fred(body: bytes) -> list[date]:
         return sorted({date.fromisoformat(row["date"]) for row in rows})
     except (ValueError, KeyError, TypeError) as exc:
         raise FredError("FRED sent something unexpected.") from exc
+
+
+def observations_from_fred(body: bytes) -> list[tuple[date, float]]:
+    """FRED's `{"observations": [{"date": "2026-11-06", "value": "0.52"}, ...]}` -> values.
+    FRED writes "." for a day without a value; those are left out."""
+    try:
+        rows = json.loads(body)["observations"]
+        found: dict[date, float] = {}
+        for row in rows:
+            raw = str(row["value"]).strip()
+            if raw in (".", ""):
+                continue
+            value = float(raw)
+            if math.isfinite(value):
+                found[date.fromisoformat(row["date"])] = value
+    except (ValueError, KeyError, TypeError) as exc:
+        raise FredError("FRED sent something unexpected.") from exc
+    return sorted(found.items())

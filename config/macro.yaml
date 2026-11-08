@@ -1,0 +1,129 @@
+# The macro dashboard (SPEC F6): the cards on the Macro page, in this order.
+# Restart the app after editing.
+#
+# Adding an indicator from FRED (F6.3): find the series on fred.stlouisfed.org; its id is
+# the code at the end of the page address (e.g. .../series/UNRATE -> UNRATE). Then add:
+#   - label: Unemployment rate      # the card's name
+#     series: UNRATE                # the FRED series id
+#     group: Economy and credit     # the section it's shown in (optional)
+#     unit: percent                 # percent | index | ratio | usd_millions | usd_billions | usd_trillions
+#     show: value                   # value, or yearly_change for a price index like CPI
+#     decimals: 1                   # optional (default 2)
+#     note: A short explanation.    # optional
+# Most FRED series pages say the unit under the chart ("Percent", "Index", "Millions of
+# Dollars"...).
+#
+# Four kinds of indicator don't come straight from FRED; they're set with "source:":
+#   source: ici                    ICI's weekly money market fund assets (no FRED id)
+#   source: equity_risk_premium    S&P 500 earnings yield minus the 10-year Treasury yield
+#   source: largest_forward_pe     forward P/E of the largest US companies together
+# Their charts are built from one saved reading per day (per week for ICI), starting the
+# first time the page is opened, so they fill in over time.
+#
+# Data sources are free. FRED needs FRED_API_KEY in .env (the same key as the calendar).
+
+# Figures are checked again after this many hours (or this many minutes after a failure).
+refresh_hours: 12
+retry_minutes: 15
+# The longest chart, in years (the page can switch between 1 year and this).
+history_years: 5
+
+ici:
+  page_url: https://www.ici.org/research/stats/mmf
+
+equity_risk_premium:
+  # The fund whose P/E stands for the S&P 500's, and the Treasury yield taken off it.
+  index_fund: SPY
+  treasury_series: DGS10
+
+largest_forward_pe:
+  # How many of the largest US companies make up the estimate (Yahoo's sector lists,
+  # companies based outside the US left out).
+  companies: 50
+
+indicators:
+  # --- Yield curve and rates
+  - label: "Yield curve: 10-year minus 2-year"
+    group: Yield curve and rates
+    series: T10Y2Y
+    note: The 10-year Treasury yield minus the 2-year. Below zero ("inverted") has often come before recessions.
+  - label: "Yield curve: 10-year minus 3-month"
+    group: Yield curve and rates
+    series: T10Y3M
+    note: The 10-year Treasury yield minus the 3-month bill. The Fed's favourite recession signal when below zero.
+  - label: Fed funds rate
+    group: Yield curve and rates
+    series: DFF
+    note: The overnight rate the Fed steers (daily effective rate).
+
+  # --- Inflation
+  - label: CPI inflation
+    group: Inflation
+    series: CPIAUCSL
+    show: yearly_change
+    decimals: 1
+    note: Consumer prices compared with a year earlier.
+  - label: Core CPI inflation
+    group: Inflation
+    series: CPILFESL
+    show: yearly_change
+    decimals: 1
+    note: Consumer prices without food and energy, compared with a year earlier.
+  - label: Core PCE inflation
+    group: Inflation
+    series: PCEPILFE
+    show: yearly_change
+    decimals: 1
+    note: The Fed's preferred inflation measure (without food and energy), compared with a year earlier. The Fed aims for 2%.
+  - label: 10-year expected inflation
+    group: Inflation
+    series: T10YIE
+    note: The average yearly inflation bond prices expect over the next 10 years (the "breakeven" rate).
+
+  # --- Money market funds
+  - label: Money market fund assets (weekly)
+    group: Money market funds
+    source: ici
+    unit: usd_billions
+    note: Total money in US money market funds, from ICI's weekly report (every Wednesday's figure, published Thursdays).
+  - label: Money market fund assets (quarterly)
+    group: Money market funds
+    series: MMMFFAQ027S
+    unit: usd_millions
+    note: The Fed's quarterly figure (Financial Accounts of the United States), for the longer history.
+
+  # --- Valuation
+  - label: Equity risk premium
+    group: Valuation
+    source: equity_risk_premium
+    note: S&P 500 earnings yield (1 ÷ P/E, from SPY's P/E over the last 12 months) minus the 10-year Treasury yield. Low or negative means stocks pay little extra over bonds.
+  - label: S&P 500 forward P/E (estimate)
+    group: Valuation
+    source: largest_forward_pe
+    unit: ratio
+    decimals: 1
+    note: Price ÷ expected earnings for the next 12 months, for the 50 largest US companies together (about 60% of the S&P 500's value).
+
+  # --- Sentiment
+  - label: VIX (fear index)
+    group: Sentiment
+    series: VIXCLS
+    unit: index
+    decimals: 1
+    note: Expected S&P 500 swings over the next 30 days, from option prices. Above 30 is fearful, below 15 calm.
+  - label: Consumer sentiment (University of Michigan)
+    group: Sentiment
+    series: UMCSENT
+    unit: index
+    decimals: 1
+    note: How households feel about their finances and the economy (1966 = 100). Monthly.
+
+  # --- Economy and credit
+  - label: Unemployment rate
+    group: Economy and credit
+    series: UNRATE
+    decimals: 1
+  - label: High-yield bond spread
+    group: Economy and credit
+    series: BAMLH0A0HYM2
+    note: Extra yield on riskier company bonds over Treasuries. Rising quickly means lenders are getting nervous.

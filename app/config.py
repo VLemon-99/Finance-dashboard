@@ -14,7 +14,14 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.tickers import InvalidTicker, normalize_ticker
@@ -66,6 +73,9 @@ class Settings(BaseSettings):
 
     # X API "Bearer Token" (developer console -> your app -> Keys and tokens). Empty = X off.
     x_bearer_token: str = ""
+
+    # The macro dashboard's indicators (see MacroConfig below, SPEC F6).
+    macro_config_file: Path = PROJECT_ROOT / "config" / "macro.yaml"
 
 
 @lru_cache
@@ -415,6 +425,119 @@ class FomcConfig(_Section):
 def load_fomc_config(path: Path) -> FomcConfig:
     """Read config/fomc_dates.yaml."""
     return _load_yaml(path, FomcConfig, "Fed meeting dates")
+
+
+# --- config/macro.yaml (the macro dashboard, SPEC F6) ---------------------------------
+
+# Where an indicator's numbers come from:
+# - fred: a FRED series (any series id from fred.stlouisfed.org), the usual case (F6.3)
+# - ici: ICI's weekly money market fund assets
+# - equity_risk_premium: S&P 500 earnings yield (1 / the index fund's P/E) minus the
+#   10-year Treasury yield, worked out in app/services/macro_math.py
+# - largest_forward_pe: forward P/E of the largest US companies together (an estimate of
+#   the S&P 500's forward P/E)
+MacroSource = Literal["fred", "ici", "equity_risk_premium", "largest_forward_pe"]
+# What the stored numbers are: a percentage (4.25 = 4.25%), an index level, a ratio (a P/E),
+# or US dollars in millions / billions / trillions.
+MacroUnit = Literal["percent", "index", "ratio", "usd_millions", "usd_billions", "usd_trillions"]
+_FRED_SERIES = re.compile(r"^[A-Za-z0-9_.]{1,40}$")
+
+
+def _fred_series_id(value: str) -> str:
+    value = str(value).strip().upper()
+    if not _FRED_SERIES.match(value):
+        raise ValueError(f"'{value}' isn't a FRED series id (letters, digits, _ or .)")
+    return value
+
+
+class MacroIndicator(_Section):
+    """One card on the macro page."""
+
+    label: str = Field(min_length=1, max_length=80)
+    group: str = Field(default="Other", min_length=1, max_length=40)  # section heading
+    source: MacroSource = "fred"
+    series: str | None = None  # the FRED series id, e.g. T10Y2Y (FRED indicators only)
+    # "value" shows the numbers as they are; "yearly_change" shows the % change from the
+    # same date a year earlier (how inflation is quoted, from a price index like CPI).
+    show: Literal["value", "yearly_change"] = "value"
+    unit: MacroUnit = "percent"
+    decimals: int = Field(default=2, ge=0, le=4)
+    note: str | None = Field(default=None, max_length=300)  # a short explanation on the card
+
+    @field_validator("series")
+    @classmethod
+    def _series_id(cls, value: str | None) -> str | None:
+        return None if value is None else _fred_series_id(value)
+
+    @model_validator(mode="after")
+    def _series_matches_source(self) -> "MacroIndicator":
+        if self.source == "fred" and not self.series:
+            raise ValueError(f"'{self.label}': a FRED indicator needs its series id")
+        if self.source != "fred" and self.series:
+            raise ValueError(f"'{self.label}': 'series' is only for FRED indicators")
+        return self
+
+    @property
+    def display_unit(self) -> MacroUnit:
+        return "percent" if self.show == "yearly_change" else self.unit
+
+
+class IciConfig(_Section):
+    # ICI's weekly "Money Market Fund Assets" release page.
+    page_url: str = Field(
+        default="https://www.ici.org/research/stats/mmf", pattern=r"^https://\S+$"
+    )
+
+
+class EquityRiskPremiumConfig(_Section):
+    # The fund whose P/E stands for the S&P 500's, and the Treasury yield taken off it.
+    index_fund: str = "SPY"
+    treasury_series: str = "DGS10"
+
+    @field_validator("index_fund")
+    @classmethod
+    def _fund(cls, value: str) -> str:
+        return (_tickers([value]) or [value])[0]
+
+    @field_validator("treasury_series")
+    @classmethod
+    def _treasury(cls, value: str) -> str:
+        return _fred_series_id(value)
+
+
+class LargestForwardPeConfig(_Section):
+    # How many of the largest US companies make up the estimate.
+    companies: int = Field(default=50, ge=10, le=200)
+    # Most Yahoo company requests per refresh (a safety limit; about 65 are usually needed).
+    max_requests: int = Field(default=200, ge=20, le=600)
+
+
+class MacroConfig(_Section):
+    # Figures are checked again after this many hours, or this many minutes after a failure.
+    refresh_hours: int = Field(default=12, ge=1, le=168)
+    retry_minutes: int = Field(default=15, ge=1, le=1440)
+    # The longest chart (F6.1: 1 to 5 years).
+    history_years: int = Field(default=5, ge=1, le=10)
+    ici: IciConfig = IciConfig()
+    equity_risk_premium: EquityRiskPremiumConfig = EquityRiskPremiumConfig()
+    largest_forward_pe: LargestForwardPeConfig = LargestForwardPeConfig()
+    indicators: list[MacroIndicator] = Field(default=[], max_length=60)
+
+    @field_validator("indicators")
+    @classmethod
+    def _unique_labels(cls, value: list[MacroIndicator]) -> list[MacroIndicator]:
+        seen: set[str] = set()
+        for indicator in value:
+            key = indicator.label.strip().lower()
+            if key in seen:
+                raise ValueError(f"two indicators are called '{indicator.label}'")
+            seen.add(key)
+        return value
+
+
+def load_macro_config(path: Path) -> MacroConfig:
+    """Read config/macro.yaml."""
+    return _load_yaml(path, MacroConfig, "Macro dashboard")
 
 
 # --- config/sources.yaml (trusted sources, SPEC F4.4) ---------------------------------

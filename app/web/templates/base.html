@@ -6,11 +6,12 @@
   <title>{% block title %}Finance Dashboard{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v={{ asset_version('style.css') }}">
   <script src="{{ url_for('static', path='htmx.min.js') }}?v={{ asset_version('htmx.min.js') }}" defer></script>
+  {% block head %}{% endblock %}
 </head>
 <body>
   <header>
     <a href="/" class="brand">Finance Dashboard</a>
-    <nav><a href="/">Watchlists</a><a href="/options">Options</a><a href="/portfolio">Portfolio</a><a href="/reports">Reports</a><a href="/calendar">Calendar</a><a href="/lookup">Quote lookup</a></nav>
+    <nav><a href="/">Watchlists</a><a href="/options">Options</a><a href="/portfolio">Portfolio</a><a href="/reports">Reports</a><a href="/calendar">Calendar</a><a href="/macro">Macro</a><a href="/lookup">Quote lookup</a></nav>
   </header>
   <main class="{% block main_class %}{% endblock %}">{% block content %}{% endblock %}</main>
 </body>

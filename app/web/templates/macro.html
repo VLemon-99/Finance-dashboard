@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Macro · Finance Dashboard{% endblock %}
+{% block head %}{% if running %}<meta http-equiv="refresh" content="20">{% endif %}{% endblock %}
+{% block content %}
+<h1>Macro dashboard</h1>
+
+<nav class="segmented" aria-label="Chart period">
+  <a href="/macro?years=1"{% if span == 1 %} aria-current="page"{% endif %}>1 year</a>
+  <a href="/macro?years={{ longest }}"{% if span != 1 %} aria-current="page"{% endif %}>{{ longest }} years</a>
+</nav>
+
+{% if run_note %}<p class="note" role="status">{{ run_note }}</p>{% endif %}
+{% if fred_missing %}
+<p class="note warning" role="status">Most indicators come from FRED, which isn't set up yet: add FRED_API_KEY to the .env file (free; see "Setting up the calendar" in the README) and restart the app.</p>
+{% endif %}
+
+{% for g in groups %}
+<section class="macro-group">
+  <h2>{{ g.name }}</h2>
+  <div class="macro-grid">
+  {% for i in g.indicators %}
+    <article class="macro-card {{ i.status }}" id="{{ i.anchor }}">
+      <h3>{{ i.label }}</h3>
+      {% if i.latest %}
+      <p class="macro-value">{{ i.value_text }}{% if i.change_text %} <span class="macro-change">{{ i.change_text }}</span>{% endif %}</p>
+      <p class="small muted">Latest figure: {{ i.latest[0] | short_date }}{% if i.change_text %} · change since {{ i.earlier[0] | short_date }}{% endif %}</p>
+      {% else %}
+      <p class="macro-value muted">—</p>
+      <p class="small muted">No figures yet.</p>
+      {% endif %}
+
+      {% if i.chart | length >= 2 %}
+      <div class="macro-chart"><canvas data-chart="{{ i.chart_json }}" role="img" aria-label="Chart of {{ i.label }} from {{ i.chart[0][0] | short_date }} to {{ i.chart[-1][0] | short_date }}"></canvas></div>
+      {% endif %}
+      {% if i.fills_in_per and i.latest %}
+      <p class="small muted">The chart fills in over time: one reading per {{ i.fills_in_per }}, saved since {{ (i.chart[0][0] if i.chart else i.latest[0]) | short_date }}.</p>
+      {% endif %}
+
+      {% if i.problems %}
+      <p class="note warning small">{% if i.status == 'stale' %}Not up to date: {% endif %}{{ i.problems | join(' ') }}{% if i.status == 'stale' %} Showing the figures saved earlier.{% endif %}</p>
+      {% endif %}
+      {% if i.note %}<p class="small">{{ i.note }}</p>{% endif %}
+      {% if i.detail %}<p class="small muted">{{ i.detail }}</p>{% endif %}
+      <p class="small muted macro-source">Source: {% for name, url in i.sources %}{% if url %}<a href="{{ url }}" rel="noopener noreferrer" target="_blank">{{ name }}</a>{% else %}{{ name }}{% endif %}{% if not loop.last %} and {% endif %}{% endfor %}{% if i.checked_at %} · checked {{ i.checked_at | eastern }}{% endif %}</p>
+    </article>
+  {% endfor %}
+  </div>
+</section>
+{% endfor %}
+{% if not groups %}
+<p class="muted">No indicators are set up. Add some to config/macro.yaml and restart the app.</p>
+{% endif %}
+
+<p class="muted small">Indicators, their sources and the order of the cards are set in config/macro.yaml (any FRED series can be added there). Figures are checked again every few hours while you use the page. Dates are each source's own; times are US Eastern.</p>
+<script src="{{ url_for('static', path='chart.umd.min.js') }}?v={{ asset_version('chart.umd.min.js') }}"></script>
+<script src="{{ url_for('static', path='macro_charts.js') }}?v={{ asset_version('macro_charts.js') }}"></script>
+{% endblock %}

@@ -1,7 +1,7 @@
 # Architecture
 
 > The bird's-eye view. Keep this short and current — it's what a fresh agent or reviewer reads to understand the whole system.
-> Status: **Phases 1–6 built**: quote lookup, watchlists, research reports from news, SEC filings, trusted blogs and YouTube channels (Gemini summaries and video watching, "Generate now", history, an optional weekday schedule that's off by default), the option chain browser (greeks calculated by us, contracts in watchlists) and the virtual portfolio (trades, positions, P&L, short-option returns, credit spreads, expiry outcomes). Phase 6 added the market events calendar (earnings, economic releases, Fed meetings; list and week views; next 3 high-impact events on the home page). Phase 7 added valuation benchmarks, holders, funds followed and unusual options. Phase 8 added X posts (trusted accounts, then a $TICKER search, within hard budgets; off by default). Macro is still the target design; Reddit is parked (DECISIONS 2026-11-05).
+> Status: **Phases 1–6 built**: quote lookup, watchlists, research reports from news, SEC filings, trusted blogs and YouTube channels (Gemini summaries and video watching, "Generate now", history, an optional weekday schedule that's off by default), the option chain browser (greeks calculated by us, contracts in watchlists) and the virtual portfolio (trades, positions, P&L, short-option returns, credit spreads, expiry outcomes). Phase 6 added the market events calendar (earnings, economic releases, Fed meetings; list and week views; next 3 high-impact events on the home page). Phase 7 added valuation benchmarks, holders, funds followed and unusual options. Phase 8 added X posts (trusted accounts, then a $TICKER search, within hard budgets; off by default). Phase 9 added the macro dashboard (FRED series, ICI's weekly money market fund total, equity risk premium and an S&P 500 forward P/E estimate, with charts). Reddit is parked (DECISIONS 2026-11-05).
 
 ## Overview
 A single Python web app runs on my computer and opens in the browser. Pages are built on
@@ -25,8 +25,9 @@ morning report. Each outside service sits behind a small "adapter", so one can b
  │  providers/            sources/                  ai/                   │
  │  MarketData            Source plug-ins:          LLM interface         │
  │  (yahoo.py)            news_rss · edgar ·        (gemini.py)           │
- │  Calendar data         youtube · blogs ·                               │
- │  (fred.py, fomc)       x · reddit                                      │
+ │  Calendar + macro      youtube · blogs ·                               │
+ │  (fred.py, ici.py,     x                                               │
+ │   fomc)                                                                │
  │     │                                                                  │
  │  db/  SQLModel models + Alembic migrations ──► data/app.db (SQLite)    │
  │  scheduler.py  APScheduler: weekday 7:30am ET report job (off by default)│
@@ -45,6 +46,7 @@ morning report. Each outside service sits behind a small "adapter", so one can b
 | Report pipeline | Collect + dedupe → market facts (valuation, holders, followed funds, unusual options) → watch new videos (once each, capped per run) → summarize → compose (cited statements only) → sentiment score + insider totals in code → store | `app/services/collect.py`, `market_facts.py`, `videos.py`, `summarize.py`, `reports.py`, `sentiment.py`, `insider.py`; pages in `app/web/report_routes.py` |
 | Market facts (Phase 7) | Valuation vs own history, industry peers, sector and Damodaran (formulas in `valuation.py`); top institutional holders; followed funds' 13F holdings; unusual options (`unusual_options.py`). Fetched for a whole run together, groups and peer figures reused 24 hours. Settings in `config/benchmarks.yaml` and `config/institutional.yaml` | `app/services/market_facts.py`, `valuation.py`, `unusual_options.py`; `app/providers/yahoo.py`, `damodaran.py`, `sec_13f.py` |
 | Calendar data | Earnings (date, time, before the open / after the close) from Yahoo's earnings calendar, all my tickers in one request (`MarketData.get_earnings`); release dates for CPI, jobs report, PCE and GDP from FRED's release calendar (release times and impact in `config/settings.yaml`); Fed decisions and minutes from a dates file | `app/providers/yahoo.py`, `app/providers/fred.py`, `config/fomc_dates.yaml`; merged in `app/services/calendar.py`, page in `app/web/calendar_routes.py` |
+| Macro dashboard (Phase 9) | Cards from `config/macro.yaml`: FRED series (any id), ICI's weekly money market fund total, the equity risk premium (SPY's P/E and the 10-year yield) and the S&P 500 forward P/E estimate (50 largest US companies from Yahoo's sector lists). Refreshed in a background thread; formulas in `macro_math.py`. Charts drawn in the browser with Chart.js (`static/chart.umd.min.js`, `static/macro_charts.js`) | `app/services/macro.py`, `macro_math.py`; `app/providers/fred.py`, `ici.py`, `yahoo.py`; page in `app/web/macro_routes.py` |
 | Scheduler | Runs every watchlist's report on weekdays at 7:30am ET while the app is running. Off unless `schedule.enabled` is true in `config/settings.yaml` | `app/scheduler.py` |
 | Database | All stored data; one file locally, Postgres-compatible design. Tables are created by Alembic migrations (`uv run alembic upgrade head`), never automatically at startup | `data/app.db` (git-ignored), `app/db/models.py`, `app/db/migrations/` |
 | Configuration | Trusted sources, sentiment weights, limits, thresholds | `config/*.yaml`, `.env` for secrets |
@@ -65,6 +67,8 @@ Every user-owned table has a `user_id` column from day one (one default user for
 - `calendar_events` — fetched calendar events, shared market facts (no `user_id`): kind (earnings/macro), source key (`earnings:AAPL`, `fred:10`), ticker, title, US Eastern day, start time (UTC, empty if unknown), earnings timing, source and link. Each refresh replaces all rows of its source key. Fed meetings aren't stored (they're read from `config/fomc_dates.yaml`); impact and release times are applied from the settings when shown.
 - `calendar_fetches` — when each source key was last checked and whether it worked (for once-a-day refreshes, retry after 15 minutes, and stale/missing notes).
 - `x_spending` — the app's running X spending per UTC day (posts and account records X sent, dollars, counted on the high side); checked against the daily and monthly budgets before every X request. App-wide (one X key), so no `user_id`.
+- `macro_observations` — dated values of the macro series, shared market facts (no `user_id`): series key (`fred:T10Y2Y`, `ici:mmf_total`, `yahoo:SPY:trailing_pe`, `calc:largest_forward_pe`), date, value. One value per series and date. FRED series are replaced in full on each refresh (6 years); the others gain one row per week or trading day.
+- `macro_fetches` — when each macro series was last checked, whether it worked, the reason if not, and extra facts from the source (e.g. how many companies the forward P/E is based on).
 - `x_checks` — per ticker and search (`search`, or `accounts:<group id>`), up to when X has been read and when, so no post is asked for twice and the $TICKER search rotates through the watchlist (longest ago first). No `user_id`.
 
 ## How data flows
@@ -112,6 +116,12 @@ Every user-owned table has a `user_id` column from day one (one default user for
 4. The list view shows today plus 13 days without past events; the week view shows Monday to Sunday with every day listed. Filters: my tickers only (economic events hidden), high impact only. Notes list sources that are down or not set up, and a Fed dates file with no future meeting.
 5. The home page shows the next 3 high-impact events (it refreshes the same way).
 
+**Macro page** (`/macro`, `?years=1` for 1-year charts; 5 years by default)
+1. Opening the page calls `services/macro.start_refresh`: series not checked for 12 hours (15 minutes after a failure) are fetched in a background thread, one at a time, each saved as soon as it's done. FRED series wait until a FRED key is set up. Only one refresh runs at a time.
+2. Per series: FRED → 6 years of values replace the stored ones; ICI → the latest week's total from its weekly page, added; SPY's trailing P/E (Yahoo) → today's reading (dated on the latest trading day); the forward P/E estimate → read the largest companies sector by sector (stopping when no smaller company can make the top 50), combine (total value ÷ total expected earnings), save with a note of how many companies it's based on.
+3. The page is built from what's saved: each card's series (inflation as the change from a year earlier, the premium as earnings yield minus the Treasury yield on that day), latest figure, change since a month earlier with that date, chart for the chosen period (daily series thinned to weekly when long), sources with links, last successful check, and "stale" (with the reason) or "missing".
+4. While a refresh runs the page reloads itself every 20 seconds; it never waits for a source.
+
 **Single-ticker quote lookup** (`/lookup`; was `/` in Phase 1)
 1. I type a ticker. `app/tickers.py` checks it looks like a US ticker (`BRK.B` → `BRK-B`); anything else is rejected before any outside call.
 2. A stored quote younger than the refresh window is reused. Otherwise the `MarketData` provider (Yahoo) returns the full stock row (see "Where the stock row comes from" below). The quote is saved in `quotes` (one row per instrument, overwritten) and shown with the day change, labelled with its trading day ("today" or e.g. "on Fri, Oct 30"), and the fetch time in US Eastern.
@@ -136,7 +146,8 @@ Every user-owned table has a `user_id` column from day one (one default user for
 - **Google News search RSS** (press releases arrive here too) and **Yahoo Finance headline RSS** (free, unofficial) via `feedparser`; trusted blogs' RSS/Atom feeds the same way.
 - **YouTube channel feeds** (`https://www.youtube.com/feeds/videos.xml?channel_id=…`, free, no key) to list new videos from trusted channels. Gemini fetches the videos themselves from their public links.
 - **Gemini API** (Google AI Studio key `GEMINI_API_KEY`) for summaries, sentiment and video understanding. Billed to the $10/month Google Cloud credit included with the owner's Gemini Pro subscription.
-- **FRED API** (free key `FRED_API_KEY`) for macro release dates (`fred/release/dates`, including scheduled future dates) and, later, macro series. The key travels in the address, so addresses are never logged.
+- **FRED API** (free key `FRED_API_KEY`) for macro release dates (`fred/release/dates`, including scheduled future dates) and the macro dashboard's series (`fred/series/observations`). The key travels in the address, so addresses are never logged.
+- **ICI** (Investment Company Institute, free, no key): the weekly "Money Market Fund Assets" page (address in `config/macro.yaml`), read by `app/providers/ici.py` at most every 12 hours; only the latest week's sentence is read.
 - **X API** (official, pay-per-use, prepaid credit; Bearer Token `X_BEARER_TOKEN`): recent search (`/2/tweets/search/recent`, last 7 days), read by `app/sources/x.py`. About $0.005 per post and $0.010 per account record (authors are asked for on trusted-account searches only). Budgets in `config/x.yaml` ($5/month, $0.22/day); a spending limit in X's console is the second safety net. Off by default.
 - **Reddit:** not used. Reddit's API now needs Reddit's approval, rarely given to personal projects, and its RSS feeds are being retired (DECISIONS 2026-11-05).
 
@@ -148,14 +159,14 @@ app/
   tickers.py       ticker format rules (shared by services and adapters)
   timeutils.py     UTC storage ↔ US Eastern display
   market_calendar.py  US trading days: weekends + NYSE holidays (one-off closures from config/settings.yaml)
-  web/             routes (routes.py: watchlists + lookup; option_routes.py; portfolio_routes.py; report_routes.py), formatting.py (number/date display), assets.py (version codes on CSS/JS links), templates/ (HTML pages + HTMX partials), static/ (CSS, vendored htmx.min.js)
-  services/        business rules: watchlists, quotes, search, options (chains, contract prices, risk-free rate), options_math (pure formulas), portfolio (trades, prices, portfolio page, spreads, expiry), positions (pure: positions from trades), collect, videos (watching YouTube videos once each), summarize, reports, sentiment, insider, calendar (merging events, filters, views) (later macro)
-  providers/       market data + calendar data adapters (yahoo: also the earnings calendar; fred: release dates)
+  web/             routes (routes.py: watchlists + lookup; option_routes.py; portfolio_routes.py; report_routes.py; calendar_routes.py; macro_routes.py), formatting.py (number/date display), assets.py (version codes on CSS/JS links), templates/ (HTML pages + HTMX partials), static/ (CSS, vendored htmx.min.js and chart.umd.min.js, macro_charts.js)
+  services/        business rules: watchlists, quotes, search, options (chains, contract prices, risk-free rate), options_math (pure formulas), portfolio (trades, prices, portfolio page, spreads, expiry), positions (pure: positions from trades), collect, videos (watching YouTube videos once each), summarize, reports, sentiment, insider, calendar (merging events, filters, views), macro (refreshing and building the macro cards), macro_math (pure formulas)
+  providers/       market data + calendar data adapters (yahoo: also the earnings calendar; fred: release dates and series; ici: weekly money market fund assets)
   sources/         research content plug-ins: base.py (interface), http.py (downloads), feeds.py (one download per run), mentions.py (does a post mention the ticker?), news_rss.py, edgar.py, blogs.py, youtube.py, x.py (X posts, budget ledger), registry.py
   ai/              LLM interface (llm.py) + Gemini adapter with its prompts (gemini.py)
   db/              models.py, session.py, migrations/ (Alembic; alembic.ini is in the project root)
   scheduler.py     the optional weekday report job (APScheduler)
-config/            settings.yaml (limits, refresh window, options fallback rate + minimum IV, report settings, sentiment weights, AI model, video limits, schedule), sources.yaml (sources on/off, Google News search, trusted outlets, SEC forms, blogs, YouTube channels, also_known_as names), fomc_dates.yaml (Fed meeting dates)
+config/            settings.yaml (limits, refresh window, options fallback rate + minimum IV, report settings, sentiment weights, AI model, video limits, schedule), sources.yaml (sources on/off, Google News search, trusted outlets, SEC forms, blogs, YouTube channels, also_known_as names), fomc_dates.yaml (Fed meeting dates), macro.yaml (macro dashboard cards), benchmarks.yaml, institutional.yaml, x.yaml
 data/              app.db and caches (git-ignored)
 tests/             automated tests; fixtures/ holds sample responses (fixtures/sources/ for feeds and SEC files); conftest.py has the fake market data, fake internet (FakeFetch) and fake AI (FakeLLM)
 docs/              spec, architecture, decisions, prompts

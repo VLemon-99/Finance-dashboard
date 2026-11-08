@@ -6,7 +6,7 @@ It also tracks stocks, option contracts (greeks, IV, days to expiration) and a v
 portfolio, including the annualized return on short options, and shows a calendar of
 market-moving events. It is not linked to any brokerage and never places trades.
 
-**Status:** Phase 3 works: watchlists with live stock data, plus research reports from news and SEC filings, summarized by Gemini ("Generate now" and a history page under **Reports**). Phase 4: option chains with greeks under **Options** (or the "Options" link on any watchlist row), option contracts saved in watchlists, and a virtual **Portfolio**: press Bought or Sold on any stock or contract to record a trade, then see P&L, capital at risk and annualized returns on short options, credit spreads, poor man's covered calls and expiry outcomes. A single-ticker quote lookup is at `/lookup`. See `PLAN.md` for the current phase.
+**Status:** Phases 1–9 are built (see `PLAN.md`). Phase 3 works: watchlists with live stock data, plus research reports from news and SEC filings, summarized by Gemini ("Generate now" and a history page under **Reports**). Phase 4: option chains with greeks under **Options** (or the "Options" link on any watchlist row), option contracts saved in watchlists, and a virtual **Portfolio**: press Bought or Sold on any stock or contract to record a trade, then see P&L, capital at risk and annualized returns on short options, credit spreads, poor man's covered calls and expiry outcomes. A single-ticker quote lookup is at `/lookup`. Later phases added the **Calendar**, valuation and fund holdings in reports, optional X posts, and the **Macro** page. See `PLAN.md` for the current phase.
 
 ## Documents
 | File | Purpose |
@@ -110,6 +110,14 @@ The Calendar page (and the "Coming up" box on the home page) shows your stocks' 
 
 Fed meeting dates are in `config/fomc_dates.yaml` (2026 only for now). When the Fed publishes next year's dates (usually in the summer, at https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm), add them the same way as the ones already there; the calendar reminds you once no future meeting is listed. Release times and the high/medium impact levels are in `config/settings.yaml` under `calendar:`.
 
+**The macro dashboard** (nothing to set up if the calendar's FRED key is in place)
+
+The **Macro** page shows broad market indicators as cards: the latest figure, the change since about a month earlier, a chart (switch between 1 year and 5 years at the top), the source and the date of the latest figure. Most come from FRED, using the same free `FRED_API_KEY` as the calendar; without it those cards say so and the others still work. The money market fund weekly total comes from ICI's website, and the two valuation cards (equity risk premium, S&P 500 forward P/E) from Yahoo Finance.
+
+- The first visit fetches everything in the background (about a minute); the page reloads by itself. After that, figures are checked again every 12 hours while you use the page.
+- Three cards build their charts from one saved reading per trading day (per week for ICI), starting from your first visit, so their charts start as a single dot and fill in over time.
+- To add an indicator, find it on https://fred.stlouisfed.org, copy the code at the end of its page address (e.g. `UNRATE`), and add a card to `config/macro.yaml` (the top of the file shows how). Delete a card's lines to remove it. Restart the app after editing.
+
 **Setting up X (Twitter)** (optional, about 10 minutes; costs money)
 
 Reports can include posts on X: first new posts from accounts you trust that mention the stock, then (with the budget left that day) a search of all of X for "$TICKER". X charges for every post it sends, from credit you buy in advance (no subscription). The app keeps to the budgets in `config/x.yaml`: $5 a month and $0.22 a day to start. It is off until you do the steps below. X's site changes often, so the button names may differ slightly.
@@ -148,7 +156,7 @@ uv run uvicorn app.main:app --reload
 ```
 Wait for the line `Application startup complete.`, then open http://localhost:8000. Leave this terminal window open while you use the app.
 
-`uv sync` installs any new libraries and `alembic upgrade head` applies any database changes (Phase 8 adds two small tables for X's spending); both do nothing if nothing changed. If `git pull` shows an error or mentions conflicts, stop and ask before going further. If the app stops with an error instead of `Application startup complete.`, copy the last few lines of the terminal and send them to Claude.
+`uv sync` installs any new libraries and `alembic upgrade head` applies any database changes (Phase 9 adds two small tables for the macro figures); both do nothing if nothing changed. If `git pull` shows an error or mentions conflicts, stop and ask before going further. If the app stops with an error instead of `Application startup complete.`, copy the last few lines of the terminal and send them to Claude.
 
 **Checks (optional)**
 ```bash

@@ -111,13 +111,14 @@ Acceptance criteria:
 - [ ] F5.5 Each event shows the date, time (US Eastern), and source. Past events drop off the default view.
 - [ ] F5.6 The dashboard home page shows the next 3 high-impact events.
 
-### F6 — Macro dashboard (later; still being brainstormed)
-A panel of broad market indicators. Exact list to be confirmed before this phase starts.
+### F6 — Macro dashboard
+A page of broad market indicators. List confirmed with the owner 2026-11-08 (DECISIONS 2026-11-08); the cards live in `config/macro.yaml`.
 
-Acceptance criteria (initial; refine before building):
-- [ ] F6.1 Shows the latest value, the change since last month, and a 1–5 year chart for: yield-curve spreads (10y–2y, 10y–3m), CPI and core PCE inflation, money market fund assets, equity risk premium (S&P 500 earnings yield minus 10y Treasury yield), and S&P 500 forward P/E.
-- [ ] F6.2 Every indicator shows its source and the date of its last update.
+Acceptance criteria:
+- [ ] F6.1 Shows the latest value, the change since about a month earlier (the date compared with is shown), and a chart switchable between 1 and 5 years for: yield-curve spreads (10y–2y, 10y–3m), CPI, core CPI and core PCE inflation (change from a year earlier), money market fund assets (ICI's weekly total), equity risk premium (S&P 500 earnings yield, from SPY's trailing P/E, minus the 10y Treasury yield), S&P 500 forward P/E (estimated from the 50 largest US companies), VIX and University of Michigan consumer sentiment. Extras shipped in the same file: Fed funds rate, 10-year expected inflation, unemployment rate, high-yield bond spread, and the Fed's quarterly money market fund total. Figures with no free history (ICI weekly, equity risk premium, forward P/E) build their charts from one saved reading per week or trading day, starting with the first visit.
+- [ ] F6.2 Every indicator shows its source and the date of its last update; a source that fails shows its cards as "stale" (with the reason and the saved figures) or "missing", and never breaks the page.
 - [ ] F6.3 Indicators can be added through configuration (FRED series ID + label) without code changes.
+- Not included (owner 2026-11-08): retail trading volume (no free source), fund inflows/outflows (ICI publishes them but not on FRED; maybe later), AAII investor survey (download needs a paid membership), CNN Fear & Greed (no official access).
 
 ### F7 — Accounts & hosting (later)
 Acceptance criteria (initial):
@@ -150,5 +151,5 @@ Acceptance criteria (initial):
 
 ## Open questions
 - ~~**X/Twitter source**~~ settled 2026-11-05: X's official pay-per-use API, $5/month (DECISIONS 2026-11-05).
-- **Macro indicators (F6):** final list, especially retail trading volume, fund inflows/outflows and overall sentiment measures. Their free data sources need confirming.
+- ~~**Macro indicators (F6):**~~ settled 2026-11-08 (DECISIONS 2026-11-08; F6 above).
 - **Report delivery:** in the app only for now. Is email or PDF wanted later?

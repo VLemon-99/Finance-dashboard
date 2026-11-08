@@ -20,26 +20,31 @@ from app.config import (
     load_benchmarks_config,
     load_fomc_config,
     load_institutional_config,
+    load_macro_config,
     load_sources_config,
     load_x_config,
 )
 from app.db.session import database_is_set_up, database_is_up_to_date, make_engine
 from app.providers.damodaran import DamodaranClient
 from app.providers.fred import FredClient
+from app.providers.ici import IciClient
 from app.providers.market_data import MarketData
 from app.providers.sec_13f import ThirteenFClient
 from app.providers.yahoo import YahooMarketData
 from app.scheduler import start_scheduler
 from app.services.calendar import CalendarSetup
+from app.services.macro import MacroSetup
 from app.services.market_facts import MarketFacts
 from app.services.options import RiskFreeRate
 from app.services.portfolio import TradeNotFound
 from app.services.reports import ReportServices, execute_run, mark_interrupted_runs
 from app.services.users import ensure_default_user
 from app.services.watchlists import WatchlistNotFound
-from app.sources.registry import build_sources
+from app.sources.http import HttpFetcher
+from app.sources.registry import NEWS_USER_AGENT, build_sources
 from app.web.assets import STATIC_DIR
 from app.web.calendar_routes import router as calendar_router
+from app.web.macro_routes import router as macro_router
 from app.web.option_routes import router as option_router
 from app.web.portfolio_routes import router as portfolio_router
 from app.web.portfolio_routes import trade_not_found
@@ -102,6 +107,7 @@ def create_app(
     report_runner: ReportRunner | None = None,
     fred: FredClient | None = None,
     fomc: FomcConfig | None = None,
+    macro: MacroSetup | None = None,
 ) -> FastAPI:
     """Build the app. Tests pass in a temporary database, fake data sources and small limits."""
     settings = get_settings()
@@ -113,6 +119,19 @@ def create_app(
     )
     fred = fred or FredClient(settings.fred_api_key, settings.source_timeout_seconds)
     fomc = fomc or load_fomc_config(settings.fomc_dates_file)
+    if macro is None:
+        macro_config = load_macro_config(settings.macro_config_file)
+        macro = MacroSetup(
+            fred=fred,
+            ici=IciClient(
+                HttpFetcher(NEWS_USER_AGENT, settings.source_timeout_seconds),
+                macro_config.ici.page_url,
+            ),
+            market_data=market_data,
+            config=macro_config,
+            extra_closed_days=app_config.market_data.extra_closed_days,
+            parallel=app_config.market_data.max_parallel_fetches,
+        )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -148,12 +167,14 @@ def create_app(
     app.state.calendar = CalendarSetup(
         market_data=market_data, fred=fred, fomc=fomc, config=app_config
     )
+    app.state.macro = macro
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     app.include_router(router)
     app.include_router(report_router)
     app.include_router(option_router)
     app.include_router(portfolio_router)
     app.include_router(calendar_router)
+    app.include_router(macro_router)
     app.add_exception_handler(WatchlistNotFound, watchlist_not_found)
     app.add_exception_handler(ReportNotFound, report_not_found)
     app.add_exception_handler(TradeNotFound, trade_not_found)

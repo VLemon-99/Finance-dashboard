@@ -104,6 +104,7 @@ class CompanyProfile:
     target_mean: float | None = None
     target_high: float | None = None
     analyst_count: int | None = None
+    country: str | None = None  # where the company is based, e.g. "United States"
 
 
 @dataclass(frozen=True)
