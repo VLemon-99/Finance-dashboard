@@ -344,6 +344,7 @@ def profile_from_info(symbol: str, info: dict | None) -> CompanyProfile:
         target_mean=_positive(info.get("targetMeanPrice")),
         target_high=_positive(info.get("targetHighPrice")),
         analyst_count=analysts if analysts and analysts > 0 else None,
+        country=info.get("country") or None,
     )
 
 

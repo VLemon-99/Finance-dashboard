@@ -658,6 +658,9 @@ class FakeFred:
         self.down = False
         self.dates: dict[int, list[date]] = dates or {}
         self.calls: list[int] = []
+        # Macro dashboard (Phase 9): series id -> (date, value) points.
+        self.series: dict[str, list[tuple[date, float]]] = {}
+        self.series_calls: list[str] = []
 
     def release_dates(self, release_id, start, end):
         from app.providers.fred import FredError
@@ -666,6 +669,18 @@ class FakeFred:
         if self.down:
             raise FredError("FRED didn't answer in time.")
         return [d for d in self.dates.get(release_id, []) if start <= d <= end]
+
+    def series_observations(self, series_id, start):
+        from app.providers.fred import FredError
+
+        self.series_calls.append(series_id)
+        if self.down:
+            raise FredError("FRED didn't answer in time.")
+        if series_id not in self.series:
+            raise FredError(
+                f"FRED has no series called {series_id}: check its id in config/macro.yaml."
+            )
+        return [p for p in self.series[series_id] if p[0] >= start]
 
 
 # Fed meetings for tests (invented, near the calendar clock below).
@@ -696,8 +711,222 @@ def fomc():
     return FomcConfig.model_validate(TEST_FOMC)
 
 
+# --- the macro dashboard (Phase 9) ---------------------------------------------------------
+
+
+def company(symbol, cap, forward_pe=None, country="United States", name=None, trailing_pe=None):
+    """A made-up company's Yahoo figures (market value in billions, for readability)."""
+    from app.providers.market_data import CompanyProfile, Multiples
+
+    return CompanyProfile(
+        symbol=symbol,
+        name=name or f"{symbol} Inc.",
+        sector=None,
+        sector_key=None,
+        industry=None,
+        industry_key=None,
+        price=100.0,
+        market_cap=cap,
+        shares_outstanding=None,
+        multiples=Multiples(trailing_pe=trailing_pe, forward_pe=forward_pe),
+        country=country,
+    )
+
+
+class FakeMacroMarket:
+    """Stands in for Yahoo on the macro page: sector lists (biggest first) and company
+    figures. Unknown symbols fail like a Yahoo error."""
+
+    def __init__(self, sectors=None, profiles=None) -> None:
+        self.sectors: dict[str, list[str]] = sectors or {}
+        self.profiles: dict = {p.symbol: p for p in profiles or []}
+        self.down = False
+        self.calls: list[str] = []
+
+    def get_group_members(self, kind, key):
+        from app.config import YAHOO_SECTORS
+        from app.providers.market_data import GroupMembers
+
+        if self.down:
+            raise MarketDataError("Yahoo Finance did not respond properly (Timeout).")
+        return GroupMembers(kind, key, YAHOO_SECTORS[key], tuple(self.sectors.get(key, [])))
+
+    def get_profile(self, symbol):
+        self.calls.append(symbol)
+        if self.down:
+            raise MarketDataError("Yahoo Finance did not respond properly (Timeout).")
+        if symbol not in self.profiles:
+            raise TickerNotFound(symbol)
+        return self.profiles[symbol]
+
+
+# Fri Nov 6, 2026, 10:00 AM US Eastern.
+MACRO_NOW = datetime(2026, 11, 6, 15, 0, tzinfo=UTC)
+
+
+def weekdays(start: date, end: date, value) -> list[tuple[date, float]]:
+    from datetime import timedelta
+
+    days, day = [], start
+    while day <= end:
+        if day.weekday() < 5:
+            days.append((day, value(day)))
+        day += timedelta(days=1)
+    return days
+
+
+def month_starts(first: date, last: date, value) -> list[tuple[date, float]]:
+    points, year, month = [], first.year, first.month
+    while (year, month) <= (last.year, last.month):
+        day = date(year, month, 1)
+        points.append((day, value(day)))
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+    return points
+
+
+def _cpi(day: date) -> float:
+    # Known answers: Sep 2025 300.0 -> Sep 2026 309.0 (+3.0%); Aug 2025 300.0 -> Aug 2026
+    # 308.1 (+2.7%). Other months: a steady made-up climb.
+    known = {
+        date(2025, 8, 1): 300.0,
+        date(2025, 9, 1): 300.0,
+        date(2026, 8, 1): 308.1,
+        date(2026, 9, 1): 309.0,
+    }
+    return known.get(day, 250.0 + (day.year - 2019) * 8 + day.month * 0.5)
+
+
+# Invented FRED series for the macro tests, up to the day before MACRO_NOW.
+MACRO_SERIES = {
+    # 0.40 until the end of October 2026, then 0.55: latest 0.55 (Nov 5), a month before
+    # (Oct 5) 0.40, so the change is +0.15 points.
+    "T10Y2Y": weekdays(
+        date(2020, 6, 1), date(2026, 11, 5), lambda d: 0.55 if d >= date(2026, 11, 1) else 0.40
+    ),
+    "CPIAUCSL": month_starts(date(2019, 9, 1), date(2026, 9, 1), _cpi),
+    "DGS10": weekdays(date(2020, 6, 1), date(2026, 11, 5), lambda d: 4.25),
+    # Quarterly, millions of dollars: Jan 2026 7.0 trillion, Apr 2026 7.1 trillion (+1.4%).
+    "MMMFFAQ027S": [
+        (date(y, m, 1), 7_100_000.0 if (y, m) == (2026, 4) else 7_000_000.0 - (2026 - y) * 1e5)
+        for y in range(2020, 2027)
+        for m in (1, 4, 7, 10)
+        if (y, m) <= (2026, 4)
+    ],
+}
+
+# The forward P/E sample: the largest 10 US companies, picked from Yahoo's sector lists.
+# Known answer: those with a forward P/E are worth 14,450 together and earn 579 (each
+# company's value / its P/E: 125+150+64+40+20+80+50+20+30), so their combined forward
+# P/E is 14,450 / 579 = 24.96.
+# BRK-B has no forward P/E; TSM (based in Taiwan) is left out; GOOG and GOOGL are the same
+# company; BROKEN fails at Yahoo; the small T/C/F/H companies never make the top 10.
+MACRO_COMPANIES = [
+    company("NVDA", 5000, 40),
+    company("TSM", 1500, 20, country="Taiwan"),
+    company("MSFT", 1400, 35),
+    company("ORCL", 600, 30),
+    company("T1", 50, 20),
+    company("T2", 40, 20),
+    company("T3", 30, 20),
+    company("GOOGL", 3000, 20, name="Alphabet Inc."),
+    company("GOOG", 3000, 20, name="Alphabet Inc."),
+    company("META", 1600, 25),
+    company("NFLX", 400, 40),
+    company("C1", 45, 20),
+    company("C2", 35, 20),
+    company("BRK-B", 1000, None),
+    company("JPM", 800, 10),
+    company("V", 700, 14),
+    company("F1", 48, 20),
+    company("LLY", 900, 45),
+    company("JNJ", 450, 15),
+    company("H1", 20, 20),
+    company("SPY", 600, 22, trailing_pe=25.0),  # P/E 25 -> earnings yield 4.00%
+]
+MACRO_SECTORS = {
+    "technology": ["NVDA", "TSM", "MSFT", "ORCL", "T1", "T2", "T3"],
+    "communication-services": ["GOOGL", "GOOG", "META", "NFLX", "C1", "C2"],
+    "financial-services": ["BRK-B", "JPM", "V", "F1"],
+    "healthcare": ["LLY", "BROKEN", "JNJ", "H1"],
+}
+
+# A small macro page for tests: one card of each kind.
+TEST_MACRO = {
+    "largest_forward_pe": {"companies": 10},
+    "indicators": [
+        {"label": "Yield curve: 10-year minus 2-year", "group": "Rates", "series": "T10Y2Y"},
+        {
+            "label": "CPI inflation",
+            "group": "Inflation",
+            "series": "CPIAUCSL",
+            "show": "yearly_change",
+            "decimals": 1,
+        },
+        {
+            "label": "Money market fund assets (weekly)",
+            "group": "Money",
+            "source": "ici",
+            "unit": "usd_billions",
+        },
+        {
+            "label": "Money market fund assets (quarterly)",
+            "group": "Money",
+            "series": "MMMFFAQ027S",
+            "unit": "usd_millions",
+        },
+        {"label": "Equity risk premium", "group": "Valuation", "source": "equity_risk_premium"},
+        {
+            "label": "S&P 500 forward P/E (estimate)",
+            "group": "Valuation",
+            "source": "largest_forward_pe",
+            "unit": "ratio",
+            "decimals": 1,
+        },
+    ],
+}
+ICI_PAGE = "https://www.ici.org/research/stats/mmf"
+
+
 @pytest.fixture
-def client(engine, fake_market_data, app_config, report_services, report_runner, fake_fred, fomc):
+def macro_market():
+    return FakeMacroMarket(MACRO_SECTORS, MACRO_COMPANIES)
+
+
+@pytest.fixture
+def macro_fetch():
+    return FakeFetch({ICI_PAGE: "ici_mmf_page.html"})
+
+
+@pytest.fixture
+def macro_setup(fake_fred, macro_market, macro_fetch):
+    """The macro page with fakes, refreshing before the page is shown (no thread)."""
+    from app.config import MacroConfig
+    from app.providers.ici import IciClient
+    from app.services.macro import MacroSetup
+
+    fake_fred.series = {k: list(v) for k, v in MACRO_SERIES.items()}
+    config = MacroConfig.model_validate(TEST_MACRO)
+    return MacroSetup(
+        fred=fake_fred,
+        ici=IciClient(macro_fetch, config.ici.page_url),
+        market_data=macro_market,
+        config=config,
+        parallel=1,
+        background=False,
+    )
+
+
+@pytest.fixture
+def client(
+    engine,
+    fake_market_data,
+    app_config,
+    report_services,
+    report_runner,
+    fake_fred,
+    fomc,
+    macro_setup,
+):
     app = create_app(
         engine=engine,
         market_data=fake_market_data,
@@ -706,6 +935,7 @@ def client(engine, fake_market_data, app_config, report_services, report_runner,
         report_runner=report_runner,
         fred=fake_fred,
         fomc=fomc,
+        macro=macro_setup,
     )
     with TestClient(app) as c:  # `with` runs startup (creates the default user)
         yield c
