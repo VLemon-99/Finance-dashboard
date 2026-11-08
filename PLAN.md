@@ -4,7 +4,7 @@
 > Feature IDs (F1.4 etc.) refer to acceptance criteria in `docs/SPEC.md`.
 
 ## Current phase
-**Phase 8: X/Twitter (F4.3, F4.6)**: built on branch `claude/admiring-shannon-c6ye40` (not merged yet). X posts through X's official pay-per-use API: trusted accounts first, then a `$TICKER` search, within hard budgets ($5/month, $0.22/day, `config/x.yaml`), **off by default** until the owner sets up an X key. Reddit is parked (Reddit closed free access for personal projects; DECISIONS 2026-11-05). Phase 7 is merged (PR #18); its real-data check is still the owner's (see Next up). After Phase 8: **Phase 9** (macro dashboard; confirm the indicator list first).
+**Phase 9: Macro dashboard (F6)**: built 2026-11-08 on branch `claude/dreamy-dirac-56d1rn` (not merged yet), with the owner's indicator list (DECISIONS 2026-11-08). Phase 8 (X) is merged (PR #19); X stays off until the owner sets up a key. Phases 7 and 8 still wait for the owner's real-data checks (see Next up). After Phase 9: **Phase 10** (polish, security review, login, deploy).
 
 ## Phases
 Each phase ends with a working app, passing tests, and the docs updated.
@@ -44,12 +44,12 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - Multiples vs. own history, automatic industry peers, sector and Damodaran's industry average (owner 2026-11-04: no hand-made peer lists), analyst targets, top holders and changes, funds followed (13F), 13D/G, unusual options volume.
   - **Done when:** F4.7 and F4.8 pass in full.
 
-- [ ] **Phase 8 — X/Twitter + Reddit (F4.3, F4.6)** *(X built 2026-11-05 on `claude/admiring-shannon-c6ye40`, with automated tests for the weights, the cap and the switch; owner's real-data check pending. Reddit parked, DECISIONS 2026-11-05)*
+- [ ] **Phase 8 — X/Twitter + Reddit (F4.3, F4.6)** *(X built 2026-11-05 and merged as PR #19, with automated tests for the weights, the cap and the switch; owner's real-data check pending. Reddit parked, DECISIONS 2026-11-05)*
   - Settle the X provider (official pay-per-use vs. third-party API; ≤ ~$5/month; within X's terms) and log it in DECISIONS. Add trusted accounts + `$TICKER` search, a hard monthly cap, and an on/off switch. Reddit at low weight.
   - **Done when:** both sources appear in reports with their weights, the cap is enforced (tested), and turning a source off removes it cleanly.
 
-- [ ] **Phase 9 — Macro dashboard (F6)**
-  - Confirm the indicator list with me first, then FRED-based panels with charts.
+- [ ] **Phase 9 — Macro dashboard (F6)** *(built 2026-11-08 on `claude/dreamy-dirac-56d1rn`; F6.1–F6.3 have automated tests; owner's real-data check pending)*
+  - Indicator list confirmed with the owner 2026-11-08; FRED-based cards plus ICI weekly, equity risk premium and forward P/E, with charts.
   - **Done when:** F6.1–F6.3 pass.
 
 - [ ] **Phase 10 — Polish, security review, accounts, deploy (F7)**
@@ -57,30 +57,44 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - **Done when:** F7.1–F7.3 pass and the security review has no open high-severity findings.
 
 ## Next up
-1. **Owner: merge Phase 8, update your folder** (README "Updating to a new version": this time `uv run alembic upgrade head` adds two small tables; no new libraries; one new settings file, `config/x.yaml`). X stays off, so nothing changes in reports until step 2.
-2. **Owner: set up X when you're ready** (README "Setting up X", about 10 minutes): developer account, Bearer Token in `.env`, buy credit, **set a $5 spending limit in X's console**, add trusted accounts to `config/x.yaml`, switch it on. Then generate an AMZN report and check:
+1. **Owner: merge Phase 9, update your folder** (README "Updating to a new version": this time `uv run alembic upgrade head` adds two small tables; no new libraries; one new settings file, `config/macro.yaml`). Then open **Macro** in the menu. The first visit fetches everything in the background (about a minute; the page reloads by itself). Check:
+   - **FRED cards** (yield curves, Fed funds, inflation, VIX, consumer sentiment, unemployment, high-yield spread): compare two or three latest figures and dates with the FRED page linked on each card. CPI inflation should match the "12-month change" in the news for the latest CPI release (e.g. 3.0%).
+   - **Money market fund assets (weekly):** the figure and "week ended" date should match ICI's latest weekly release (link on the card; published Thursdays). If the card says ICI's page has changed, tell Claude.
+   - **Equity risk premium:** about 100 ÷ SPY's P/E on Yahoo's SPY page minus the 10-year yield (FRED `DGS10`).
+   - **S&P 500 forward P/E (estimate):** should be in the same area as the S&P 500 forward P/E quoted in the news (often from FactSet, roughly 20–23); ours covers only the 50 largest companies, so a point or two higher is expected. Look at the "largest" list on the card: it should read like the biggest US companies (NVDA, AAPL, MSFT, GOOGL, AMZN…). Note how long the first fetch took.
+   - Switch between "1 year" and "5 years", and look at it on your phone if you like.
+   - Review the cards in `config/macro.yaml`: delete any you don't want, or add FRED series (the top of the file shows how).
+2. Phase 8 (X, merged as PR #19) comes along with the step 1 update. X stays off, so reports don't change until step 3.
+3. **Owner: set up X when you're ready** (README "Setting up X", about 10 minutes): developer account, Bearer Token in `.env`, buy credit, **set a $5 spending limit in X's console**, add trusted accounts to `config/x.yaml`, switch it on. Then generate an AMZN report and check:
    - Posts from your trusted accounts show under Sources with an "X" label and "@handle", and the `$AMZN` search posts as "X ($AMZN search)"; each link opens the post on X.
    - The line at the end of Sources ("X spending so far…") against the usage shown in X's developer console: the app's figure should be **the same or higher**, never lower. Tell Claude if it's lower, or if X's prices in the console differ from `config/x.yaml`.
    - The sentiment "Weights used" line now includes "x 0.5".
    - Generate a second report straight after: it should cost almost nothing (only posts newer than the first report are asked for).
-3. **Owner: merge-and-check from Phase 7** (if not done yet). Generate an AMZN report and look at:
+4. **Owner: merge-and-check from Phase 7** (if not done yet). Generate an AMZN report and look at:
    - **Valuation snapshot:** the P/E etc. in the "Now" column should match Yahoo's "Statistics" tab for AMZN; the sector column should say "Technology's 25 largest (your setting)"; open "Peers and yearly figures" and check the peers look like Amazon's competitors and the yearly P/Es look plausible. The "Industry avg" column needs Damodaran's site: if it's missing, the report says why.
    - **Institutional & insider activity:** % held by institutions and the top holders should match Yahoo's "Holders" tab; "Funds you follow" should list the funds from `config/institutional.yaml` that hold Amazon (check one against the fund's 13F on the SEC site, e.g. via the "13F" link). Review the starter fund list and edit it to taste.
    - **Unusual options activity:** during market hours, a busy stock should show some contracts; compare one with Yahoo's options page (volume and open interest).
    - Note how long the run takes (start and finish times on the run page), compared with before.
-4. **Owner: Phase 5 timing:** note how long a report for your largest watchlist takes. Goal: under 10 minutes (Phase 7 adds about 12 Yahoo requests per ticker, 4 at a time; X adds one or two quick requests per ticker).
-5. **Owner: still open from Phase 4:**
+5. **Owner: Phase 5 timing:** note how long a report for your largest watchlist takes. Goal: under 10 minutes (Phase 7 adds about 12 Yahoo requests per ticker, 4 at a time; X adds one or two quick requests per ticker).
+6. **Owner: still open from Phase 4:**
    - **Expiry (after Friday Nov 6, 4 PM ET):** record a contract expiring Friday before then; afterwards the Portfolio page should ask "Expired worthless" or "Assigned".
    - **After 4 PM ET**, refresh a watchlist: prices should be that day's close, with the change labelled "today".
    - Optional: in an AMZN report, check that an insider trade matches the SEC's own Form 4 page (click "Form 4").
-6. **Phase 9: Macro dashboard (F6)**. Confirm the indicator list with the owner first (retail volume, fund flows, sentiment measures and their free sources are still open in SPEC).
-7. Later (owner's suggestion): a proper "what's new since my last report" view or an "update this report" button, so frequent reports don't repeat the week's stories.
-8. Later (owner): prune and polish the report's metrics and layout once all features are built.
-9. Owner: when the Fed publishes its 2027 meeting dates, add them to `config/fomc_dates.yaml` (or ask Claude to).
-10. Owner: after seeing which outlets show up, decide whether to switch on `trusted_outlets_only` in `config/sources.yaml`.
-11. Later: Reddit, if Reddit offers personal-use access again (its weight 0.3 is still in the settings).
+7. **Phase 10: polish, security review, accounts, deploy (F7)**. Propose a plan first (security review, login, hosting choice, phone layout).
+8. Later (owner's suggestion): a proper "what's new since my last report" view or an "update this report" button, so frequent reports don't repeat the week's stories.
+9. Later (owner): prune and polish the report's metrics and layout once all features are built.
+10. Owner: when the Fed publishes its 2027 meeting dates, add them to `config/fomc_dates.yaml` (or ask Claude to).
+11. Owner: after seeing which outlets show up, decide whether to switch on `trusted_outlets_only` in `config/sources.yaml`.
+12. Later: Reddit, if Reddit offers personal-use access again (its weight 0.3 is still in the settings).
+13. Later (owner 2026-11-08: maybe): fund inflows/outflows from ICI's weekly flow estimates.
 
 ## Done (recent)
+- 2026-11-08 **Phase 9 macro dashboard** on `claude/dreamy-dirac-56d1rn`, with the owner's answers (the proposed list; ICI's weekly figure for money market funds; keep the 50-largest forward P/E estimate; include the extras):
+  - `config/macro.yaml` (new): 16 cards in 6 sections. Any FRED series id + label adds a card (F6.3).
+  - Data: FRED series (`FredClient.series_observations`), ICI's weekly page (`app/providers/ici.py`, reads the "Total money market fund assets … for the week ended …" sentence), SPY's P/E and the largest companies' forward P/Es from Yahoo (company country added to Yahoo's figures). New tables `macro_observations`, `macro_fetches` (migration checked: up, down, up).
+  - Formulas in `app/services/macro_math.py`, each with known answers: yearly % change (CPI 300 → 309 = 3.0%), change since a month earlier, earnings yield, equity risk premium (P/E 25, 10-year 4.25% → −0.25), combined P/E (index-style).
+  - `app/services/macro.py`: background refresh every 12 hours (15 minutes after a failure), forward P/E reading only ~65 companies, stale/missing per card. Page `/macro` (menu **Macro**) with Chart.js 4.5.1 (vendored), 1-year / 5-year switch. Layout checked with screenshots (laptop and phone, no sideways scrolling, no browser errors).
+  - Docs: README "The macro dashboard", SPEC F6 (final list; open question settled), DECISIONS, ARCHITECTURE. Tests: 755 pass (44 new).
 - 2026-11-05 **Phase 8 X/Twitter** on `claude/admiring-shannon-c6ye40`, with the owner's answers ($5/month; trusted accounts first, then ticker; park Reddit; ship an empty account list). Checked current options first: X's official API is now pay-per-use (about $0.005 a post); third-party X APIs scrape (against X's terms); Reddit's API needs approval and its RSS feeds end Nov 13, 2026 (DECISIONS 2026-11-05).
   - `app/sources/x.py`: X's recent search (`XApi`), the budget and search bookkeeping (`XLedger`, new tables `x_spending` and `x_checks`; migration checked: up, down, up), trusted accounts during collection (`XAccountsSource`, authors' handles asked for), then the `$TICKER` search after all tickers (`XTickerSearchSource`, a new "late source" step in `collect.py`/`reports.py`, longest-ago first). Settings in `config/x.yaml` (off; empty account list; $5/month, $0.22/day); key `X_BEARER_TOKEN` in `.env`.
   - Hard cap: the most a request could cost is set aside before it's sent; the request is skipped if that could break the daily or monthly budget, and the report lists it as missing. Tested, including a run of searches that each cost the maximum (stops exactly at the budget).
@@ -150,6 +164,12 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - 2026-11-01 Kickoff: interviewed owner; wrote SPEC, ARCHITECTURE, PLAN, DECISIONS; filled in stack and commands in CLAUDE.md. No application code yet.
 
 ## Known issues / bugs
+- **Phase 9 samples are hand-made** (`tests/fixtures/fred_series_T10Y2Y.json`, `tests/fixtures/sources/ici_mmf_page.html`): the build machine can't reach FRED, ICI or Yahoo. The first real run is the real test of: FRED's observations format, **ICI's weekly sentence** (written from memory of ICI's releases; if ICI words it differently, the card says the page has changed), whether ICI's site lets the app read the page at all, Yahoo's sector lists being sorted biggest first, SPY having a trailing P/E in Yahoo's figures, and the FRED series ids (all well known; a wrong one says "FRED has no series called …").
+- The ICI weekly, equity risk premium and forward P/E charts start with the first visit and fill in over time (no free history). A day the page isn't opened has no reading.
+- The forward P/E estimate covers the 50 largest US companies (about 60% of the S&P 500's value), so it leans towards the megacaps. Companies based outside the US are left out, which also drops a few S&P 500 members registered abroad (e.g. Linde, Accenture, Medtronic). Companies expecting losses are left out of the sum.
+- Yahoo gives SPY's P/E over the last 12 months; Yahoo's figure may lag a little behind the index's own.
+- "Change since last month" for a quarterly series compares with the previous quarter (the date shown says so).
+- Macro figures are refreshed only while the page is opened (no schedule), so after days away the first visit shows the old figures for about a minute while it refreshes.
 - **Phase 8 samples are hand-made** (`tests/fixtures/sources/x_search_*.json`) from memory of X's answer format: the build machine can't reach X or its documentation. The first real run is the real test of: the answer's shape (posts, `includes.users`, long posts' `note_tweet`), the search operators (`from:`, `$cashtag`, `lang:en`, `-is:reply`, `sort_order=relevancy`), the 512-character search limit, and **the prices** (from news sites, not X's own page). If X's console shows different prices, change them in `config/x.yaml`.
 - X spending is counted on the high side (no same-day discount for posts or accounts read twice), in UTC days and calendar months. X's billing cycle may not start on the 1st; X's own console spending limit covers that.
 - The daily X budget is per day, not per report: if an early report uses it up on `$TICKER` searches, a second report that day skips even the trusted accounts. "Trusted accounts first" holds within each report.
@@ -202,7 +222,9 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - *(Fixed in Phase 2: the day change was always labelled "today", and the quote page fetched from Yahoo on every lookup.)*
 
 ## Handoff note
-Phases 1–7 are merged into `main`. Phase 8 (X) is built on `claude/admiring-shannon-c6ye40` (711 tests green), waiting for the owner to merge and set up X. New settings go in new config files, never in `config/settings.yaml` or `config/sources.yaml`, which the owner edits locally (`git pull` would refuse).
+Phases 1–8 are merged into `main`. Phase 9 (macro dashboard) is built on `claude/dreamy-dirac-56d1rn` (755 tests green), waiting for the owner to merge and check with real data. New settings go in new config files, never in `config/settings.yaml` or `config/sources.yaml`, which the owner edits locally (`git pull` would refuse).
+- Macro code map: `app/services/macro.py` (`MacroSetup` on `app.state.macro`; `start_refresh()` → `due_keys()` → `refresh()` → `_refresh_one()`; `largest_forward_pe()`; `indicator_views()` → `IndicatorView` with `value_text`, `change_text`, `chart_json`; series keys `fred:<ID>`, `ici:mmf_total`, `yahoo:<FUND>:trailing_pe`, `calc:largest_forward_pe`), `macro_math.py` (pure formulas), `app/providers/fred.py` (`series_observations()`), `app/providers/ici.py`, `app/web/macro_routes.py`, `templates/macro.html`, `static/macro_charts.js`. Settings: `config/macro.yaml` (`MacroConfig`).
+- Macro tests: `tests/test_macro_math.py`, `tests/test_macro.py`, `tests/test_web_macro.py` (`clock` patches `utc_now` in `macro_routes`). Conftest: `macro_setup` (runs refreshes before the page, `background=False`), `FakeFred.series` (filled from `MACRO_SERIES`), `FakeMacroMarket` (`macro_market`: `MACRO_SECTORS`, `MACRO_COMPANIES`, known answer 14,450 / 579), `macro_fetch` (ICI sample), `TEST_MACRO`, `MACRO_NOW` (Fri Nov 6, 2026, 10 AM ET). Patch `macro._start_thread` to hold a background job.
 - X code map: `app/sources/x.py` (`XApi.search_recent()`, `parse_search()`, `XLedger` with `reserve()`/`settle()`/`spent()`/`summary()`/`checked_until()`/`mark_checked()`/`least_recently_searched()`, query builders `mention_terms()`/`account_groups()`/`accounts_query()`/`ticker_query()`, `XAccountsSource`, `XTickerSearchSource`), `registry.add_x_sources()` (`SourceSet.late_sources`, `x_ledger`, `source_types()`), `collect.collect_late()` (sources are now committed one by one, so X's ledger never waits on a SQLite write lock), `reports.collect_late_sources()` and `weights_used()`. Settings: `config/x.yaml` (`XConfig`), `X_BEARER_TOKEN`.
 - X tests: `tests/test_sources_x.py`, `tests/test_reports_x.py` (`with_x()` adds X to the report services). `FakeX` in conftest (`fake_x` fixture): "from:" searches get `x_search_accounts.json`, others `x_search_ticker.json`; set `status`, `answer` (bytes) or `empty`; read `requests`. `sources_now` also freezes `app.sources.x`.
 - Phase 7 code map: `app/services/market_facts.py` (`MarketFacts.gather()` for a run; `TickerFacts`; `fund_positions()`, `ownership_section()`), `valuation.py` (formulas), `unusual_options.py`, `app/providers/yahoo.py` (`get_profile`, `get_annual_figures`, `get_group_members`, `get_ownership`), `damodaran.py`, `sec_13f.py`; `gather_facts()` in `reports.py`; template sections in `_ticker_report.html`. Settings: `config/benchmarks.yaml`, `config/institutional.yaml`. After each merge, remind the owner to update their folder (README, "Updating to a new version").
@@ -223,4 +245,4 @@ Phases 1–7 are merged into `main`. Phase 8 (X) is built on `claude/admiring-sh
 - How the code is laid out: `app/main.py` has `create_app(engine, market_data)`, so tests inject a temporary DB and `FakeMarketData` (`tests/conftest.py`). The test DB is built by running the real Alembic migrations.
 - New tables need a model in `app/db/models.py` plus `uv run alembic revision --autogenerate -m "..."`. Review the generated file, which is excluded from ruff.
 - Dev-tool note: `httpx2` (Starlette's suggested replacement for `httpx` in tests) was *not* added because it wasn't vetted. A deprecation warning is filtered in `pyproject.toml` instead.
-- Gemini access is settled ($10/month Cloud credit) and the covered-call formula is confirmed. X provider settled (DECISIONS 2026-11-05). Still open from planning: before Phase 9, confirm the macro indicator list.
+- Gemini access is settled ($10/month Cloud credit) and the covered-call formula is confirmed. X provider settled (DECISIONS 2026-11-05). Macro indicator list settled (DECISIONS 2026-11-08).
