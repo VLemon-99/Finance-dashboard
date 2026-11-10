@@ -11,7 +11,7 @@
 | F1 — Watchlists and stock tracking | — | watchlists | merged | — | Phase 2; owner confirmed with real data |
 | F2 — Options chain browser | — | options | merged | — | Phase 4 part A; owner confirmed with real data |
 | F3 — Virtual portfolio and short-option returns | — | options | merged | — | Phase 4 part B (+ poor man's covered calls F3.10); owner's expiry check still open (Next up 6) |
-| F4 — Daily research report | — | reports | not planned | — | Built and merged in Phases 3, 5, 7, 8: every criterion works except two. **F4.3:** Reddit is parked (DECISIONS 2026-11-05), so don't plan it unless the owner says Reddit access is back. **F4.12:** only near-identical headlines are merged into one story; whether to do more is a question for the owner. Owner's real-data checks of F4.7/F4.8 (Phase 7) and X (Phase 8) pending |
+| F4 — Daily research report | — | reports | merged | — | Phases 3, 5, 7, 8. Reddit is out of scope (owner 2026-11-10); F4.12 narrowed to near-identical headlines (owner 2026-11-10). Owner's real-data checks of F4.7/F4.8 (Phase 7) and X (Phase 8) pending |
 | F5 — Market events calendar | — | calendar | merged | — | Phase 6; owner confirmed with real data |
 | F6 — Macro dashboard | — | macro | merged | — | Phase 9, PR #20; owner's real-data check pending (Next up 1) |
 | F7 — Accounts & hosting | — | accounts | not planned | — | F7.1 already built (every user-owned table has `user_id`; one default user created at startup). Not started: F7.2 login, F7.3 hosting with HTTPS. The old Phase 10 also listed a security review (prompt 12), Postgres if needed, and a phone-friendly layout |
@@ -20,11 +20,11 @@
 
 ## Can run in parallel right now
 <!-- Features whose zones don't overlap and whose dependencies are merged. See docs/ARCHITECTURE.md → Work zones. -->
-- Nothing yet: no feature is planned. Of the two left, F7 touches every zone, so it can't run alongside anything; F4's remaining work (zone `reports`) could run alongside an improvement loop focused on another zone.
+- Nothing yet: no feature is planned. The only one left, F7, touches every zone, so it can't run alongside anything else (an improvement loop included).
 
 ## Waiting on me
 <!-- Blocked stories, open questions, pull requests to review. -->
-- Questions from the switch to the Ralph workflow (2026-11-10): F4.12 (same story in different words), whether Reddit moves to "Out of scope", and the test gaps listed in the pull request "Switch to the Ralph loop workflow".
+- Test gaps found at the switch (2026-11-10), for the improvement loop (prompt 13, Focus: tests): hand-made samples for every outside service; no tests for the macro charts' JavaScript or page layout; the 25-ticker speed goal never measured; F4.13 tested only for the summary step; F7.1 checked only through the default user; few tests for F4.10 and F5.2.
 - Real-data checks: Phase 9 macro dashboard, Phase 8 X, Phase 7 valuation/holders, Phase 5 timing, Phase 4 leftovers (details in **Next up** below).
 
 ## Build history before the Ralph workflow
@@ -253,7 +253,7 @@ Each phase ends with a working app, passing tests, and the docs updated.
 
 ## Handoff note (interactive sessions)
 <!-- Where we stopped, anything half-finished, what the next session should check first. -->
-- 2026-11-10: switched to the Ralph loop workflow (no app code, tests or dependencies changed). Added `ralph/` (prompts, loop script, examples), work zones in `docs/ARCHITECTURE.md`, F0 and IDs/ticks in `docs/SPEC.md`, `.claude/settings.json`. No task files yet. Next: answer the questions under "Waiting on me", then plan F4's remainder and/or F7 with prompt 2 (`ralph/PROMPT_plan.md`), or first add tests for the weak spots with the improvement loop (prompt 13, Focus: tests).
+- 2026-11-10: switched to the Ralph loop workflow (no app code, tests or dependencies changed). Added `ralph/` (prompts, loop script, examples), work zones in `docs/ARCHITECTURE.md`, F0 and IDs/ticks in `docs/SPEC.md`, `.claude/settings.json`. No task files yet. Owner's answers the same day: F4.12 narrowed to near-identical headlines, Reddit moved to Out of scope (F4 now merged), old prompt wording deleted from `docs/PROMPTS.md`, `main` is protected on GitHub, loops may run `uv run alembic upgrade head`. Next: plan F7 with prompt 2 (`ralph/PROMPT_plan.md`), or first add tests for the weak spots with the improvement loop (prompt 13, Focus: tests).
 
 ### Earlier handoff note (Phases 1–9)
 Phases 1–8 are merged into `main`. Phase 9 (macro dashboard) is built on `claude/dreamy-dirac-56d1rn` (755 tests green), waiting for the owner to merge and check with real data. New settings go in new config files, never in `config/settings.yaml` or `config/sources.yaml`, which the owner edits locally (`git pull` would refuse).

@@ -104,8 +104,8 @@ One digest per ticker, about one page each, with a short summary of the whole wa
 Acceptance criteria:
 - [x] F4.1 Each ticker's report has these sections: Major developments · Rumors & speculation (each labelled "unconfirmed") · Institutional & insider activity · Valuation snapshot · Sentiment · Sources.
 - [x] F4.2 Every statement in the report links to at least one source item (title, outlet, date, URL). Nothing appears without a source.
-- [ ] F4.3 Sources by phase: news (Yahoo Finance, Google News RSS, company press releases) and SEC filings (8-K, 10-Q, 10-K, Form 4, 13D/G) first; then YouTube and blogs; then X and Reddit. *(2026-11-05: Reddit is parked because Reddit closed free access for personal projects; see DECISIONS.)* *(2026-11-10: everything except Reddit is built and tested.)*
-- [x] F4.4 Only sources on my trusted list (`config/sources.yaml`: outlets, blogs, YouTube channels, X accounts, subreddits; X accounts are in `config/x.yaml`) are used, except for SEC filings and the main news feeds. I can edit the list without code changes. *(Subreddits: parked with Reddit.)*
+- [x] F4.3 Sources by phase: news (Yahoo Finance, Google News RSS, company press releases) and SEC filings (8-K, 10-Q, 10-K, Form 4, 13D/G) first; then YouTube and blogs; then X and Reddit. *(2026-11-05: Reddit is parked because Reddit closed free access for personal projects; see DECISIONS.)* *(2026-11-10: Reddit moved to "Out of scope" by the owner; everything else is built and tested.)*
+- [x] F4.4 Only sources on my trusted list (`config/sources.yaml`: outlets, blogs, YouTube channels, X accounts, subreddits; X accounts are in `config/x.yaml`) are used, except for SEC filings and the main news feeds. I can edit the list without code changes. *(Subreddits: out of scope with Reddit.)*
 - [x] F4.5 YouTube: recent videos (default: last 7 days) from trusted channels that mention the ticker or company in the title or description are summarized from the video itself in 3–5 bullet points, linked with a timestamp where possible.
 - [x] F4.6 Sentiment: each source item is rated bullish / neutral / bearish with a one-line reason. The ticker gets an overall score from −100 to +100, weighted by source type (default weights: filings & news 1.0, blogs 0.8, YouTube 0.7, X 0.5, Reddit 0.3, set in config). The report shows the score, the counts by rating and the weights used.
 - [x] F4.7 Valuation snapshot: trailing and forward P/E, EV/EBITDA, P/S, and how each compares with the stock's own history (its past fiscal years, as much as the source provides), with peers picked automatically (its industry's largest companies; owner 2026-11-04: no hand-made lists), with its sector's largest companies, and with Damodaran's industry average; each comparison is a median, shown as % above/below. Per-ticker overrides (sector, industry, own peer list, Damodaran industry) live in a config file (AMZN is compared with Technology, owner 2026-11-04). Plus the analyst target (low / average / high) and the % gap to the current price.
@@ -113,7 +113,7 @@ Acceptance criteria:
 - [x] F4.9 Reports can run automatically on weekdays at 7:30am US Eastern while the app is running (a setting; off by default, owner 2026-11-04). A "Generate now" button runs one for a single ticker or the whole watchlist.
 - [x] F4.10 Past reports are kept and browsable by date and ticker.
 - [x] F4.11 If a source fails or hits its limit, the report is still produced and says which sources were missing.
-- [ ] F4.12 The same story from several outlets appears once, with all of its sources listed. *(2026-11-10: built for near-identical headlines only; the same event in different words still shows as two stories. See `PLAN.md` known issues.)*
+- [x] F4.12 The same story from several outlets, recognised by near-identical headlines, appears once, with all of its sources listed. *(Narrowed by the owner 2026-11-10: the same event told in different words may show as two stories.)*
 - [x] F4.13 Only public content (articles, filings, transcripts, video links) is sent to the AI service. My portfolio and watchlist positions are never sent.
 - [x] F4.14 Each report shows when it was generated and the date range it covers (default: the last 7 days, owner 2026-11-04; items already summarized earlier are reused, not sent to the AI again).
 
@@ -156,6 +156,7 @@ Acceptance criteria (initial):
 - Multiple users / login (until F7's phase).
 - A full adjustable DCF valuation model (after F4.7 is done).
 - Scraping X/Twitter in breach of its terms of service.
+- Reddit as a report source (owner 2026-11-10; parked since 2026-11-05 because Reddit closed free access for personal projects). Its sentiment weight (0.3) stays in the settings; revisit if Reddit offers personal-use access again.
 
 ## Constraints
 - Runs on my own computer first (Mac or Windows, opened in a web browser), and is built so it can move to the cloud later.
