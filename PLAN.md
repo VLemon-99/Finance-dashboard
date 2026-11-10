@@ -1,12 +1,42 @@
-# Plan & progress
+# Plan & roadmap
 
-> Updated at the end of every work session. A fresh session reads this to know exactly where things stand.
+> The bird's-eye view of progress. Updated in interactive sessions (not by loop rounds, so parallel loops never collide on this file). The detailed stories live in `ralph/tasks/`.
 > Feature IDs (F1.4 etc.) refer to acceptance criteria in `docs/SPEC.md`.
 
-## Current phase
+## Roadmap
+
+| Feature | Task file | Zone(s) | Status | Branch | Notes |
+|---|---|---|---|---|---|
+| F0 — Walking skeleton | — | all | merged | — | The project as it runs today: Phases 1–9 built and merged (last: PR #20). `uv run pytest`: 755 passed on 2026-11-10; ruff checks pass |
+| F1 — Watchlists and stock tracking | — | watchlists | merged | — | Phase 2; owner confirmed with real data |
+| F2 — Options chain browser | — | options | merged | — | Phase 4 part A; owner confirmed with real data |
+| F3 — Virtual portfolio and short-option returns | — | options | merged | — | Phase 4 part B (+ poor man's covered calls F3.10); owner's expiry check still open (Next up 6) |
+| F4 — Daily research report | — | reports | merged | — | Phases 3, 5, 7, 8. Reddit is out of scope (owner 2026-11-10); F4.12 narrowed to near-identical headlines (owner 2026-11-10). Owner's real-data checks of F4.7/F4.8 (Phase 7) and X (Phase 8) pending |
+| F5 — Market events calendar | — | calendar | merged | — | Phase 6; owner confirmed with real data |
+| F6 — Macro dashboard | — | macro | merged | — | Phase 9, PR #20; owner's real-data check pending (Next up 1) |
+| F7 — Accounts & hosting | — | accounts | not planned | — | F7.1 already built (every user-owned table has `user_id`; one default user created at startup). Not started: F7.2 login, F7.3 hosting with HTTPS. The old Phase 10 also listed a security review (prompt 12), Postgres if needed, and a phone-friendly layout |
+
+**Status values:** not planned → planned → looping → in review → merged (or: blocked — needs me)
+
+## Can run in parallel right now
+<!-- Features whose zones don't overlap and whose dependencies are merged. See docs/ARCHITECTURE.md → Work zones. -->
+- Nothing yet: no feature is planned. The only one left, F7, touches every zone, so it can't run alongside anything else (an improvement loop included).
+
+## Waiting on me
+<!-- Blocked stories, open questions, pull requests to review. -->
+- Test gaps found at the switch (2026-11-10), for the improvement loop (prompt 13, Focus: tests): hand-made samples for every outside service; no tests for the macro charts' JavaScript or page layout; the 25-ticker speed goal never measured; F4.13 tested only for the summary step; F7.1 checked only through the default user; few tests for F4.10 and F5.2.
+- Real-data checks: Phase 9 macro dashboard, Phase 8 X, Phase 7 valuation/holders, Phase 5 timing, Phase 4 leftovers (details in **Next up** below).
+
+## Build history before the Ralph workflow
+The sections below are kept from the plan used during Phases 1–9 (interactive sessions). The phase numbers are history; new work is tracked by feature in the roadmap above.
+
+### Status at the switch (2026-11-10)
+Phases 1–9 are merged into `main` (Phase 9 as PR #20, after the "Current phase" note below was written). Next was Phase 10 (polish, security review, login, deploy), now F7 in the roadmap.
+
+### Current phase
 **Phase 9: Macro dashboard (F6)**: built 2026-11-08 on branch `claude/dreamy-dirac-56d1rn` (not merged yet), with the owner's indicator list (DECISIONS 2026-11-08). Phase 8 (X) is merged (PR #19); X stays off until the owner sets up a key. Phases 7 and 8 still wait for the owner's real-data checks (see Next up). After Phase 9: **Phase 10** (polish, security review, login, deploy).
 
-## Phases
+### Phases
 Each phase ends with a working app, passing tests, and the docs updated.
 
 - [x] **Phase 1 — Walking skeleton** (done 2026-11-01; owner confirmed it locally with real Yahoo data)
@@ -56,7 +86,7 @@ Each phase ends with a working app, passing tests, and the docs updated.
   - Security review (prompt #7), login (F7.2), move to Postgres if needed, deploy with HTTPS (F7.3), phone-friendly layout.
   - **Done when:** F7.1–F7.3 pass and the security review has no open high-severity findings.
 
-## Next up
+### Next up
 1. **Owner: merge Phase 9, update your folder** (README "Updating to a new version": this time `uv run alembic upgrade head` adds two small tables; no new libraries; one new settings file, `config/macro.yaml`). Then open **Macro** in the menu. The first visit fetches everything in the background (about a minute; the page reloads by itself). Check:
    - **FRED cards** (yield curves, Fed funds, inflation, VIX, consumer sentiment, unemployment, high-yield spread): compare two or three latest figures and dates with the FRED page linked on each card. CPI inflation should match the "12-month change" in the news for the latest CPI release (e.g. 3.0%).
    - **Money market fund assets (weekly):** the figure and "week ended" date should match ICI's latest weekly release (link on the card; published Thursdays). If the card says ICI's page has changed, tell Claude.
@@ -88,7 +118,7 @@ Each phase ends with a working app, passing tests, and the docs updated.
 12. Later: Reddit, if Reddit offers personal-use access again (its weight 0.3 is still in the settings).
 13. Later (owner 2026-11-08: maybe): fund inflows/outflows from ICI's weekly flow estimates.
 
-## Done (recent)
+### Done (recent)
 - 2026-11-08 **Phase 9 macro dashboard** on `claude/dreamy-dirac-56d1rn`, with the owner's answers (the proposed list; ICI's weekly figure for money market funds; keep the 50-largest forward P/E estimate; include the extras):
   - `config/macro.yaml` (new): 16 cards in 6 sections. Any FRED series id + label adds a card (F6.3).
   - Data: FRED series (`FredClient.series_observations`), ICI's weekly page (`app/providers/ici.py`, reads the "Total money market fund assets … for the week ended …" sentence), SPY's P/E and the largest companies' forward P/Es from Yahoo (company country added to Yahoo's figures). New tables `macro_observations`, `macro_fetches` (migration checked: up, down, up).
@@ -163,7 +193,7 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - 2026-11-01 Phase 1 walking skeleton: uv project, FastAPI + Jinja2 + HTMX quote page, SQLite tables `users`/`instruments`/`quotes` with the first Alembic migration, default user at startup (F7.1), Yahoo adapter behind `MarketData`, stale/error handling (F1.6) and "not found" (F1.7) for the quote page, 47 tests (no network), GitHub Actions CI (ruff + pytest) green.
 - 2026-11-01 Kickoff: interviewed owner; wrote SPEC, ARCHITECTURE, PLAN, DECISIONS; filled in stack and commands in CLAUDE.md. No application code yet.
 
-## Known issues / bugs
+### Known issues / bugs
 - **Phase 9 samples are hand-made** (`tests/fixtures/fred_series_T10Y2Y.json`, `tests/fixtures/sources/ici_mmf_page.html`): the build machine can't reach FRED, ICI or Yahoo. The first real run is the real test of: FRED's observations format, **ICI's weekly sentence** (written from memory of ICI's releases; if ICI words it differently, the card says the page has changed), whether ICI's site lets the app read the page at all, Yahoo's sector lists being sorted biggest first, SPY having a trailing P/E in Yahoo's figures, and the FRED series ids (all well known; a wrong one says "FRED has no series called …").
 - The ICI weekly, equity risk premium and forward P/E charts start with the first visit and fill in over time (no free history). A day the page isn't opened has no reading.
 - The forward P/E estimate covers the 50 largest US companies (about 60% of the S&P 500's value), so it leans towards the megacaps. Companies based outside the US are left out, which also drops a few S&P 500 members registered abroad (e.g. Linde, Accenture, Medtronic). Companies expecting losses are left out of the sum.
@@ -221,7 +251,11 @@ Each phase ends with a working app, passing tests, and the docs updated.
 - After a failed add/rename, the browser's address bar shows the form's address (e.g. `/watchlists/1/items`). Reloading that page asks to resend the form. Harmless; clicking the list's name or "All watchlists" gets back to normal.
 - *(Fixed in Phase 2: the day change was always labelled "today", and the quote page fetched from Yahoo on every lookup.)*
 
-## Handoff note
+## Handoff note (interactive sessions)
+<!-- Where we stopped, anything half-finished, what the next session should check first. -->
+- 2026-11-10: switched to the Ralph loop workflow (no app code, tests or dependencies changed). Added `ralph/` (prompts, loop script, examples), work zones in `docs/ARCHITECTURE.md`, F0 and IDs/ticks in `docs/SPEC.md`, `.claude/settings.json`. No task files yet. Owner's answers the same day: F4.12 narrowed to near-identical headlines, Reddit moved to Out of scope (F4 now merged), old prompt wording deleted from `docs/PROMPTS.md`, `main` is protected on GitHub, loops may run `uv run alembic upgrade head`. Next: plan F7 with prompt 2 (`ralph/PROMPT_plan.md`), or first add tests for the weak spots with the improvement loop (prompt 13, Focus: tests).
+
+### Earlier handoff note (Phases 1–9)
 Phases 1–8 are merged into `main`. Phase 9 (macro dashboard) is built on `claude/dreamy-dirac-56d1rn` (755 tests green), waiting for the owner to merge and check with real data. New settings go in new config files, never in `config/settings.yaml` or `config/sources.yaml`, which the owner edits locally (`git pull` would refuse).
 - Macro code map: `app/services/macro.py` (`MacroSetup` on `app.state.macro`; `start_refresh()` → `due_keys()` → `refresh()` → `_refresh_one()`; `largest_forward_pe()`; `indicator_views()` → `IndicatorView` with `value_text`, `change_text`, `chart_json`; series keys `fred:<ID>`, `ici:mmf_total`, `yahoo:<FUND>:trailing_pe`, `calc:largest_forward_pe`), `macro_math.py` (pure formulas), `app/providers/fred.py` (`series_observations()`), `app/providers/ici.py`, `app/web/macro_routes.py`, `templates/macro.html`, `static/macro_charts.js`. Settings: `config/macro.yaml` (`MacroConfig`).
 - Macro tests: `tests/test_macro_math.py`, `tests/test_macro.py`, `tests/test_web_macro.py` (`clock` patches `utc_now` in `macro_routes`). Conftest: `macro_setup` (runs refreshes before the page, `background=False`), `FakeFred.series` (filled from `MACRO_SERIES`), `FakeMacroMarket` (`macro_market`: `MACRO_SECTORS`, `MACRO_COMPANIES`, known answer 14,450 / 579), `macro_fetch` (ICI sample), `TEST_MACRO`, `MACRO_NOW` (Fri Nov 6, 2026, 10 AM ET). Patch `macro._start_thread` to hold a background job.

@@ -1,0 +1,44 @@
+{
+  "feature": "F1",
+  "name": "CSV upload",
+  "branch": "ralph/F1-csv-upload",
+  "zone": "api",
+  "dependsOnFeatures": ["F0"],
+  "stories": [
+    {
+      "id": "F1-S1",
+      "title": "Accept a CSV upload and store it",
+      "description": "Add an upload endpoint that accepts a CSV file and saves its rows.",
+      "specRefs": ["F1.1"],
+      "acceptance": [
+        "Uploading a valid CSV under 10 MB returns success",
+        "The rows appear in the database afterwards"
+      ],
+      "verify": "[test command] tests/api/test_upload.py",
+      "zone": "api",
+      "priority": 1,
+      "dependsOn": [],
+      "status": "todo",
+      "attempts": 0,
+      "notes": ""
+    },
+    {
+      "id": "F1-S2",
+      "title": "Reject invalid CSV uploads",
+      "description": "Files over 10 MB or with wrong columns are rejected with a clear error and nothing is saved.",
+      "specRefs": ["F1.2"],
+      "acceptance": [
+        "A file over 10 MB returns an error message",
+        "A file with missing columns returns an error naming the missing columns",
+        "Nothing is saved when an error is returned"
+      ],
+      "verify": "[test command] tests/api/test_upload_validation.py",
+      "zone": "api",
+      "priority": 2,
+      "dependsOn": ["F1-S1"],
+      "status": "todo",
+      "attempts": 0,
+      "notes": ""
+    }
+  ]
+}

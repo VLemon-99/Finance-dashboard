@@ -1,6 +1,6 @@
 # Architecture
 
-> The bird's-eye view. Keep this short and current — it's what a fresh agent or reviewer reads to understand the whole system.
+> The bird's-eye view. Keep this short and current — it's what a fresh agent, loop round or reviewer reads to understand the whole system.
 > Status: **Phases 1–6 built**: quote lookup, watchlists, research reports from news, SEC filings, trusted blogs and YouTube channels (Gemini summaries and video watching, "Generate now", history, an optional weekday schedule that's off by default), the option chain browser (greeks calculated by us, contracts in watchlists) and the virtual portfolio (trades, positions, P&L, short-option returns, credit spreads, expiry outcomes). Phase 6 added the market events calendar (earnings, economic releases, Fed meetings; list and week views; next 3 high-impact events on the home page). Phase 7 added valuation benchmarks, holders, funds followed and unusual options. Phase 8 added X posts (trusted accounts, then a $TICKER search, within hard budgets; off by default). Phase 9 added the macro dashboard (FRED series, ICI's weekly money market fund total, equity risk premium and an S&P 500 forward P/E estimate, with charts). Reddit is parked (DECISIONS 2026-11-05).
 
 ## Overview
@@ -139,6 +139,29 @@ Every user-owned table has a `user_id` column from day one (one default user for
 - Only public content goes to the AI. Portfolio and watchlist data are never sent (F4.13).
 - Dates are stored in UTC and displayed in US Eastern time.
 
+## Work zones (for parallel loops)
+Each zone is a set of folders and files. Two loops can run at the same time only if their features touch **different zones** and neither changes a shared file. Every story in `ralph/tasks/` names its zone. The zones follow the real code: each feature's service, page, template and tests sit together; anything several features use is a shared file.
+
+| Zone | Folders / files | Features | Notes |
+|---|---|---|---|
+| `watchlists` | `app/services/watchlists.py`, `quotes.py`, `search.py`; `app/web/routes.py`; templates `home.html`, `watchlist.html`, `lookup.html`, `_quote_result.html`, `_search_results.html`, `not_found.html`; tests `test_web.py`, `test_web_watchlists.py`, `test_watchlists_service.py`, `test_quotes_service.py` | F1 | `home.html` also shows the calendar's "Coming up" box (F5.6) and `watchlist.html` the option contracts table (F2.6): a story touching those parts names both zones |
+| `options` | `app/services/options.py`, `options_math.py`, `portfolio.py`, `positions.py`; `app/web/option_routes.py`, `portfolio_routes.py`; templates `option_chain.html`, `options_start.html`, `portfolio.html`, `trade_form.html`, `_trade_price.html`; tests `test_options_*.py`, `test_positions.py`, `test_web_options.py`, `test_web_trades.py`, `test_web_portfolio.py`, `test_web_spreads_expiry.py`, `test_web_pmcc.py`, `test_web_watchlist_contracts.py` | F2, F3 | Option chain and virtual portfolio share the formulas, so they are one zone |
+| `reports` | `app/sources/`, `app/ai/`; `app/services/collect.py`, `summarize.py`, `reports.py`, `sentiment.py`, `insider.py`, `videos.py`, `market_facts.py`, `valuation.py`, `unusual_options.py`; `app/providers/damodaran.py`, `sec_13f.py`; `app/scheduler.py`; `app/web/report_routes.py`; templates `reports.html`, `report.html`, `report_run.html`, `_ticker_report.html`, `_run_progress.html`; `config/benchmarks.yaml`, `institutional.yaml`, `x.yaml`; tests `test_sources_*.py`, `test_reports*.py`, `test_web_reports.py`, `test_collect.py`, `test_summarize.py`, `test_sentiment.py`, `test_insider.py`, `test_market_facts.py`, `test_valuation.py`, `test_unusual_options.py`, `test_damodaran.py`, `test_sec_13f.py`, `test_gemini_adapter.py`, `test_scheduler.py`; samples in `tests/fixtures/sources/`, `tests/fixtures/damodaran/` | F4 | |
+| `calendar` | `app/services/calendar.py`; `app/web/calendar_routes.py`; template `calendar.html`; `config/fomc_dates.yaml`; tests `test_calendar.py`, `test_web_calendar.py` | F5 | Reads watchlists and the portfolio (read-only use of other zones) |
+| `macro` | `app/services/macro.py`, `macro_math.py`; `app/providers/ici.py`; `app/web/macro_routes.py`; template `macro.html`; `app/web/static/macro_charts.js`; `config/macro.yaml`; tests `test_macro.py`, `test_macro_math.py`, `test_web_macro.py` | F6 | |
+| `accounts` | `app/services/users.py` and, for login and hosting, every page | F7 | Touches everything: never in parallel with anything else |
+
+**Shared files** — changes to these must not happen in parallel loops (do them in a single loop, or interactively), and a story that changes one must say so:
+- Dependency files: `pyproject.toml`, `uv.lock`, `.python-version`
+- Database schema: `app/db/` (`models.py`, `session.py`, `migrations/`) and `alembic.ini`. Schema changes are never run in parallel with anything else
+- App wiring and shared helpers: `app/main.py`, `app/config.py`, `app/timeutils.py`, `app/tickers.py`, `app/market_calendar.py`, `app/services/users.py`
+- Market data adapters used by several zones: `app/providers/market_data.py`, `app/providers/yahoo.py`, `app/providers/fred.py` (calendar + macro)
+- Shared page parts: `app/web/templates/base.html` (menu), `app/web/formatting.py`, `app/web/assets.py`, `app/web/static/style.css`, `htmx.min.js`, `chart.umd.min.js`
+- Shared configuration: `config/settings.yaml`, `config/sources.yaml` (the owner edits these locally, so new settings go in new config files; see the `PLAN.md` handoff note)
+- Test plumbing: `tests/conftest.py` (fakes for market data, internet, AI, FRED, X), `tests/fixtures/` files used by several zones (`yahoo_*.json`, `fred_*.json`), `tests/test_config.py`, `tests/test_yahoo_adapter.py`, `tests/test_yahoo_options.py`, `tests/test_assets.py`, `tests/test_formatting.py`, `tests/test_market_calendar.py`, `tests/test_readme.py`
+- CI and tooling: `.github/workflows/ci.yml`, `.claude/settings.json`, `.gitignore`, `.env.example`
+- Documents: `CLAUDE.md`, `PLAN.md`, `README.md`, `docs/`
+
 ## External services
 - **Damodaran's industry averages** (NYU Stern, free, no key; updated each January): three HTML data pages (P/E, EV/EBITDA, P/S by industry), read by `app/providers/damodaran.py`, at most once a day.
 - **Yahoo Finance** via `yfinance` (free, unofficial, no key) for quotes, option chains, IV, history, earnings dates, holders, analyst targets. It can break or rate-limit, which is why it sits behind the `MarketData` interface.
@@ -170,4 +193,7 @@ config/            settings.yaml (limits, refresh window, options fallback rate 
 data/              app.db and caches (git-ignored)
 tests/             automated tests; fixtures/ holds sample responses (fixtures/sources/ for feeds and SEC files); conftest.py has the fake market data, fake internet (FakeFetch) and fake AI (FakeLLM)
 docs/              spec, architecture, decisions, prompts
+ralph/             loop prompts (PROMPT_plan.md, PROMPT_build.md, PROMPT_improve.md), task files (tasks/), progress logs (progress/), loop script (ralph.sh); run logs go to ralph/logs/ (git-ignored)
+.claude/           settings.json: what agents may and may not run
+.github/workflows/ ci.yml: style checks + tests on every push and pull request
 ```
