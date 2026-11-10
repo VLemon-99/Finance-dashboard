@@ -1,6 +1,18 @@
 # Decision log
 
-> One entry per meaningful choice, newest at the top. This stops future sessions from quietly undoing past decisions.
+> One entry per meaningful choice, newest at the top. This stops future sessions and loop rounds from quietly undoing past decisions. Loop rounds don't edit this file — they record proposals in their progress log, and an interactive session adds them here after review.
+
+## 2026-11-10 — Build with Ralph loops
+- **Decision:** Features are split into small stories in `ralph/tasks/` and built by automated loops (one story per round, fresh context each round), each feature on its own branch, merged only through a reviewed pull request.
+- **Why:** Lets work run unattended and in parallel while keeping every change small, tested and reviewable.
+- **Alternatives considered:** Fully interactive sessions (slower, needs constant attention).
+- **Revisit if:** Loops regularly produce work that fails review — fix the spec and tests first.
+
+## 2026-11-10 — How the existing project was moved onto the Ralph workflow
+- **Decision:** No application code, tests or dependencies changed. The project as it runs today (Phases 1–9, 755 tests passing) is **F0, the walking skeleton**, status `merged`. SPEC features keep their IDs (F1–F7); the old phase numbers stay in `PLAN.md` for history. Criteria are ticked only where they work in the code and have tests. Work zones follow the real folders: `watchlists` (F1), `options` (F2 + F3, which share the formulas), `reports` (F4), `calendar` (F5), `macro` (F6), `accounts` (F7); the database, `app/main.py`, `app/config.py`, the Yahoo/FRED adapters, `base.html`/`style.css`, `tests/conftest.py`, `config/settings.yaml` and `config/sources.yaml` are shared files. The old rule "ask before deploying" and the template's "never deploy" are combined: loop rounds never deploy; interactive sessions deploy only with the owner's explicit OK. `docs/PROMPTS.md` now follows the template's version; the project's kickoff, bug, handoff, architecture check-in and security review prompts have close equivalents there, and the two without one ("start a work session" and "second opinion") are kept as prompts 14 and 15.
+- **Why:** The template's planner must not rebuild what already exists, and loops need real commands and zones that match the code.
+- **Alternatives considered:** Numbering features by the old phases (would break every F-number already used in tests and docs).
+- **Revisit if:** Zones turn out too coarse (e.g. two report stories regularly collide) — split `reports` into sources/AI and market facts.
 
 ## 2026-11-08 — Phase 9: macro dashboard indicators, sources and how they're kept
 - **Decision** (owner's answers to the proposed list: "1 yes, 2 ICI's weekly, 3 keep, 4 yes"):

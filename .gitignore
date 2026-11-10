@@ -26,3 +26,8 @@ build/
 *.log
 *.sqlite
 *.db
+
+# Ralph loops — local run logs and loop-plugin state
+ralph/logs/
+.claude/*.local.md
+.claude/settings.local.json
