@@ -148,9 +148,9 @@
       "dependsOn": [
         "IMP-1"
       ],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
-      "notes": "Changes the shared file app/main.py; not to run in parallel with other loops. REVIEW: approve. Closes a real gap IMP-1 doesn't cover, and the owner sees no change. The scripts are stored in the app and the policy sets only frame-ancestors, so nothing is blocked. Source links already use rel=noreferrer, so Referrer-Policy is a backstop; it doesn't weaken IMP-1's Referer fallback. Order the middleware so IMP-1's 403 also gets the headers."
+      "notes": "Changes the shared file app/main.py; not to run in parallel with other loops. REVIEW: approve. Closes a real gap IMP-1 doesn't cover, and the owner sees no change. The scripts are stored in the app and the policy sets only frame-ancestors, so nothing is blocked. Source links already use rel=noreferrer, so Referrer-Policy is a backstop; it doesn't weaken IMP-1's Referer fallback. Order the middleware so IMP-1's 403 also gets the headers. DONE 2026-11-11: SECURITY_HEADERS plus a middleware in create_app, registered after IMP-1's check so it wraps it. 11 tests in tests/test_web_security_headers.py: pages, both kinds of 404, static files, an HTMX partial, a redirect and IMP-1's 403. Second review: PASS. Reviewer's note: an unexpected crash page (500) comes from Starlette outside the middleware and lacks the headers; it has no buttons, so there's nothing to trick a click on."
     },
     {
       "id": "IMP-7",

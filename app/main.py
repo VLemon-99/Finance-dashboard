@@ -73,6 +73,16 @@ def run_in_background(
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
+# Sent with every response. Other websites can't show the app inside a frame to trick a
+# click ("clickjacking"), browsers don't guess file types, and the app's own addresses aren't
+# passed on to other sites. Only framing is restricted, so no script or style is blocked.
+SECURITY_HEADERS = {
+    "X-Frame-Options": "DENY",
+    "Content-Security-Policy": "frame-ancestors 'none'",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "same-origin",
+}
+
 
 def is_cross_site(request: Request) -> bool:
     """True when a change request says it was sent from a page on another website.
@@ -188,6 +198,13 @@ def create_app(
                 status_code=403,
             )
         return await call_next(request)
+
+    @app.middleware("http")  # added last, so it runs first and also covers the refusal above
+    async def add_security_headers(request: Request, call_next):
+        response = await call_next(request)
+        for name, value in SECURITY_HEADERS.items():
+            response.headers.setdefault(name, value)
+        return response
 
     app.state.engine = engine
     app.state.market_data = market_data
