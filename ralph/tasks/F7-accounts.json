@@ -1,0 +1,168 @@
+{
+  "feature": "F7",
+  "name": "Accounts & hosting",
+  "branch": "ralph/F7-accounts",
+  "zone": "accounts",
+  "dependsOnFeatures": ["F0"],
+  "stories": [
+    {
+      "id": "F7-S1",
+      "title": "Users can have a securely stored password",
+      "description": "Add a password_hash column to the users table (new Alembic migration, nullable so the existing default user keeps working) and two helpers in app/services/users.py: one that turns a password into a salted hash with Python's built-in hashlib.scrypt (no new dependency) and one that checks a password against a stored hash in constant time. CHANGES SHARED FILES: app/db/models.py, app/db/migrations/, app/services/users.py. Never run in parallel with another loop.",
+      "specRefs": ["F7.2"],
+      "acceptance": [
+        "The migration upgrades and downgrades cleanly (up, down, up) and existing users keep their data with an empty password_hash",
+        "Hashing the same password twice gives two different stored values (random salt); neither contains the password itself",
+        "Checking the right password returns true; a wrong password, an empty password and a user with no password_hash return false",
+        "Scrypt cost settings are read from a new config file config/accounts.yaml (not config/settings.yaml), with tested defaults"
+      ],
+      "verify": "uv run pytest tests/test_accounts_passwords.py",
+      "zone": "accounts",
+      "priority": 1,
+      "dependsOn": [],
+      "status": "todo",
+      "attempts": 0,
+      "notes": ""
+    },
+    {
+      "id": "F7-S2",
+      "title": "Store login sessions in the database",
+      "description": "Add a login_sessions table (user_id, a hash of a random token from Python's secrets module, created_at, expires_at; new Alembic migration) and service functions to start a session (returns the token, stores only its hash), look up the user for a token (none if unknown or expired) and end a session. How long a session lasts comes from config/accounts.yaml. CHANGES SHARED FILES: app/db/models.py, app/db/migrations/, app/services/users.py.",
+      "specRefs": ["F7.2"],
+      "acceptance": [
+        "The migration upgrades and downgrades cleanly (up, down, up); the table has a user_id column",
+        "Starting a session returns a token; the database holds only a hash of it, never the token itself",
+        "Looking up a valid token returns its user; an unknown, ended or expired token returns no user (expiry tested with a fixed clock, times stored in UTC)",
+        "Ending a session makes its token stop working; other sessions of the same user keep working",
+        "Session length is a config value in config/accounts.yaml"
+      ],
+      "verify": "uv run pytest tests/test_accounts_sessions.py",
+      "zone": "accounts",
+      "priority": 2,
+      "dependsOn": ["F7-S1"],
+      "status": "todo",
+      "attempts": 0,
+      "notes": "Session length default is waiting for the owner (proposal: 30 days). Build it as a config value; if the owner hasn't answered when this round runs, use 30 and say so in the progress log."
+    },
+    {
+      "id": "F7-S3",
+      "title": "Log in and log out with email and password",
+      "description": "Add a login page (GET/POST /login: email + password) and POST /logout, in a new app/web/account_routes.py and template login.html. A correct email and password starts a login session (F7-S2) and sets its token in a cookie (HttpOnly, SameSite=Lax, Secure when the request is HTTPS), then redirects to the home page. The menu shows the signed-in email and a Log out button. Email is validated and trimmed; queries use parameters only. CHANGES SHARED FILES: app/main.py (registers the router), app/web/templates/base.html (menu), app/web/static/style.css if needed.",
+      "specRefs": ["F7.2"],
+      "acceptance": [
+        "Posting the right email and password redirects to the home page and sets an HttpOnly, SameSite=Lax session cookie",
+        "A wrong password and an unknown email both show the same message (\"Email or password is wrong\") and set no cookie",
+        "An empty or malformed email, or an empty password, shows a clear message and sets no cookie",
+        "After Log out the cookie is cleared and the old token no longer identifies anyone",
+        "A login form posted from another website is refused (the existing cross-site check covers /login)",
+        "The menu shows the signed-in user's email and a Log out button when signed in, and a Log in link when not"
+      ],
+      "verify": "uv run pytest tests/test_web_login.py",
+      "zone": "accounts",
+      "priority": 3,
+      "dependsOn": ["F7-S1", "F7-S2"],
+      "status": "todo",
+      "attempts": 0,
+      "notes": ""
+    },
+    {
+      "id": "F7-S4",
+      "title": "Every page uses the signed-in user's data",
+      "description": "Change get_user_id in app/web/routes.py so that, when a valid session cookie is present, every page and action works on that user's watchlists, trades, spreads, reports and calendar tickers. Without a cookie the app keeps today's behaviour (the default user) until F7-S5 decides otherwise. CHANGES SHARED FILES: app/web/routes.py (get_user_id), possibly app/main.py. Touches every zone's routes only through the shared UserDep.",
+      "specRefs": ["F7.2", "F7.1"],
+      "acceptance": [
+        "Two users signed in with two separate test clients each see only their own watchlists, portfolio, reports and calendar 'my tickers' (extends the idea of tests/test_user_isolation.py, without changing its existing tests)",
+        "User A cannot open, change or delete user B's watchlist, item, trade, spread or report by guessing its id: the page answers 'not found' and nothing changes",
+        "A report started by user A is stored under user A and shows only in A's report history",
+        "With no session cookie, pages still show the default user's data exactly as before (all existing tests pass unchanged)"
+      ],
+      "verify": "uv run pytest tests/test_web_login_isolation.py",
+      "zone": "accounts",
+      "priority": 4,
+      "dependsOn": ["F7-S3"],
+      "status": "todo",
+      "attempts": 0,
+      "notes": ""
+    },
+    {
+      "id": "F7-S5",
+      "title": "Ask for a login before showing any page",
+      "description": "Placeholder: when signing in is required, any page or action without a valid session redirects to /login (and comes back afterwards). Exact behaviour depends on owner decisions.",
+      "specRefs": ["F7.2"],
+      "acceptance": [
+        "To be written once the owner answers the question in notes"
+      ],
+      "verify": "uv run pytest tests/test_web_login_required.py",
+      "zone": "accounts",
+      "priority": 5,
+      "dependsOn": ["F7-S4"],
+      "status": "blocked",
+      "attempts": 0,
+      "notes": "NEEDS OWNER: Should the app ask for a login when it runs on your own computer, or only when hosted online (a setting, off locally)? Requiring it everywhere is simplest and safest; making it a setting keeps today's no-login local use."
+    },
+    {
+      "id": "F7-S6",
+      "title": "Create accounts and set your own password",
+      "description": "Placeholder: a way to create user accounts and give the existing default user (owner@localhost, who owns all current data) a real email and password.",
+      "specRefs": ["F7.2"],
+      "acceptance": [
+        "To be written once the owner answers the questions in notes"
+      ],
+      "verify": "uv run pytest tests/test_accounts_create.py",
+      "zone": "accounts",
+      "priority": 6,
+      "dependsOn": ["F7-S1"],
+      "status": "blocked",
+      "attempts": 0,
+      "notes": "NEEDS OWNER: (1) How are accounts created: only by you with a command on the computer (proposal; no public sign-up page), a sign-up page anyone can use, or invite-only? (2) Your current data belongs to 'owner@localhost': OK to rename it to your real email and set a password through the same command? (3) Forgotten passwords: the app can't send email (alerts are out of scope), so the proposal is a command that sets a new password. Is a 'change my password' page also wanted?"
+    },
+    {
+      "id": "F7-S7",
+      "title": "Slow down repeated wrong passwords",
+      "description": "Placeholder: limit failed login attempts so a password can't be guessed by trying many times.",
+      "specRefs": ["F7.2"],
+      "acceptance": [
+        "To be written once the owner answers the question in notes"
+      ],
+      "verify": "uv run pytest tests/test_web_login_throttle.py",
+      "zone": "accounts",
+      "priority": 7,
+      "dependsOn": ["F7-S3"],
+      "status": "blocked",
+      "attempts": 0,
+      "notes": "NEEDS OWNER (not in SPEC yet): add a criterion to F7.2 such as 'after 5 wrong passwords for one email within 15 minutes, further attempts are refused for 15 minutes (numbers in config)'? Important once the app is online."
+    },
+    {
+      "id": "F7-S8",
+      "title": "Scheduled morning reports for every user",
+      "description": "Placeholder: the optional weekday 7:30am job (app/scheduler.py, started in app/main.py) runs today only for the default user.",
+      "specRefs": ["F4.9", "F7.2"],
+      "acceptance": [
+        "To be written once the owner answers the question in notes"
+      ],
+      "verify": "uv run pytest tests/test_scheduler_users.py",
+      "zone": "accounts",
+      "priority": 8,
+      "dependsOn": ["F7-S4"],
+      "status": "blocked",
+      "attempts": 0,
+      "notes": "NEEDS OWNER: With more than one account, should the morning job run for every user's watchlists (each run uses Gemini credit and the shared X budget), only for users who switch it on, or only for you? Also: should the $10/month AI credit and $5/month X budget be shared by all users or split?"
+    },
+    {
+      "id": "F7-S9",
+      "title": "Get the app ready for the chosen host (HTTPS)",
+      "description": "Placeholder for F7.3. Stories (and their split) depend on the hosting choice. Deploying itself is never done by a loop; an interactive session deploys only with the owner's explicit OK.",
+      "specRefs": ["F7.3"],
+      "acceptance": [
+        "To be written once the owner answers the questions in notes"
+      ],
+      "verify": "uv run pytest tests/test_hosting.py",
+      "zone": "accounts",
+      "priority": 9,
+      "dependsOn": ["F7-S5", "F7-S6", "F7-S7"],
+      "status": "blocked",
+      "attempts": 0,
+      "notes": "NEEDS OWNER: (1) Where to host and the monthly budget (e.g. a small cloud server or a platform service; Claude can propose 2-3 options with costs in an interactive session). (2) Keep SQLite on a disk the host keeps, or move to Postgres? (3) Which web address / host names may the app answer to (also settles IMPROVE IMP-7)? (4) How secrets get to the host (its own secret settings, never in git). Also SPEC gap: a 'phone-friendly layout' is promised with hosting (Out of scope list) but has no acceptance criterion."
+    }
+  ]
+}
