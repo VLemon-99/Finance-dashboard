@@ -51,9 +51,9 @@
       "zone": "reports (new test file only)",
       "priority": 2,
       "dependsOn": [],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
-      "notes": "REVIEW: approve. Doesn't repeat existing tests (test_summarize checks only the summary step's shape; test_reports_market_facts never looks at watch_video). The planted portfolio tickers must not appear in the sample news/video files."
+      "notes": "REVIEW: approve. Doesn't repeat existing tests (test_summarize checks only the summary step's shape; test_reports_market_facts never looks at watch_video). The planted portfolio tickers must not appear in the sample news/video files. DONE 2026-11-11: tests/test_ai_privacy.py runs a full watchlist report (news, SEC, blog, YouTube, market facts) with a planted watchlist name, other stock, sold AAPL put and trade quantities/prices, and checks none appears in any recorded AI call (all three steps asserted as called). Second review: PASS. The reviewer slipped planted values into each AI step and the test caught every one. Its one weak spot (premium 9.87 appears in a Yahoo sample) was fixed by using 6.4817."
     },
     {
       "id": "IMP-3",
