@@ -14,16 +14,17 @@
 | F4 — Daily research report | — | reports | merged | — | Phases 3, 5, 7, 8. Reddit is out of scope (owner 2026-11-10); F4.12 narrowed to near-identical headlines (owner 2026-11-10). Owner's real-data checks of F4.7/F4.8 (Phase 7) and X (Phase 8) pending |
 | F5 — Market events calendar | — | calendar | merged | — | Phase 6; owner confirmed with real data |
 | F6 — Macro dashboard | — | macro | merged | — | Phase 9, PR #20; owner's real-data check pending (Next up 1) |
-| F7 — Accounts & hosting | — | accounts | not planned | — | F7.1 already built (every user-owned table has `user_id`; one default user created at startup). Not started: F7.2 login, F7.3 hosting with HTTPS. The old Phase 10 also listed a security review (prompt 12), Postgres if needed, and a phone-friendly layout |
+| F7 — Accounts & hosting | `ralph/tasks/F7-accounts.json` | accounts (+ shared files) | planned | `ralph/F7-accounts` | 9 stories: 4 ready (password storage, login sessions, log in/out, pages use the signed-in user), 5 blocked on owner questions (login required locally?, creating accounts, wrong-password limit, morning job per user, hosting F7.3). F7.1 already built |
 
 **Status values:** not planned → planned → looping → in review → merged (or: blocked — needs me)
 
 ## Can run in parallel right now
 <!-- Features whose zones don't overlap and whose dependencies are merged. See docs/ARCHITECTURE.md → Work zones. -->
-- Nothing yet: no feature is planned. The only one left, F7, touches every zone, so it can't run alongside anything else (an improvement loop included).
+- **F7 alone.** It is the only planned feature and it touches every zone and many shared files (database, `app/main.py`, `app/web/routes.py`, `base.html`), so nothing else may run alongside it, an improvement loop included. Start it with: `./ralph/ralph.sh ralph/tasks/F7-accounts.json`
 
 ## Waiting on me
 <!-- Blocked stories, open questions, pull requests to review. -->
+- **F7 questions (2026-11-11 plan, details in each blocked story's notes in `ralph/tasks/F7-accounts.json`):** login required on your own computer too, or only when hosted? How are accounts created (proposal: a command you run; no public sign-up)? Rename `owner@localhost` to your email? Password reset by command only, or also a change-password page? Limit repeated wrong passwords (new SPEC criterion)? Morning job for every user, and shared or split AI/X budgets? Session length (proposal 30 days)? Hosting: where, budget, SQLite or Postgres, web address (also settles IMP-7), how secrets reach the host. SPEC gaps: phone-friendly layout and the security review have no acceptance criteria.
 - Test gaps found at the switch (2026-11-10), for the improvement loop (prompt 13, Focus: tests): hand-made samples for every outside service; no tests for the macro charts' JavaScript or page layout; the 25-ticker speed goal never measured; F4.13 tested only for the summary step; F7.1 checked only through the default user; few tests for F4.10 and F5.2.
 - Real-data checks: Phase 9 macro dashboard, Phase 8 X, Phase 7 valuation/holders, Phase 5 timing, Phase 4 leftovers (details in **Next up** below).
 
@@ -253,6 +254,7 @@ Each phase ends with a working app, passing tests, and the docs updated.
 
 ## Handoff note (interactive sessions)
 <!-- Where we stopped, anything half-finished, what the next session should check first. -->
+- 2026-11-11: planned F7 (`ralph/tasks/F7-accounts.json`, progress log `ralph/progress/F7-accounts.md`, branch `ralph/F7-accounts`). Proposed (not yet logged in DECISIONS, waiting for the owner's OK): passwords hashed with Python's built-in `hashlib.scrypt` and login sessions stored in the database with random tokens (no new dependencies); new settings in `config/accounts.yaml`. Once the owner answers the F7 questions in **Waiting on me**, rewrite the blocked stories' acceptance criteria and set them to `todo`.
 - 2026-11-10: switched to the Ralph loop workflow (no app code, tests or dependencies changed). Added `ralph/` (prompts, loop script, examples), work zones in `docs/ARCHITECTURE.md`, F0 and IDs/ticks in `docs/SPEC.md`, `.claude/settings.json`. No task files yet. Owner's answers the same day: F4.12 narrowed to near-identical headlines, Reddit moved to Out of scope (F4 now merged), old prompt wording deleted from `docs/PROMPTS.md`, `main` is protected on GitHub, loops may run `uv run alembic upgrade head`. Next: plan F7 with prompt 2 (`ralph/PROMPT_plan.md`), or first add tests for the weak spots with the improvement loop (prompt 13, Focus: tests).
 
 ### Earlier handoff note (Phases 1–9)
