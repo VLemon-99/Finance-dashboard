@@ -99,9 +99,9 @@
       "zone": "reports (new test file only)",
       "priority": 4,
       "dependsOn": [],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
-      "notes": "REVIEW: approve. The existing F4.10 test covers only a midday report on one day; the evening Eastern/next-day-UTC case and brk.b are untested. Low value, cheap."
+      "notes": "REVIEW: approve. The existing F4.10 test covers only a midday report on one day; the evening Eastern/next-day-UTC case and brk.b are untested. Low value, cheap. DONE 2026-11-11: tests/test_web_reports_history.py (7 tests): evening reports in winter (EST) and summer (EDT) listed under their Eastern date, the Eastern-midnight boundary, three reports newest first, and brk.b / BRK.B / ' brk-b ' all finding BRK-B. A deliberate break (filter on UTC days) made the boundary tests fail; code restored. No production code changed. Second review: PASS."
     },
     {
       "id": "IMP-5",
