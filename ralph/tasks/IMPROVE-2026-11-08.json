@@ -127,6 +127,54 @@
       "status": "rejected",
       "attempts": 0,
       "notes": "REVIEW: reject. Repeats tests/test_reports_videos.py::test_25_ticker_run_downloads_each_blog_and_channel_once (25/25 done, each feed fetched once, time guard) and test_25_tickers_30_new_videos (video cap)."
+    },
+    {
+      "id": "IMP-6",
+      "title": "Stop other sites from showing the app inside a frame",
+      "description": "Another website could load the app's pages invisibly inside a frame and trick the owner into clicking a button (e.g. Delete) on it ('clickjacking'). IMP-1's check doesn't stop this, because the click really comes from the app's own page. Fix: every response tells the browser not to show it inside another site's frame (X-Frame-Options: DENY and Content-Security-Policy: frame-ancestors 'none'), plus two standard safety headers: X-Content-Type-Options: nosniff, and Referrer-Policy: same-origin, so the owner's watchlist and report addresses aren't sent to news sites when a source link is clicked. The owner sees no difference.",
+      "category": "security",
+      "value": "medium",
+      "risk": "low",
+      "specRefs": [],
+      "acceptance": [
+        "Every page, partial, redirect, 404 page and static file answers with X-Frame-Options: DENY and a Content-Security-Policy containing frame-ancestors 'none'",
+        "Every response has X-Content-Type-Options: nosniff and Referrer-Policy: same-origin",
+        "The 403 from IMP-1's cross-site check carries the same headers",
+        "All existing tests keep passing unchanged (pages, HTMX partials and the macro charts' scripts are not blocked: the policy sets frame-ancestors only, no script or style rules)"
+      ],
+      "verify": "uv run pytest tests/test_web_security_headers.py tests/test_web_csrf.py",
+      "zone": "shared: app/main.py (app wiring); new test file tests/test_web_security_headers.py",
+      "priority": 6,
+      "dependsOn": [
+        "IMP-1"
+      ],
+      "status": "todo",
+      "attempts": 0,
+      "notes": "Changes the shared file app/main.py; not to run in parallel with other loops. REVIEW: approve. Closes a real gap IMP-1 doesn't cover, and the owner sees no change. The scripts are stored in the app and the policy sets only frame-ancestors, so nothing is blocked. Source links already use rel=noreferrer, so Referrer-Policy is a backstop; it doesn't weaken IMP-1's Referer fallback. Order the middleware so IMP-1's 403 also gets the headers."
+    },
+    {
+      "id": "IMP-7",
+      "title": "Only answer requests addressed to the app's own host names",
+      "description": "The reviewer of IMP-1 pointed out a rarer attack IMP-1 doesn't stop: 'DNS rebinding', where a website makes its own name point at the owner's computer, so its page can read the app (portfolio, watchlists) as if it were the same site. Fix: refuse requests whose Host header isn't on a list of allowed names (default: localhost, 127.0.0.1, [::1]), kept in a new config file so the owner can add a computer name or, later, the hosted address (F7.3).",
+      "category": "security",
+      "value": "medium",
+      "risk": "medium",
+      "specRefs": [
+        "F7.3"
+      ],
+      "acceptance": [
+        "A request with Host: evil.example is refused with 400 and a plain message naming the setting to change",
+        "Host localhost:8000, 127.0.0.1:8000 and [::1]:8000 work",
+        "The allowed names come from configuration and can be extended without code changes",
+        "All existing tests keep passing unchanged"
+      ],
+      "verify": "uv run pytest tests/test_web_allowed_hosts.py",
+      "zone": "shared: app/main.py, app/config.py, a new config file",
+      "priority": 7,
+      "dependsOn": [],
+      "status": "blocked",
+      "attempts": 0,
+      "notes": "PROPOSAL: the owner must decide which host names the app may answer to (only localhost, 127.0.0.1 and [::1], or also this computer's network name/address for a phone at home), ideally together with F7.3 hosting. Changes shared files (app/main.py, app/config.py) and adds a config file. Could lock the owner out if they open the app by another name (e.g. a phone on the home network using the computer's address). REVIEW: needs owner. It could lock the owner out (PLAN 'Next up' suggests looking at the app on a phone), so it doesn't fit safe mode without the owner's OK."
     }
   ]
 }
