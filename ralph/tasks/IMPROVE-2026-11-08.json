@@ -75,9 +75,9 @@
       "zone": "accounts (new test file only; read-only use of every zone)",
       "priority": 3,
       "dependsOn": [],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
-      "notes": "REVIEW: approve. Existing tests use ids that don't exist, check one page, or test the service level only. Also cover POST /watchlists/{id}/items/{item_id}/delete; 'spread unlink' is POST /portfolio/spreads/{id}/delete. Fixing a leak if one is found counts as a bug fix."
+      "notes": "REVIEW: approve. Existing tests use ids that don't exist, check one page, or test the service level only. Also cover POST /watchlists/{id}/items/{item_id}/delete; 'spread unlink' is POST /portfolio/spreads/{id}/delete. Fixing a leak if one is found counts as a bug fix. DONE 2026-11-11: tests/test_user_isolation.py (4 tests). A second user's watchlist, item, trades, spread, run and report are planted in the database. 13 routes answer 404 to their ids (incl. /reports/generate and /options/{ticker}/add with their watchlist_id). Settle and spread-link answer 400 'not open', because instruments are shared rows. Removing their item through my own list does nothing. Home, portfolio, report history (by ticker and day) and calendar never list their rows, and their rows are unchanged afterwards. No leak found; no production code changed. Second review: PASS. Its optional gap (item id through my own list) was added."
     },
     {
       "id": "IMP-4",
