@@ -1,0 +1,180 @@
+{
+  "feature": "IMPROVE",
+  "name": "Improvement loop (safe mode, focus: all)",
+  "branch": "ralph/improve-2026-11-08",
+  "zone": "mixed (each item names its zone)",
+  "dependsOnFeatures": [],
+  "stories": [
+    {
+      "id": "IMP-1",
+      "title": "Block cross-site form submissions",
+      "description": "Every change in the app (delete a watchlist, delete a trade, record a trade, generate a report) is a plain form POST with no protection. Any web page the owner visits could quietly submit such a form to http://localhost:8000 and delete or change data (a 'cross-site request forgery'). Fix: reject POST requests whose Origin header (or, if missing, Referer header) names a different site than the app itself. Requests with neither header (scripts, the test client) still work, and the owner's own pages and HTMX requests are unaffected because browsers send the app's own origin.",
+      "category": "security",
+      "value": "high",
+      "risk": "low",
+      "specRefs": [
+        "F1.2",
+        "F3.1"
+      ],
+      "acceptance": [
+        "A POST (e.g. /watchlists/{id}/delete or /portfolio/trades/{id}/delete) with Origin: https://evil.example is refused with status 403 and nothing is changed or deleted",
+        "A POST with no Origin header but Referer: https://evil.example/page is refused with 403 and nothing changes",
+        "A POST whose Origin matches the request's own host (e.g. http://testserver, or http://localhost:8000 when served there) works as before",
+        "A POST with neither Origin nor Referer works as before (all existing tests keep passing unchanged)",
+        "GET requests are never blocked"
+      ],
+      "verify": "uv run pytest tests/test_web_csrf.py",
+      "zone": "shared: app/main.py (app wiring); new test file tests/test_web_csrf.py",
+      "priority": 1,
+      "dependsOn": [],
+      "status": "done",
+      "attempts": 0,
+      "notes": "Changes the shared file app/main.py (adds one small middleware); not to run in parallel with other loops. REVIEW: approve. A real gap; tests can check it; low risk is fair. Must compare Origin with the request's own Host (not a hard-coded localhost) so it keeps working when hosted (F7.3). Changes shared file app/main.py: run alone. DONE 2026-11-11: middleware in create_app refuses non-GET/HEAD/OPTIONS requests whose Origin (or Referer) host differs from the request's Host (403, plain message); 13 tests in tests/test_web_csrf.py. Second review: PASS. Side notes from the reviewer for the owner: DNS rebinding (an outside name pointed at your computer) isn't covered by this (it would need a list of allowed host names: a possible later item); when hosted behind a proxy that rewrites Host (F7.3), the check must see the public host."
+    },
+    {
+      "id": "IMP-2",
+      "title": "End-to-end test: no personal data reaches the AI in any step",
+      "description": "SPEC F4.13 is tested only for the summary step and the market-facts part (PLAN 'Waiting on me' lists this gap). Add one test that sets up distinctive personal data (a watchlist with an unusual name, portfolio trades with unusual quantities and prices), runs a full report with news, a YouTube video and statements, and checks that none of that personal data appears in anything sent to the (fake) AI: item summaries, video watching and report writing.",
+      "category": "tests",
+      "value": "medium",
+      "risk": "low",
+      "specRefs": [
+        "F4.13"
+      ],
+      "acceptance": [
+        "The test records every call to the fake AI (summarize_items, watch_video, write_report) during a full watchlist report run",
+        "The watchlist name, trade quantities, trade prices and portfolio symbols that aren't the report's ticker never appear in the recorded calls",
+        "The test checks that each of the three AI steps was actually called at least once (so it can't pass vacuously)",
+        "No production code changes"
+      ],
+      "verify": "uv run pytest tests/test_ai_privacy.py",
+      "zone": "reports (new test file only)",
+      "priority": 2,
+      "dependsOn": [],
+      "status": "done",
+      "attempts": 0,
+      "notes": "REVIEW: approve. Doesn't repeat existing tests (test_summarize checks only the summary step's shape; test_reports_market_facts never looks at watch_video). The planted portfolio tickers must not appear in the sample news/video files. DONE 2026-11-11: tests/test_ai_privacy.py runs a full watchlist report (news, SEC, blog, YouTube, market facts) with a planted watchlist name, other stock, sold AAPL put and trade quantities/prices, and checks none appears in any recorded AI call (all three steps asserted as called). Second review: PASS. The reviewer slipped planted values into each AI step and the test caught every one. Its one weak spot (premium 9.87 appears in a Yahoo sample) was fixed by using 6.4817."
+    },
+    {
+      "id": "IMP-3",
+      "title": "Tests: one user can never reach another user's data through the pages",
+      "description": "SPEC F7.1 is checked mostly through the default user (PLAN 'Waiting on me'). Before accounts arrive, lock in that every page refuses another user's rows: create a second user with a watchlist, a trade, a spread and a report run in the database, then check that the owner's pages give 'not found' (404) for those ids and change nothing: watchlist view/rename/delete/add item, trade delete, spread unlink, position settle, report page, run page and run progress.",
+      "category": "tests",
+      "value": "medium",
+      "risk": "low",
+      "specRefs": [
+        "F7.1"
+      ],
+      "acceptance": [
+        "For each listed page or action, using another user's id returns 404",
+        "After the attempts, the other user's rows are all still in the database unchanged",
+        "Lists and history pages (home, portfolio, reports history) don't show the other user's watchlists, trades or reports",
+        "No production code changes unless a test exposes a real leak (then fix it in the same item and say so)"
+      ],
+      "verify": "uv run pytest tests/test_user_isolation.py",
+      "zone": "accounts (new test file only; read-only use of every zone)",
+      "priority": 3,
+      "dependsOn": [],
+      "status": "done",
+      "attempts": 0,
+      "notes": "REVIEW: approve. Existing tests use ids that don't exist, check one page, or test the service level only. Also cover POST /watchlists/{id}/items/{item_id}/delete; 'spread unlink' is POST /portfolio/spreads/{id}/delete. Fixing a leak if one is found counts as a bug fix. DONE 2026-11-11: tests/test_user_isolation.py (4 tests). A second user's watchlist, item, trades, spread, run and report are planted in the database. 13 routes answer 404 to their ids (incl. /reports/generate and /options/{ticker}/add with their watchlist_id). Settle and spread-link answer 400 'not open', because instruments are shared rows. Removing their item through my own list does nothing. Home, portfolio, report history (by ticker and day) and calendar never list their rows, and their rows are unchanged afterwards. No leak found; no production code changed. Second review: PASS. Its optional gap (item id through my own list) was added."
+    },
+    {
+      "id": "IMP-4",
+      "title": "Tests: report history by date follows US Eastern days",
+      "description": "F4.10 has one test. Add tests that lock in the edge cases: a report generated in the evening US Eastern time (already the next day in UTC) is listed under its Eastern date, not the next day; several reports of the same ticker on different days are all kept and listed newest first; and the ticker filter accepts 'brk.b' as BRK-B.",
+      "category": "tests",
+      "value": "low",
+      "risk": "low",
+      "specRefs": [
+        "F4.10"
+      ],
+      "acceptance": [
+        "A report generated at 9:30pm US Eastern on Nov 2 is listed for day=2026-11-02 and not for day=2026-11-03",
+        "Three reports of one ticker on three days are all listed by ticker, newest first",
+        "?ticker=brk.b lists BRK-B reports",
+        "No production code changes unless a test exposes a bug"
+      ],
+      "verify": "uv run pytest tests/test_web_reports_history.py",
+      "zone": "reports (new test file only)",
+      "priority": 4,
+      "dependsOn": [],
+      "status": "done",
+      "attempts": 0,
+      "notes": "REVIEW: approve. The existing F4.10 test covers only a midday report on one day; the evening Eastern/next-day-UTC case and brk.b are untested. Low value, cheap. DONE 2026-11-11: tests/test_web_reports_history.py (7 tests): evening reports in winter (EST) and summer (EDT) listed under their Eastern date, the Eastern-midnight boundary, three reports newest first, and brk.b / BRK.B / ' brk-b ' all finding BRK-B. A deliberate break (filter on UTC days) made the boundary tests fail; code restored. No production code changed. Second review: PASS."
+    },
+    {
+      "id": "IMP-5",
+      "title": "Offline test for a 25-ticker report run",
+      "description": "The SPEC constraint 'a full morning report for 25 tickers finishes in under 10 minutes' has never been measured (PLAN Known issues). The real time needs the owner's computer, but an offline test can lock in what makes it possible: with fake sources and fake AI, a 25-ticker watchlist run finishes, every ticker gets a report, each trusted blog and YouTube feed is downloaded once for the whole run (not once per ticker), and no more than the configured number of videos are watched.",
+      "category": "tests",
+      "value": "low",
+      "risk": "low",
+      "specRefs": [
+        "Constraints: 25 tickers in under 10 minutes",
+        "F4.5"
+      ],
+      "acceptance": [
+        "A run for 25 tickers with the fakes finishes with status done and 25 reports",
+        "Each blog/YouTube feed URL is fetched exactly once during the run",
+        "At most ai.max_videos_per_run videos are watched",
+        "The run takes under 30 seconds with the fakes (a guard against accidental per-ticker slowdowns, not the real-world measurement)"
+      ],
+      "verify": "uv run pytest tests/test_reports_scale.py",
+      "zone": "reports (new test file only)",
+      "priority": 5,
+      "dependsOn": [],
+      "status": "rejected",
+      "attempts": 0,
+      "notes": "REVIEW: reject. Repeats tests/test_reports_videos.py::test_25_ticker_run_downloads_each_blog_and_channel_once (25/25 done, each feed fetched once, time guard) and test_25_tickers_30_new_videos (video cap)."
+    },
+    {
+      "id": "IMP-6",
+      "title": "Stop other sites from showing the app inside a frame",
+      "description": "Another website could load the app's pages invisibly inside a frame and trick the owner into clicking a button (e.g. Delete) on it ('clickjacking'). IMP-1's check doesn't stop this, because the click really comes from the app's own page. Fix: every response tells the browser not to show it inside another site's frame (X-Frame-Options: DENY and Content-Security-Policy: frame-ancestors 'none'), plus two standard safety headers: X-Content-Type-Options: nosniff, and Referrer-Policy: same-origin, so the owner's watchlist and report addresses aren't sent to news sites when a source link is clicked. The owner sees no difference.",
+      "category": "security",
+      "value": "medium",
+      "risk": "low",
+      "specRefs": [],
+      "acceptance": [
+        "Every page, partial, redirect, 404 page and static file answers with X-Frame-Options: DENY and a Content-Security-Policy containing frame-ancestors 'none'",
+        "Every response has X-Content-Type-Options: nosniff and Referrer-Policy: same-origin",
+        "The 403 from IMP-1's cross-site check carries the same headers",
+        "All existing tests keep passing unchanged (pages, HTMX partials and the macro charts' scripts are not blocked: the policy sets frame-ancestors only, no script or style rules)"
+      ],
+      "verify": "uv run pytest tests/test_web_security_headers.py tests/test_web_csrf.py",
+      "zone": "shared: app/main.py (app wiring); new test file tests/test_web_security_headers.py",
+      "priority": 6,
+      "dependsOn": [
+        "IMP-1"
+      ],
+      "status": "done",
+      "attempts": 0,
+      "notes": "Changes the shared file app/main.py; not to run in parallel with other loops. REVIEW: approve. Closes a real gap IMP-1 doesn't cover, and the owner sees no change. The scripts are stored in the app and the policy sets only frame-ancestors, so nothing is blocked. Source links already use rel=noreferrer, so Referrer-Policy is a backstop; it doesn't weaken IMP-1's Referer fallback. Order the middleware so IMP-1's 403 also gets the headers. DONE 2026-11-11: SECURITY_HEADERS plus a middleware in create_app, registered after IMP-1's check so it wraps it. 11 tests in tests/test_web_security_headers.py: pages, both kinds of 404, static files, an HTMX partial, a redirect and IMP-1's 403. Second review: PASS. Reviewer's note: an unexpected crash page (500) comes from Starlette outside the middleware and lacks the headers; it has no buttons, so there's nothing to trick a click on."
+    },
+    {
+      "id": "IMP-7",
+      "title": "Only answer requests addressed to the app's own host names",
+      "description": "The reviewer of IMP-1 pointed out a rarer attack IMP-1 doesn't stop: 'DNS rebinding', where a website makes its own name point at the owner's computer, so its page can read the app (portfolio, watchlists) as if it were the same site. Fix: refuse requests whose Host header isn't on a list of allowed names (default: localhost, 127.0.0.1, [::1]), kept in a new config file so the owner can add a computer name or, later, the hosted address (F7.3).",
+      "category": "security",
+      "value": "medium",
+      "risk": "medium",
+      "specRefs": [
+        "F7.3"
+      ],
+      "acceptance": [
+        "A request with Host: evil.example is refused with 400 and a plain message naming the setting to change",
+        "Host localhost:8000, 127.0.0.1:8000 and [::1]:8000 work",
+        "The allowed names come from configuration and can be extended without code changes",
+        "All existing tests keep passing unchanged"
+      ],
+      "verify": "uv run pytest tests/test_web_allowed_hosts.py",
+      "zone": "shared: app/main.py, app/config.py, a new config file",
+      "priority": 7,
+      "dependsOn": [],
+      "status": "blocked",
+      "attempts": 0,
+      "notes": "PROPOSAL: the owner must decide which host names the app may answer to (only localhost, 127.0.0.1 and [::1], or also this computer's network name/address for a phone at home), ideally together with F7.3 hosting. Changes shared files (app/main.py, app/config.py) and adds a config file. Could lock the owner out if they open the app by another name (e.g. a phone on the home network using the computer's address). REVIEW: needs owner. It could lock the owner out (PLAN 'Next up' suggests looking at the app on a phone), so it doesn't fit safe mode without the owner's OK."
+    }
+  ]
+}
