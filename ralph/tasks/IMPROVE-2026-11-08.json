@@ -27,9 +27,9 @@
       "zone": "shared: app/main.py (app wiring); new test file tests/test_web_csrf.py",
       "priority": 1,
       "dependsOn": [],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
-      "notes": "Changes the shared file app/main.py (adds one small middleware); not to run in parallel with other loops. REVIEW: approve. A real gap; tests can check it; low risk is fair. Must compare Origin with the request's own Host (not a hard-coded localhost) so it keeps working when hosted (F7.3). Changes shared file app/main.py: run alone."
+      "notes": "Changes the shared file app/main.py (adds one small middleware); not to run in parallel with other loops. REVIEW: approve. A real gap; tests can check it; low risk is fair. Must compare Origin with the request's own Host (not a hard-coded localhost) so it keeps working when hosted (F7.3). Changes shared file app/main.py: run alone. DONE 2026-11-11: middleware in create_app refuses non-GET/HEAD/OPTIONS requests whose Origin (or Referer) host differs from the request's Host (403, plain message); 13 tests in tests/test_web_csrf.py. Second review: PASS. Side notes from the reviewer for the owner: DNS rebinding (an outside name pointed at your computer) isn't covered by this (it would need a list of allowed host names: a possible later item); when hosted behind a proxy that rewrites Host (F7.3), the check must see the public host."
     },
     {
       "id": "IMP-2",

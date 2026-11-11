@@ -3,8 +3,10 @@
 import threading
 from collections.abc import Callable, Sequence
 from contextlib import asynccontextmanager
+from urllib.parse import urlsplit
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import Engine
 from sqlmodel import Session
@@ -67,6 +69,27 @@ def run_in_background(
         daemon=True,
     )
     thread.start()
+
+
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+def is_cross_site(request: Request) -> bool:
+    """True when a change request says it was sent from a page on another website.
+
+    Browsers add `Origin` (or at least `Referer`) to form posts and HTMX requests, so a page
+    elsewhere can't quietly make the owner's browser delete a watchlist here (cross-site
+    request forgery). It's compared with the host the request was sent to, so it works at
+    localhost and later when hosted. Requests with neither header (scripts) are allowed.
+    """
+    source = request.headers.get("origin") or request.headers.get("referer")
+    if not source:
+        return False
+    host = request.headers.get("host", "")
+    try:
+        return urlsplit(source).netloc.lower() != host.lower()
+    except ValueError:
+        return True
 
 
 def build_report_services(
@@ -155,6 +178,17 @@ def create_app(
                 app.state.scheduler.shutdown(wait=False)
 
     app = FastAPI(title="Finance Dashboard", lifespan=lifespan)
+
+    @app.middleware("http")
+    async def refuse_cross_site_changes(request: Request, call_next):
+        if request.method not in SAFE_METHODS and is_cross_site(request):
+            return PlainTextResponse(
+                "Refused: this change was sent from another website. "
+                "Use the app's own pages to make changes.",
+                status_code=403,
+            )
+        return await call_next(request)
+
     app.state.engine = engine
     app.state.market_data = market_data
     app.state.config = app_config
