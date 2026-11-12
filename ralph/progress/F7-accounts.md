@@ -17,6 +17,7 @@
 - Starting a signed-in session after login/sign-up (and later Google): `_signed_in_redirect(request, session, user_id, next_url)` in `app/web/account_routes.py` (cookie + safe redirect). Invite list: `AccountsConfig.invited` (lower-cased, checked) and `AccountsConfig.is_invited(email)`. `EMAIL_PATTERN` / `MAX_EMAIL` now live in `app/config.py` (users.py imports them).
 - The login route reads the time through `utc_now` imported into `app/web/account_routes.py`; tests freeze it with `monkeypatch.setattr(app.web.account_routes, "utc_now", clock)` (see `tests/test_web_login_throttle.py`). Migration head is now `a3c9e7f1b2d4` (login_failures).
 - When a scripted multi-edit fails on one replacement, none of that file's edits are written: rerun that file only.
+- Google adapter: `GoogleSignIn(client_id, client_secret, transport=..., clock=...)` in `app/providers/google_auth.py`; `start(redirect_uri) -> SignInStart(url, state, nonce, code_verifier)`, `finish(code, redirect_uri, nonce, code_verifier) -> email`, `is_set_up`, errors are `GoogleAuthError` (plain, safe to show). Fake Google in tests: `FakeGoogle` + `id_token(**claims)` in `tests/test_google_auth.py`.
 - Ruff's S105/S106 flag fake passwords in tests; mark them `# noqa: S105 (fake test password)` / `# noqa: S106`.
 
 ## Rounds
@@ -88,3 +89,9 @@
 - Files touched: app/web/templates/reports.html, tests/test_scheduler_users.py (4 tests), this task file and log. `tests/test_scheduler.py` unchanged.
 - Test result: baseline exit 0; verify 4 passed; full suite exit 0; ruff check + format clean.
 - Next round should know: next is F7-S11 (Google sign-in adapter), the first story that adds an outside service; keep it in `app/providers/` with `httpx.MockTransport` in tests.
+
+## Round — 2026-11-12 — F7-S11 — done
+- What I did: new `app/providers/google_auth.py`, built with httpx only (no new dependency). `start()` builds Google's sign-in address (client id, redirect address, scope "openid email", random state and nonce, PKCE S256 challenge, prompt=select_account). `finish()` POSTs the code, client secret and code verifier to Google's token endpoint over HTTPS, reads the ID token's claims (signature not checked on purpose, DECISIONS 2026-11-12), then checks issuer, audience (string or list), expiry (with the passed clock), nonce (constant-time compare), `email_verified` (true or "true") and a usable email; returns it in lower case. Every failure (timeouts, Google errors, bad JSON or tokens) becomes a `GoogleAuthError` with a plain message that never includes the secret or the code. `is_set_up` is false unless both keys are set and aren't the `.env.example` placeholders. New settings `google_client_id` / `google_client_secret` (empty by default); placeholders added to `.env.example`.
+- Files touched: app/providers/google_auth.py (new), app/config.py, .env.example, tests/test_google_auth.py (36 tests), this task file and log.
+- Test result: baseline exit 0; verify 36 passed; full suite exit 0; ruff check + format clean.
+- Next round should know: the adapter isn't wired into the app yet; F7-S12 passes a `GoogleSignIn` into `create_app` (fake in tests) and adds the routes under `/login/google` (open while login is required).

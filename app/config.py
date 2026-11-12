@@ -77,6 +77,11 @@ class Settings(BaseSettings):
     # The macro dashboard's indicators (see MacroConfig below, SPEC F6).
     macro_config_file: Path = PROJECT_ROOT / "config" / "macro.yaml"
 
+    # "Sign in with Google" (SPEC F7.6): the OAuth client from Google Cloud's console
+    # (APIs & Services -> Credentials). Either empty = Google sign-in is off.
+    google_client_id: str = ""
+    google_client_secret: str = ""
+
     # Login settings: password hashing cost (see AccountsConfig below, SPEC F7.2).
     accounts_config_file: Path = PROJECT_ROOT / "config" / "accounts.yaml"
 
