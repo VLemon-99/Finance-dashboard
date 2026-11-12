@@ -302,6 +302,19 @@ class FakeMarketData:
         return FAKE_RISK_FREE_RATE
 
 
+@pytest.fixture(autouse=True)
+def test_host_allowed(monkeypatch):
+    """Test clients send "Host: testserver", so test apps also answer to that name (F7.3).
+    Tests that check the host rule pass `hosting=` to create_app themselves."""
+    import app.main
+    from app.config import HostingConfig
+
+    names = [*HostingConfig().allowed_hosts, "testserver"]
+    monkeypatch.setattr(
+        app.main, "load_hosting_config", lambda path: HostingConfig(allowed_hosts=names)
+    )
+
+
 @pytest.fixture
 def engine(tmp_path):
     """A fresh temporary database, built by running the real migrations."""

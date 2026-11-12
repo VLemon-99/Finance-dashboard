@@ -18,16 +18,19 @@ from app.config import (
     AccountsConfig,
     AppConfig,
     FomcConfig,
+    HostingConfig,
     Settings,
     get_settings,
     load_accounts_config,
     load_app_config,
     load_benchmarks_config,
     load_fomc_config,
+    load_hosting_config,
     load_institutional_config,
     load_macro_config,
     load_sources_config,
     load_x_config,
+    request_host_name,
 )
 from app.db.session import database_is_set_up, database_is_up_to_date, make_engine
 from app.providers.damodaran import DamodaranClient
@@ -149,6 +152,7 @@ def create_app(
     macro: MacroSetup | None = None,
     accounts: AccountsConfig | None = None,
     google: GoogleSignIn | None = None,
+    hosting: HostingConfig | None = None,
 ) -> FastAPI:
     """Build the app. Tests pass in a temporary database, fake data sources and small limits."""
     settings = get_settings()
@@ -161,6 +165,8 @@ def create_app(
     fred = fred or FredClient(settings.fred_api_key, settings.source_timeout_seconds)
     fomc = fomc or load_fomc_config(settings.fomc_dates_file)
     accounts = accounts or load_accounts_config(settings.accounts_config_file)
+    hosting = hosting or load_hosting_config(settings.hosting_config_file)
+    allowed_hosts = set(hosting.allowed_hosts)
     google = google or GoogleSignIn(
         settings.google_client_id, settings.google_client_secret, settings.source_timeout_seconds
     )
@@ -236,7 +242,18 @@ def create_app(
             )
         return await call_next(request)
 
-    @app.middleware("http")  # added last, so it runs first and also covers the refusal above
+    @app.middleware("http")  # runs before everything else but the security headers
+    async def refuse_other_host_names(request: Request, call_next):
+        """Answer only requests addressed to config/hosting.yaml's names (F7.3, IMP-7)."""
+        if request_host_name(request.headers.get("host", "")) not in allowed_hosts:
+            return PlainTextResponse(
+                "Refused: this app doesn't answer to that address. If it's yours, add its "
+                "name to allowed_hosts in config/hosting.yaml and restart the app.",
+                status_code=400,
+            )
+        return await call_next(request)
+
+    @app.middleware("http")  # added last, so it runs first and also covers the refusals above
     async def add_security_headers(request: Request, call_next):
         response = await call_next(request)
         for name, value in SECURITY_HEADERS.items():

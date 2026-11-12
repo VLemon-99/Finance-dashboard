@@ -1,0 +1,11 @@
+# Which web addresses (host names) the app answers to (SPEC F7.3). Restart after editing.
+#
+# Requests sent to any other name are refused. This stops a trick where a website points its
+# own name at your computer to read the app ("DNS rebinding"). On your own computer the three
+# names below are all you need. When the app runs online, add its address, e.g.:
+#   - dashboard.example.com
+# Names only: no "https://", no port number.
+allowed_hosts:
+  - localhost
+  - 127.0.0.1
+  - "[::1]"

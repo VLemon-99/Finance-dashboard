@@ -19,6 +19,7 @@
 - When a scripted multi-edit fails on one replacement, none of that file's edits are written: rerun that file only.
 - Google adapter: `GoogleSignIn(client_id, client_secret, transport=..., clock=...)` in `app/providers/google_auth.py`; `start(redirect_uri) -> SignInStart(url, state, nonce, code_verifier)`, `finish(code, redirect_uri, nonce, code_verifier) -> email`, `is_set_up`, errors are `GoogleAuthError` (plain, safe to show). Fake Google in tests: `FakeGoogle` + `id_token(**claims)` in `tests/test_google_auth.py`.
 - `create_app(google=...)` takes the Google adapter (`app.state.google`); tests use `FakeGoogle` in `tests/test_web_google_login.py` (states are "state-0", "state-1", ...).
+- Host names: `tests/conftest.py` has an autouse fixture that makes every test app also answer to "testserver" (it replaces `app.main.load_hosting_config`). To test the host rule, pass `hosting=HostingConfig(...)` to `create_app` and use `base_url="http://localhost:8000"`.
 - Ruff's S105/S106 flag fake passwords in tests; mark them `# noqa: S105 (fake test password)` / `# noqa: S106`.
 
 ## Rounds
@@ -102,3 +103,10 @@
 - Files touched: app/web/account_routes.py, app/main.py, app/web/templates/login.html, app/web/templates/signup.html, app/web/static/style.css, tests/test_web_google_login.py (23 tests), this task file and log.
 - Test result: baseline exit 0; verify 23 passed; full suite exit 0; ruff check + format clean.
 - Next round should know: when deploying, the Google console needs the redirect address `https://<host>/login/google/callback`, and the app must see HTTPS (F7-S14's proxy headers) or Google will reject the http address. Jinja's `urlencode` leaves '/' as is.
+
+## Round — 2026-11-12 — F7-S13 — done
+- What I did: new `config/hosting.yaml` (`HostingConfig.allowed_hosts`, default localhost, 127.0.0.1, [::1]; names checked: no scheme, no port, lower-cased) and `request_host_name()` in `app/config.py`. New `refuse_other_host_names` middleware in `app/main.py`, run before everything except the security headers: a request whose Host header (port ignored, case ignored) isn't on the list gets 400 "Refused: this app doesn't answer to that address... config/hosting.yaml". Covers pages, actions and static files; missing or malformed Host headers are refused too. `create_app(hosting=...)`.
+- Shared test plumbing: `tests/conftest.py` got one autouse fixture so test apps also allow "testserver" (the story allowed this); no existing test changed.
+- Files touched: app/config.py, config/hosting.yaml (new), app/main.py, tests/conftest.py, tests/test_web_allowed_hosts.py (10 tests), this task file and log.
+- Test result: baseline exit 0; verify 10 passed; full suite exit 0; ruff check + format clean.
+- Next round should know: this is the same fix as IMPROVE IMP-7; an interactive session should mark IMP-7 as covered by F7-S13 in `ralph/tasks/IMPROVE-2026-11-08.json` (loops don't edit other task files). When hosted, the owner adds the public name to `config/hosting.yaml`.

@@ -82,6 +82,9 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
 
+    # Which host names the app answers to (see HostingConfig below, SPEC F7.3).
+    hosting_config_file: Path = PROJECT_ROOT / "config" / "hosting.yaml"
+
     # Login settings: password hashing cost (see AccountsConfig below, SPEC F7.2).
     accounts_config_file: Path = PROJECT_ROOT / "config" / "accounts.yaml"
 
@@ -481,6 +484,59 @@ class AccountsConfig(_Section):
 def load_accounts_config(path: Path) -> AccountsConfig:
     """Read config/accounts.yaml."""
     return _load_yaml(path, AccountsConfig, "Accounts")
+
+
+# --- config/hosting.yaml (SPEC F7.3, IMPROVE IMP-7) ---------------------------------------
+
+_HOST_NAME = re.compile(
+    r"^(\[[0-9a-f:.]+\]|[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*)$"
+)
+
+
+class HostingConfig(_Section):
+    """Only requests addressed to these names are answered, so a website can't reach the app
+    by pointing its own name at your computer ("DNS rebinding")."""
+
+    allowed_hosts: list[str] = Field(
+        default=["localhost", "127.0.0.1", "[::1]"], min_length=1, max_length=50
+    )
+
+    @field_validator("allowed_hosts")
+    @classmethod
+    def _names(cls, value: list[str]) -> list[str]:
+        names = []
+        for raw in value:
+            name = str(raw).strip().lower()
+            if len(name) > 253 or not _HOST_NAME.match(name):
+                raise ValueError(
+                    f"'{raw}' isn't a host name (like dashboard.example.com: no http://, no port)"
+                )
+            names.append(name)
+        return list(dict.fromkeys(names))
+
+
+def load_hosting_config(path: Path) -> HostingConfig:
+    """Read config/hosting.yaml."""
+    return _load_yaml(path, HostingConfig, "Hosting")
+
+
+def request_host_name(header: str) -> str | None:
+    """The name part of a request's Host header ("localhost:8000" -> "localhost"), or None
+    if it isn't a proper host."""
+    host = header.strip().lower()
+    if not host or len(host) > 260:
+        return None
+    if host.startswith("["):
+        end = host.find("]")
+        if end == -1:
+            return None
+        name, rest = host[: end + 1], host[end + 1 :]
+    else:
+        name, colon, port = host.partition(":")
+        rest = colon + port
+    if rest and not (rest.startswith(":") and rest[1:].isdigit()):
+        return None
+    return name if _HOST_NAME.match(name) else None
 
 
 # --- config/fomc_dates.yaml (Fed meetings, SPEC F5.2) ---------------------------------
