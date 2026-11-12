@@ -10,6 +10,7 @@
 - Login sessions: `start_session(session, user_id, days, now=None) -> token`, `user_for_token(session, token, now=None) -> User | None`, `end_session(session, token)` in `app/services/users.py`; length is `AccountsConfig.session_days`. Pass `now=` for a fixed clock in tests.
 - Who is signed in: middleware `find_signed_in_user` in `app/main.py` sets `request.state.account` (a `SignedIn(user_id, email)` or None) from the `session` cookie on every non-static request. F7-S4 can read `request.state.account` in `get_user_id`.
 - Jinja escapes apostrophes as `&#39;`, so don't assert on message text containing `'` in page tests.
+- Pages with an "e.g. AAPL" placeholder (portfolio, forms) make `"AAPL" not in page` checks useless; check option symbols or a specific line like "My tickers: AAPL." instead. A planted `Report(body={})` can't be opened (the template needs real sections).
 - Ruff's S105/S106 flag fake passwords in tests; mark them `# noqa: S105 (fake test password)` / `# noqa: S106`.
 
 ## Rounds
@@ -39,3 +40,9 @@
 - Files touched: app/main.py, app/web/account_routes.py, app/web/templates/login.html, app/web/templates/base.html, app/web/static/style.css, tests/test_web_login.py (26 tests), this task file and log.
 - Test result: verify 26 passed; full suite exit 0; ruff check + format clean.
 - Next round should know: pages still use the default user whether signed in or not; F7-S4 changes `get_user_id` in `app/web/routes.py` to use `request.state.account`. No one can log in for real yet: no user has a password until F7-S6 (blocked on the owner). Passwords longer than 1024 characters are refused before hashing.
+
+## Round — 2026-11-12 — F7-S4 — done
+- What I did: `get_user_id` in `app/web/routes.py` now returns the signed-in user's id from `request.state.account` (set by the cookie middleware from F7-S3), falling back to the default user without a valid cookie. Every page and action already goes through `UserDep`, so nothing else changed. New tests sign two users in on two test clients: each sees only their own watchlists, portfolio, report history and calendar "My tickers"; 13 kinds of request on the other user's ids answer 404 (settling their position: 400) and change nothing; a report run started by Alice is stored under Alice, 404 for Bob, and doesn't block Bob's own run; new watchlists belong to whoever is signed in; without a cookie, after logout or with a made-up cookie, pages use the default user.
+- Files touched: app/web/routes.py, tests/test_web_login_isolation.py (6 tests), this task file and log. `tests/test_user_isolation.py` unchanged.
+- Test result: verify 6 passed; full suite exit 0; ruff check + format clean.
+- Next round should know: all ready stories (F7-S1 to F7-S4) are done; F7-S5 to F7-S9 stay blocked on the owner's answers in their notes. The scheduler (app/main.py) still runs for the default user only (F7-S8).

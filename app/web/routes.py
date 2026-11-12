@@ -60,7 +60,14 @@ def get_config(request: Request) -> AppConfig:
 
 
 def get_user_id(request: Request) -> int:
-    """The signed-in user. For now always the default user (F7.1); login comes in Phase 10."""
+    """The signed-in user (F7.2), whose data every page and action works on.
+
+    `request.state.account` is set from the session cookie in app/main.py. Without a valid
+    cookie it's the default user (F7.1), as before login existed.
+    """
+    account = getattr(request.state, "account", None)
+    if account is not None:
+        return account.user_id
     return request.app.state.user_id
 
 

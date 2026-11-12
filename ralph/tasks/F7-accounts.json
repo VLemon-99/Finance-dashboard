@@ -80,7 +80,7 @@
       "zone": "accounts",
       "priority": 4,
       "dependsOn": ["F7-S3"],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
       "notes": ""
     },
