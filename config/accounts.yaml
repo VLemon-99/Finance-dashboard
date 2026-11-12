@@ -13,6 +13,9 @@ scrypt:
 # again (1 to 365).
 session_days: 30
 
+# Shortest password allowed (8 to 128 characters).
+min_password_length: 12
+
 # Ask for a login before showing any page (true/false). Leave false on your own computer;
 # switch to true when the app runs online.
 login_required: false

@@ -9,7 +9,6 @@ Login and logout forms go through the same cross-site check as every other chang
 (app/main.py), so another website can't sign you in or out behind your back.
 """
 
-import re
 from dataclasses import dataclass
 from typing import Annotated
 
@@ -20,9 +19,11 @@ from sqlmodel import Session, func, select
 from app.config import AccountsConfig
 from app.db.models import User
 from app.services.users import (
+    MAX_EMAIL,
     check_password,
     end_session,
     hash_password,
+    is_valid_email,
     start_session,
     user_for_token,
 )
@@ -35,10 +36,6 @@ OPEN_PATHS = ("/login", "/signup")
 OPEN_PREFIXES = ("/login/", "/static/")
 MAX_NEXT = 2000
 
-# One "@", something on both sides, no spaces. Deliberately loose: the owner's address
-# (and the default "owner@localhost") must pass; the real check is the password.
-_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+$")
-MAX_EMAIL = 320
 MAX_PASSWORD = 1024  # longer is refused before hashing, so it can't be used to slow us down
 
 WRONG = "Email or password is wrong."
@@ -106,7 +103,7 @@ def _login_page(
 def _problem(email: str, password: str) -> str:
     if not email:
         return "Enter your email."
-    if len(email) > MAX_EMAIL or not _EMAIL.match(email):
+    if not is_valid_email(email):
         return "Check your email address: it should look like name@example.com."
     if not password:
         return "Enter your password."

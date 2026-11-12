@@ -13,6 +13,7 @@
 - Pages with an "e.g. AAPL" placeholder (portfolio, forms) make `"AAPL" not in page` checks useless; check option symbols or a specific line like "My tickers: AAPL." instead. A planted `Report(body={})` can't be opened (the template needs real sections).
 - Run the baseline test suite to completion **before** editing: a background run while files change gives false failures (e.g. a new setting in `config/accounts.yaml` read by the old `AccountsConfig`, which forbids unknown keys).
 - App with custom settings in tests: see the `make_client` fixture in `tests/test_web_login_required.py` (`create_app(..., accounts=AccountsConfig(...))` with all the fakes).
+- The owner is `ensure_owner(session, default_email)` in `app/services/users.py`: the first user by id (created when there are none). `app.state.user_id` is the owner. Email helpers there too: `is_valid_email()`, `find_by_email()` (case-insensitive), `MAX_EMAIL`. Minimum password length: `AccountsConfig.min_password_length` (12).
 - Ruff's S105/S106 flag fake passwords in tests; mark them `# noqa: S105 (fake test password)` / `# noqa: S106`.
 
 ## Rounds
@@ -54,3 +55,9 @@
 - Files touched: app/config.py, config/accounts.yaml, app/main.py, app/web/account_routes.py, app/web/templates/login.html, tests/test_web_login_required.py (30 tests), this task file and log.
 - Test result: verify 30 passed; full suite exit 0; ruff check + format clean. The background baseline run failed only because it overlapped my edit of `config/accounts.yaml` (see Lessons); the committed starting point had passed the full suite in the F7-S4 round.
 - Next round should know: F7-S7 should add `/signup` (already open when login is required). F7-S12's Google routes must live under `/login/` to stay open.
+
+## Round — 2026-11-12 — F7-S6 — done
+- What I did: new `app/accounts_cli.py`: `uv run python -m app.accounts_cli owner --email X` renames the owner (all current data stays with it) and sets its password; `... password --email X` sets a new password for an existing account. Passwords are asked twice with getpass, at least `min_password_length` (12, new in `AccountsConfig` / `config/accounts.yaml`), never printed. Refusals (bad email, too short, not matching, unknown email, email taken by another account, database not set up) print a plain message to stderr, exit 1 and change nothing. Startup now uses `ensure_owner()` (first user by id) instead of finding the default user by email, so a renamed owner stays the owner and no second default user appears. The email check moved to `users.py` (`is_valid_email`), and the login form uses it.
+- Files touched: app/accounts_cli.py (new), app/services/users.py, app/main.py, app/config.py, config/accounts.yaml, app/web/account_routes.py, tests/test_accounts_cli.py (22 tests), this task file and log.
+- Test result: baseline exit 0 (run to completion first); verify 22 passed; full suite exit 0; ruff check + format clean.
+- Next round should know: `ensure_default_user()` is kept (several existing tests use it). The README doesn't mention the command yet: the deploy session (F7-S15) should add it. In tests, a user created before the app starts becomes the owner.

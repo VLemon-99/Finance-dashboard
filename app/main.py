@@ -43,7 +43,7 @@ from app.services.market_facts import MarketFacts
 from app.services.options import RiskFreeRate
 from app.services.portfolio import TradeNotFound
 from app.services.reports import ReportServices, execute_run, mark_interrupted_runs
-from app.services.users import ensure_default_user
+from app.services.users import ensure_owner
 from app.services.watchlists import WatchlistNotFound
 from app.sources.http import HttpFetcher
 from app.sources.registry import NEWS_USER_AGENT, build_sources
@@ -183,7 +183,7 @@ def create_app(
                 "Run: uv run alembic upgrade head"
             )
         with Session(engine) as session:
-            app.state.user_id = ensure_default_user(session, settings.default_user_email).id
+            app.state.user_id = ensure_owner(session, settings.default_user_email).id
             mark_interrupted_runs(session)
         app.state.scheduler = start_scheduler(
             engine, app.state.user_id, report_services, app_config.schedule

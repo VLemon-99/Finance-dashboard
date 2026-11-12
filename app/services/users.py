@@ -9,10 +9,11 @@ import base64
 import binascii
 import hashlib
 import hmac
+import re
 import secrets
 from datetime import datetime, timedelta
 
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from app.config import ScryptCost
 from app.db.models import LoginSession, User
@@ -21,6 +22,34 @@ from app.timeutils import as_utc, utc_now
 _SCHEME = "scrypt"
 _SALT_BYTES = 16
 _HASH_BYTES = 32
+
+# One "@", something on both sides, no spaces. Deliberately loose: "owner@localhost" passes.
+EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+$")
+MAX_EMAIL = 320
+
+
+def is_valid_email(email: str) -> bool:
+    return 0 < len(email) <= MAX_EMAIL and bool(EMAIL_PATTERN.match(email))
+
+
+def find_by_email(session: Session, email: str) -> User | None:
+    """The user with this email, ignoring case and surrounding spaces."""
+    return session.exec(select(User).where(func.lower(User.email) == email.strip().lower())).first()
+
+
+def ensure_owner(session: Session, default_email: str) -> User:
+    """The owner: the first user ever created (the default user, who owns all the data from
+    before accounts existed). Created with `default_email` when there are no users yet.
+
+    Found by id, not email, so the owner can rename themselves (app/accounts_cli.py).
+    """
+    owner = session.exec(select(User).order_by(User.id)).first()
+    if owner is None:
+        owner = User(email=default_email)
+        session.add(owner)
+        session.commit()
+        session.refresh(owner)
+    return owner
 
 
 def ensure_default_user(session: Session, email: str) -> User:
