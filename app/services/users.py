@@ -14,8 +14,8 @@ from datetime import datetime, timedelta
 
 from sqlmodel import Session, func, select
 
-from app.config import EMAIL_PATTERN, MAX_EMAIL, ScryptCost
-from app.db.models import LoginSession, User
+from app.config import EMAIL_PATTERN, MAX_EMAIL, AccountsConfig, ScryptCost
+from app.db.models import LoginFailure, LoginSession, User
 from app.timeutils import as_utc, utc_now
 
 _SCHEME = "scrypt"
@@ -149,3 +149,57 @@ def end_session(session: Session, token: str | None) -> None:
     if row is not None:
         session.delete(row)
         session.commit()
+
+
+# --- wrong passwords (F7.7) ---------------------------------------------------------------
+
+
+def _email_key(email: str) -> str:
+    return email.strip().lower()
+
+
+def login_locked_until(
+    session: Session, email: str, rules: AccountsConfig, now: datetime
+) -> datetime | None:
+    """When password logins for this email open again, or None if they aren't locked.
+
+    Locked when the latest wrong try made `max_failed_logins` within the window, until
+    `lockout_minutes` after it. Refused attempts aren't recorded, so they don't extend it.
+    """
+    now = as_utc(now)
+    window = timedelta(minutes=rules.failed_login_window_minutes)
+    lockout = timedelta(minutes=rules.lockout_minutes)
+    times = [
+        as_utc(t)
+        for t in session.exec(
+            select(LoginFailure.failed_at)
+            .where(LoginFailure.email == _email_key(email))
+            .where(LoginFailure.failed_at > now - window - lockout)
+            .order_by(LoginFailure.failed_at.desc())
+        ).all()
+    ]
+    if not times:
+        return None
+    latest = times[0]
+    in_window = [t for t in times if t > latest - window]
+    until = latest + lockout
+    if len(in_window) >= rules.max_failed_logins and until > now:
+        return until
+    return None
+
+
+def record_failed_login(session: Session, email: str, rules: AccountsConfig, now: datetime) -> None:
+    """Count one wrong password, and forget tries too old to matter for anyone."""
+    now = as_utc(now)
+    keep_after = now - timedelta(minutes=rules.failed_login_window_minutes + rules.lockout_minutes)
+    for old in session.exec(select(LoginFailure).where(LoginFailure.failed_at <= keep_after)):
+        session.delete(old)
+    session.add(LoginFailure(email=_email_key(email), failed_at=now))
+    session.commit()
+
+
+def clear_failed_logins(session: Session, email: str) -> None:
+    """A successful login starts the count again."""
+    for row in session.exec(select(LoginFailure).where(LoginFailure.email == _email_key(email))):
+        session.delete(row)
+    session.commit()

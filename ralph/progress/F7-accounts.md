@@ -15,6 +15,8 @@
 - App with custom settings in tests: see the `make_client` fixture in `tests/test_web_login_required.py` (`create_app(..., accounts=AccountsConfig(...))` with all the fakes).
 - The owner is `ensure_owner(session, default_email)` in `app/services/users.py`: the first user by id (created when there are none). `app.state.user_id` is the owner. Email helpers there too: `is_valid_email()`, `find_by_email()` (case-insensitive), `MAX_EMAIL`. Minimum password length: `AccountsConfig.min_password_length` (12).
 - Starting a signed-in session after login/sign-up (and later Google): `_signed_in_redirect(request, session, user_id, next_url)` in `app/web/account_routes.py` (cookie + safe redirect). Invite list: `AccountsConfig.invited` (lower-cased, checked) and `AccountsConfig.is_invited(email)`. `EMAIL_PATTERN` / `MAX_EMAIL` now live in `app/config.py` (users.py imports them).
+- The login route reads the time through `utc_now` imported into `app/web/account_routes.py`; tests freeze it with `monkeypatch.setattr(app.web.account_routes, "utc_now", clock)` (see `tests/test_web_login_throttle.py`). Migration head is now `a3c9e7f1b2d4` (login_failures).
+- When a scripted multi-edit fails on one replacement, none of that file's edits are written: rerun that file only.
 - Ruff's S105/S106 flag fake passwords in tests; mark them `# noqa: S105 (fake test password)` / `# noqa: S106`.
 
 ## Rounds
@@ -68,3 +70,9 @@
 - Files touched: app/config.py, config/accounts.yaml, app/services/users.py, app/web/account_routes.py, app/web/templates/login.html, app/web/templates/signup.html (new), tests/test_web_signup.py (20 tests), this task file and log.
 - Test result: baseline exit 0; verify 20 passed; full suite exit 0; ruff check + format clean.
 - Next round should know: telling a stranger "not on the invite list" or "already has an account" reveals whether an email is invited or has an account; accepted for an invite-only beta (clear messages matter more), worth a line in the security review.
+
+## Round — 2026-11-12 — F7-S8 — done
+- What I did: new `login_failures` table (`LoginFailure`: email in lower case, failed_at; no user_id because unknown emails are counted too; migration `a3c9e7f1b2d4`). `login_locked_until()`, `record_failed_login()`, `clear_failed_logins()` in `app/services/users.py`. Locked when the latest wrong try made `max_failed_logins` (10) within `failed_login_window_minutes` (15), until `lockout_minutes` (15) after it. Refused attempts aren't recorded, so hammering doesn't extend the lock. `/login` checks the lock before the password: 429 with "Too many wrong passwords for this email. Try again in N minutes, or use Sign in with Google." (same text for unknown emails). A wrong password is recorded (old rows past window + lockout deleted at the same time); a successful login clears the email's count. Numbers in `AccountsConfig` / `config/accounts.yaml`.
+- Files touched: app/db/models.py, app/db/migrations/versions/a3c9e7f1b2d4_login_failures.py, app/config.py, config/accounts.yaml, app/services/users.py, app/web/account_routes.py, tests/test_web_login_throttle.py (14 tests), this task file and log.
+- Test result: baseline exit 0; verify 14 passed; full suite exit 0; ruff check + format clean.
+- Next round should know: the lock is per email only (as the SPEC says): someone can lock a known email's password login for 15 minutes on purpose; Google sign-in (F7-S12) must not check the lock. There's no per-address (IP) limit; worth a line in the security review.

@@ -20,6 +20,13 @@ min_password_length: 12
 # switch to true when the app runs online.
 login_required: false
 
+# Wrong passwords: after max_failed_logins wrong tries for one email within
+# failed_login_window_minutes, password logins for that email are refused for
+# lockout_minutes ("Sign in with Google" still works).
+max_failed_logins: 10
+failed_login_window_minutes: 15
+lockout_minutes: 15
+
 # Who may create an account (sign-up page or "Sign in with Google"), one email per line:
 #   invited:
 #     - friend@example.com

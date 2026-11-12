@@ -34,6 +34,20 @@ class LoginSession(SQLModel, table=True):
     expires_at: datetime
 
 
+class LoginFailure(SQLModel, table=True):
+    """One wrong password for an email (F7.7), to refuse guessing after too many.
+
+    Not user-owned (unknown emails are counted too, so nobody can tell which exist), so no
+    `user_id`, like `x_checks`. Old rows are deleted as new ones come in.
+    """
+
+    __tablename__ = "login_failures"
+
+    id: int | None = Field(default=None, primary_key=True)
+    email: str = Field(index=True, max_length=320)  # trimmed, lower case
+    failed_at: datetime = Field(index=True)
+
+
 class Instrument(SQLModel, table=True):
     """One stock/ETF, or one option contract (Phase 4)."""
 

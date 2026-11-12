@@ -9,6 +9,7 @@ Login and logout forms go through the same cross-site check as every other chang
 (app/main.py), so another website can't sign you in or out behind your back.
 """
 
+import math
 from dataclasses import dataclass
 from typing import Annotated
 
@@ -22,13 +23,17 @@ from app.db.models import User
 from app.services.users import (
     MAX_EMAIL,
     check_password,
+    clear_failed_logins,
     end_session,
     find_by_email,
     hash_password,
     is_valid_email,
+    login_locked_until,
+    record_failed_login,
     start_session,
     user_for_token,
 )
+from app.timeutils import utc_now
 from app.web.routes import SessionDep, _redirect, templates
 
 SESSION_COOKIE = "session"
@@ -131,10 +136,23 @@ def login(
     problem = _problem(email, password)
     if problem:
         return _login_page(request, email, problem, status=400, next_url=next)
+    rules = _accounts(request)
+    now = utc_now()
+    locked_until = login_locked_until(session, email, rules, now)
+    if locked_until is not None:  # the password isn't even checked
+        minutes = max(1, math.ceil((locked_until - now).total_seconds() / 60))
+        wait = "1 minute" if minutes == 1 else f"{minutes} minutes"
+        message = (
+            f"Too many wrong passwords for this email. Try again in {wait}, "
+            "or use Sign in with Google."
+        )
+        return _login_page(request, email, message, status=429, next_url=next)
     user = session.exec(select(User).where(func.lower(User.email) == email.lower())).first()
     stored = user.password_hash if user is not None else _dummy_hash(request)
     if user is None or not check_password(stored, password):
+        record_failed_login(session, email, rules, now)
         return _login_page(request, email, WRONG, status=401, next_url=next)
+    clear_failed_logins(session, email)
     return _signed_in_redirect(request, session, user.id, next)
 
 

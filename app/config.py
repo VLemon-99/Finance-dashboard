@@ -447,6 +447,11 @@ class AccountsConfig(_Section):
     # Ask for a login before showing any page (F7.4). Off on your own computer; on when
     # the app runs online.
     login_required: bool = False
+    # Wrong passwords (F7.7): after this many for one email within the window, password
+    # logins for that email are refused for `lockout_minutes`. Google sign-in still works.
+    max_failed_logins: int = Field(default=10, ge=1, le=1000)
+    failed_login_window_minutes: int = Field(default=15, ge=1, le=1440)
+    lockout_minutes: int = Field(default=15, ge=1, le=1440)
     # Emails that may create an account (F7.5), compared without case. Empty = nobody.
     invited: list[str] = Field(default=[], max_length=500)
 
