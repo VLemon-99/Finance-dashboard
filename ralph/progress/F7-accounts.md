@@ -82,3 +82,9 @@
 - Files touched: app/config.py, config/accounts.yaml, app/web/report_routes.py, app/web/templates/reports.html, tests/test_web_report_limit.py (11 tests), this task file and log.
 - Test result: baseline exit 0; verify 11 passed; full suite exit 0; ruff check + format clean.
 - Next round should know: tests freeze both `app.web.report_routes.utc_now` and `app.services.reports.utc_now` (run start times come from `start_run`). The watchlist page's own "Generate" buttons don't show the count (only the Reports page does), but they're limited the same way.
+
+## Round — 2026-11-12 — F7-S10 — done
+- What I did: no scheduler code change was needed: `app/main.py` already starts the weekday job with the owner's id (`app.state.user_id`, now from `ensure_owner`). New tests start the app with the schedule on, with three users who all have watchlists, and run the job exactly as the scheduler would (`job.func(*job.args)`): only the owner's watchlist is reported on, stored under the owner. Other users still generate by hand. One small page fix: the Reports page told every user "Automatic reports: on"; users other than the owner now see "Automatic morning reports are only for the owner for now." instead (`reports.html`, keyed on `reports_left`, which is None only for the owner).
+- Files touched: app/web/templates/reports.html, tests/test_scheduler_users.py (4 tests), this task file and log. `tests/test_scheduler.py` unchanged.
+- Test result: baseline exit 0; verify 4 passed; full suite exit 0; ruff check + format clean.
+- Next round should know: next is F7-S11 (Google sign-in adapter), the first story that adds an outside service; keep it in `app/providers/` with `httpx.MockTransport` in tests.

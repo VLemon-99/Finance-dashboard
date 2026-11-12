@@ -20,7 +20,9 @@
 </form>
 <p class="muted small">A report covers the last 7 days. News, filings and videos already summarized in an earlier report are reused, not sent to the AI again. A whole watchlist can take a few minutes.</p>
 {% set clock = (schedule.time.hour % 12 or 12) ~ ":" ~ "%02d" | format(schedule.time.minute) ~ (" AM" if schedule.time.hour < 12 else " PM") %}
-{% if schedule.on %}
+{% if reports_left is not none %}
+<p class="muted small" id="schedule">Automatic morning reports are only for the owner for now. Use "Generate now" above.</p>
+{% elif schedule.on %}
 <p class="small" id="schedule">Automatic reports: <strong>on</strong>, every weekday at {{ clock }} ET for every watchlist, while the app is running. Next: {{ schedule.next | eastern }}.</p>
 {% else %}
 <p class="muted small" id="schedule">Automatic reports are off. To have every watchlist reported on weekdays at {{ clock }} ET, set <code>schedule: enabled: true</code> in config/settings.yaml and restart the app.</p>
