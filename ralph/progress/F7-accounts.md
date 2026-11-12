@@ -18,6 +18,7 @@
 - The login route reads the time through `utc_now` imported into `app/web/account_routes.py`; tests freeze it with `monkeypatch.setattr(app.web.account_routes, "utc_now", clock)` (see `tests/test_web_login_throttle.py`). Migration head is now `a3c9e7f1b2d4` (login_failures).
 - When a scripted multi-edit fails on one replacement, none of that file's edits are written: rerun that file only.
 - Google adapter: `GoogleSignIn(client_id, client_secret, transport=..., clock=...)` in `app/providers/google_auth.py`; `start(redirect_uri) -> SignInStart(url, state, nonce, code_verifier)`, `finish(code, redirect_uri, nonce, code_verifier) -> email`, `is_set_up`, errors are `GoogleAuthError` (plain, safe to show). Fake Google in tests: `FakeGoogle` + `id_token(**claims)` in `tests/test_google_auth.py`.
+- `create_app(google=...)` takes the Google adapter (`app.state.google`); tests use `FakeGoogle` in `tests/test_web_google_login.py` (states are "state-0", "state-1", ...).
 - Ruff's S105/S106 flag fake passwords in tests; mark them `# noqa: S105 (fake test password)` / `# noqa: S106`.
 
 ## Rounds
@@ -95,3 +96,9 @@
 - Files touched: app/providers/google_auth.py (new), app/config.py, .env.example, tests/test_google_auth.py (36 tests), this task file and log.
 - Test result: baseline exit 0; verify 36 passed; full suite exit 0; ruff check + format clean.
 - Next round should know: the adapter isn't wired into the app yet; F7-S12 passes a `GoogleSignIn` into `create_app` (fake in tests) and adds the routes under `/login/google` (open while login is required).
+
+## Round — 2026-11-12 — F7-S12 — done
+- What I did: `GET /login/google` starts sign-in (redirect address built from the request, so it follows HTTPS behind a proxy) and keeps state, nonce, code verifier, the safe `next` and an expiry in a cookie `google_signin` (HttpOnly, SameSite=Lax, path `/login/google`, 10 minutes, Secure over HTTPS), HMAC-signed with a random key made at app start (a restart just means signing in again). `GET /login/google/callback` refuses a missing, changed or expired cookie or a state that doesn't match (400, Google not asked), explains a cancel at Google, shows adapter errors on the login page, then signs in the user with that email (any case), or creates an account without a password for an invited email, or refuses with 403 "not on the invite list". The pending cookie is always cleared. Password lockouts don't apply. The "Sign in with Google" / "Sign up with Google" buttons show only when Google is set up. `create_app(google=...)`; the real one is built from `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
+- Files touched: app/web/account_routes.py, app/main.py, app/web/templates/login.html, app/web/templates/signup.html, app/web/static/style.css, tests/test_web_google_login.py (23 tests), this task file and log.
+- Test result: baseline exit 0; verify 23 passed; full suite exit 0; ruff check + format clean.
+- Next round should know: when deploying, the Google console needs the redirect address `https://<host>/login/google/callback`, and the app must see HTTPS (F7-S14's proxy headers) or Google will reject the http address. Jinja's `urlencode` leaves '/' as is.

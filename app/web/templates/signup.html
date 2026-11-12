@@ -4,6 +4,8 @@
 <h1>Create your account</h1>
 <p class="muted">Accounts are by invitation: use the email the owner invited.</p>
 {% if message %}<p class="note error" role="alert">{{ message }}{% if show_login %} <a href="/login{% if next != '/' %}?next={{ next | urlencode }}{% endif %}">Log in instead</a>.{% endif %}</p>{% endif %}
+{% if google_on %}<p><a class="google-button" href="/login/google{% if next != '/' %}?next={{ next | urlencode }}{% endif %}">Sign up with Google</a></p>{% endif %}
+<p class="muted small">Or with a password:</p>
 <form action="/signup" method="post" class="trade-form login-form">
   <input type="hidden" name="next" value="{{ next }}">
   <div class="field">

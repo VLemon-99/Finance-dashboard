@@ -21,6 +21,7 @@ header .account { margin-left: auto; display: flex; gap: 12px; align-items: cent
 header .account form { margin: 0; }
 header .account a { color: var(--muted); }
 .login-form { max-width: 420px; }
+.google-button { display: inline-block; padding: 8px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text); text-decoration: none; }
 .login-form .field > label { min-width: 6em; }
 .brand { color: var(--text); text-decoration: none; font-weight: 600; }
 main { max-width: 1180px; margin: 0 auto; padding: 16px; }

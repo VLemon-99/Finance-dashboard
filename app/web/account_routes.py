@@ -9,8 +9,14 @@ Login and logout forms go through the same cross-site check as every other chang
 (app/main.py), so another website can't sign you in or out behind your back.
 """
 
+import base64
+import hashlib
+import hmac
+import json
 import math
+import secrets
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request
@@ -20,6 +26,7 @@ from sqlmodel import Session, func, select
 
 from app.config import AccountsConfig
 from app.db.models import User
+from app.providers.google_auth import GoogleAuthError
 from app.services.users import (
     MAX_EMAIL,
     check_password,
@@ -33,7 +40,7 @@ from app.services.users import (
     start_session,
     user_for_token,
 )
-from app.timeutils import utc_now
+from app.timeutils import as_utc, utc_now
 from app.web.routes import SessionDep, _redirect, templates
 
 SESSION_COOKIE = "session"
@@ -96,13 +103,23 @@ def _dummy_hash(request: Request) -> str:
     return state.dummy_password_hash
 
 
+def _google_on(request: Request) -> bool:
+    google = getattr(request.app.state, "google", None)
+    return google is not None and google.is_set_up
+
+
 def _login_page(
     request: Request, email: str = "", message: str = "", status: int = 200, next_url: str = "/"
 ):
     return templates.TemplateResponse(
         request,
         "login.html",
-        {"email": email[:MAX_EMAIL], "message": message, "next": safe_next(next_url)},
+        {
+            "email": email[:MAX_EMAIL],
+            "message": message,
+            "next": safe_next(next_url),
+            "google_on": _google_on(request),
+        },
         status_code=status,
     )
 
@@ -195,6 +212,7 @@ def _signup_page(
             "next": safe_next(next_url),
             "show_login": show_login,
             "min_length": _accounts(request).min_password_length,
+            "google_on": _google_on(request),
         },
         status_code=status,
     )
@@ -256,3 +274,144 @@ def logout(request: Request, session: SessionDep):
         SESSION_COOKIE, httponly=True, samesite="lax", secure=request.url.scheme == "https"
     )
     return response
+
+
+# --- Sign in with Google (F7.6) ---------------------------------------------------------
+# While the browser is at Google, the sign-in's state, nonce, code verifier and `next` are
+# kept in a short-lived cookie, signed with a random key made when the app starts, so it
+# can't be forged or changed (a restart just means signing in again).
+
+PENDING_COOKIE = "google_signin"
+PENDING_PATH = "/login/google"
+PENDING_MINUTES = 10
+
+
+def _signing_key(request: Request) -> bytes:
+    state = request.app.state
+    if getattr(state, "pending_signin_key", None) is None:
+        state.pending_signin_key = secrets.token_bytes(32)
+    return state.pending_signin_key
+
+
+def _seal(request: Request, data: dict) -> str:
+    body = base64.urlsafe_b64encode(json.dumps(data).encode()).decode()
+    mac = hmac.new(_signing_key(request), body.encode(), hashlib.sha256).hexdigest()
+    return f"{body}.{mac}"
+
+
+def _unseal(request: Request, value: str | None) -> dict | None:
+    """The pending sign-in, or None if missing, changed or expired."""
+    if not value or value.count(".") != 1:
+        return None
+    body, mac = value.split(".")
+    expected = hmac.new(_signing_key(request), body.encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(mac, expected):
+        return None
+    try:
+        data = json.loads(base64.urlsafe_b64decode(body.encode()))
+    except ValueError:
+        return None
+    if not isinstance(data, dict) or data.get("expires", 0) <= utc_now().timestamp():
+        return None
+    return data
+
+
+def _callback_address(request: Request) -> str:
+    return str(request.url_for("google_callback"))
+
+
+def _forget_pending(response, request: Request):
+    response.delete_cookie(
+        PENDING_COOKIE,
+        path=PENDING_PATH,
+        httponly=True,
+        samesite="lax",
+        secure=request.url.scheme == "https",
+    )
+    return response
+
+
+@router.get("/login/google")
+def google_start(request: Request, next: str = "/"):
+    google = request.app.state.google
+    if not _google_on(request):
+        return _login_page(request, message="Sign in with Google isn't set up.", status=400)
+    try:
+        start = google.start(_callback_address(request))
+    except GoogleAuthError as exc:
+        return _login_page(request, message=str(exc), status=400, next_url=next)
+    pending = {
+        "state": start.state,
+        "nonce": start.nonce,
+        "verifier": start.code_verifier,
+        "next": safe_next(next),
+        "expires": (as_utc(utc_now()) + timedelta(minutes=PENDING_MINUTES)).timestamp(),
+    }
+    response = _redirect(start.url)
+    # The verifier and nonce must stay unreadable to anyone but this app: they go in only
+    # as part of the signed value, inside an HttpOnly cookie for these two addresses.
+    response.set_cookie(
+        PENDING_COOKIE,
+        _seal(request, pending),
+        max_age=PENDING_MINUTES * 60,
+        path=PENDING_PATH,
+        httponly=True,
+        samesite="lax",  # sent when Google sends the browser back (a normal link)
+        secure=request.url.scheme == "https",
+    )
+    return response
+
+
+@router.get("/login/google/callback", name="google_callback")
+def google_callback(
+    request: Request,
+    session: SessionDep,
+    state: str = "",
+    code: str = "",
+    error: str = "",
+):
+    pending = _unseal(request, request.cookies.get(PENDING_COOKIE))
+    if (
+        pending is None
+        or not state
+        or not hmac.compare_digest(str(pending.get("state", "")), state)
+    ):
+        page = _login_page(
+            request,
+            message="That sign-in with Google expired or didn't match. Try again.",
+            status=400,
+        )
+        return _forget_pending(page, request)
+    next_url = pending.get("next", "/")
+    if error or not code:
+        page = _login_page(
+            request, message="Sign in with Google was cancelled.", status=400, next_url=next_url
+        )
+        return _forget_pending(page, request)
+    try:
+        email = request.app.state.google.finish(
+            code, _callback_address(request), pending["nonce"], pending["verifier"]
+        )
+    except GoogleAuthError as exc:
+        return _forget_pending(
+            _login_page(request, message=str(exc), status=400, next_url=next_url), request
+        )
+    user = find_by_email(session, email)
+    if user is None:
+        if not _accounts(request).is_invited(email):
+            page = _login_page(
+                request, email, f"{email} {NOT_INVITED[len('This email ') :]}", 403, next_url
+            )
+            return _forget_pending(page, request)
+        user = User(email=email)  # no password: this account signs in with Google
+        session.add(user)
+        try:
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            user = find_by_email(session, email)
+        if user is None:
+            return _forget_pending(_login_page(request, message=ALREADY, status=409), request)
+        session.refresh(user)
+    response = _signed_in_redirect(request, session, user.id, next_url)
+    return _forget_pending(response, request)
