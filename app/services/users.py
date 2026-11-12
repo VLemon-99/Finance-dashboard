@@ -10,11 +10,13 @@ import binascii
 import hashlib
 import hmac
 import secrets
+from datetime import datetime, timedelta
 
 from sqlmodel import Session, select
 
 from app.config import ScryptCost
-from app.db.models import User
+from app.db.models import LoginSession, User
+from app.timeutils import as_utc, utc_now
 
 _SCHEME = "scrypt"
 _SALT_BYTES = 16
@@ -71,3 +73,55 @@ def check_password(stored: str | None, password: str) -> bool:
         return False
     actual = _scrypt(password, salt, cost.n, cost.r, cost.p)
     return hmac.compare_digest(actual, expected)  # same time whatever the difference
+
+
+# --- login sessions (F7.2) -------------------------------------------------------------
+# The browser keeps a random token in a cookie; the database keeps only its SHA-256 hash,
+# so someone reading the database can't use it to sign in. A plain hash is enough here
+# (unlike passwords) because the token is long and random, so it can't be guessed.
+
+
+def _token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def start_session(session: Session, user_id: int, days: int, now: datetime | None = None) -> str:
+    """Sign a user in on one device. Returns the token for the cookie (not stored)."""
+    if days < 1:
+        raise ValueError("A login session lasts at least one day.")
+    now = as_utc(now or utc_now())
+    token = secrets.token_urlsafe(32)
+    session.add(
+        LoginSession(
+            user_id=user_id,
+            token_hash=_token_hash(token),
+            created_at=now,
+            expires_at=now + timedelta(days=days),
+        )
+    )
+    session.commit()
+    return token
+
+
+def user_for_token(session: Session, token: str | None, now: datetime | None = None) -> User | None:
+    """The signed-in user for a cookie's token; None if unknown, ended or expired."""
+    if not token:
+        return None
+    row = session.exec(
+        select(LoginSession).where(LoginSession.token_hash == _token_hash(token))
+    ).first()
+    if row is None or as_utc(row.expires_at) <= as_utc(now or utc_now()):
+        return None
+    return session.get(User, row.user_id)
+
+
+def end_session(session: Session, token: str | None) -> None:
+    """Log out one device. Unknown or already-ended tokens are ignored."""
+    if not token:
+        return
+    row = session.exec(
+        select(LoginSession).where(LoginSession.token_hash == _token_hash(token))
+    ).first()
+    if row is not None:
+        session.delete(row)
+        session.commit()

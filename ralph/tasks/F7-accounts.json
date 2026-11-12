@@ -40,7 +40,7 @@
       "zone": "accounts",
       "priority": 2,
       "dependsOn": ["F7-S1"],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
       "notes": "Session length default is waiting for the owner (proposal: 30 days). Build it as a config value; if the owner hasn't answered when this round runs, use 30 and say so in the progress log."
     },

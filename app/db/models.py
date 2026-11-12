@@ -22,6 +22,18 @@ class User(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now)
 
 
+class LoginSession(SQLModel, table=True):
+    """One signed-in device (F7.2). Only a hash of its token is kept, never the token."""
+
+    __tablename__ = "login_sessions"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    token_hash: str = Field(unique=True, index=True, max_length=64)  # SHA-256, hex
+    created_at: datetime = Field(default_factory=utc_now)
+    expires_at: datetime
+
+
 class Instrument(SQLModel, table=True):
     """One stock/ETF, or one option contract (Phase 4)."""
 
