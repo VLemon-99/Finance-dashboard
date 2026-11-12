@@ -14,6 +14,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, func, select
 
 from app.config import AccountsConfig
@@ -22,6 +23,7 @@ from app.services.users import (
     MAX_EMAIL,
     check_password,
     end_session,
+    find_by_email,
     hash_password,
     is_valid_email,
     start_session,
@@ -133,9 +135,14 @@ def login(
     stored = user.password_hash if user is not None else _dummy_hash(request)
     if user is None or not check_password(stored, password):
         return _login_page(request, email, WRONG, status=401, next_url=next)
+    return _signed_in_redirect(request, session, user.id, next)
+
+
+def _signed_in_redirect(request: Request, session: Session, user_id: int, next_url: str):
+    """Start a login session for the user, set its cookie and go on to `next_url`."""
     days = _accounts(request).session_days
-    token = start_session(session, user.id, days)
-    response = _redirect(safe_next(next))
+    token = start_session(session, user_id, days)
+    response = _redirect(safe_next(next_url))
     response.set_cookie(
         SESSION_COOKIE,
         token,
@@ -145,6 +152,82 @@ def login(
         secure=request.url.scheme == "https",
     )
     return response
+
+
+# --- sign-up (F7.5): invited emails only ------------------------------------------------
+
+NOT_INVITED = "This email is not on the invite list. Ask the owner for an invite."
+ALREADY = "An account already uses this email."
+
+
+def _signup_page(
+    request: Request,
+    email: str = "",
+    message: str = "",
+    status: int = 200,
+    next_url: str = "/",
+    show_login: bool = False,
+):
+    return templates.TemplateResponse(
+        request,
+        "signup.html",
+        {
+            "email": email[:MAX_EMAIL],
+            "message": message,
+            "next": safe_next(next_url),
+            "show_login": show_login,
+            "min_length": _accounts(request).min_password_length,
+        },
+        status_code=status,
+    )
+
+
+def _signup_problem(email: str, password: str, again: str, minimum: int) -> str:
+    if not email:
+        return "Enter your email."
+    if not is_valid_email(email):
+        return "Check your email address: it should look like name@example.com."
+    if len(password) < minimum:
+        return f"Passwords must be at least {minimum} characters."
+    if len(password) > MAX_PASSWORD:
+        return f"Passwords can be at most {MAX_PASSWORD} characters."
+    if password != again:
+        return "The two passwords do not match."
+    return ""
+
+
+@router.get("/signup", response_class=HTMLResponse)
+def signup_form(request: Request, next: str = "/"):
+    return _signup_page(request, next_url=next)
+
+
+@router.post("/signup", response_class=HTMLResponse)
+def signup(
+    request: Request,
+    session: SessionDep,
+    email: Annotated[str, Form()] = "",
+    password: Annotated[str, Form()] = "",
+    password_again: Annotated[str, Form()] = "",
+    next: Annotated[str, Form()] = "/",
+):
+    accounts = _accounts(request)
+    email = email.strip()
+    problem = _signup_problem(email, password, password_again, accounts.min_password_length)
+    if problem:
+        return _signup_page(request, email, problem, status=400, next_url=next)
+    if not accounts.is_invited(email):
+        return _signup_page(request, email, NOT_INVITED, status=403, next_url=next)
+    if find_by_email(session, email) is not None:
+        return _signup_page(request, email, ALREADY, 409, next, show_login=True)
+    user = User(email=email, password_hash=hash_password(password, accounts.scrypt))
+    session.add(user)
+    try:
+        session.commit()
+    except IntegrityError:  # the same form sent twice at once
+        session.rollback()
+        return _signup_page(request, email, ALREADY, 409, next, show_login=True)
+    session.refresh(user)
+    return _signed_in_redirect(request, session, user.id, next)
 
 
 @router.post("/logout")

@@ -17,4 +17,5 @@
   </div>
   <button type="submit">Log in</button>
 </form>
+<p class="muted">Invited? <a href="/signup{% if next != '/' %}?next={{ next | urlencode }}{% endif %}">Create your account</a>.</p>
 {% endblock %}

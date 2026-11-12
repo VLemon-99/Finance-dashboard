@@ -19,3 +19,11 @@ min_password_length: 12
 # Ask for a login before showing any page (true/false). Leave false on your own computer;
 # switch to true when the app runs online.
 login_required: false
+
+# Who may create an account (sign-up page or "Sign in with Google"), one email per line:
+#   invited:
+#     - friend@example.com
+# Don't invite anyone yet: the market data the app uses (Yahoo Finance) is for personal use
+# only, so sharing it with others needs a different data source first (docs/SPEC.md, Open
+# questions). You (the owner) don't need to be on the list.
+invited: []

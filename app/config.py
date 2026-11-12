@@ -413,6 +413,10 @@ def load_x_config(path: Path) -> XConfig:
 
 # --- config/accounts.yaml (login, SPEC F7.2) -------------------------------------------
 
+# One "@", something on both sides, no spaces. Deliberately loose: "owner@localhost" passes.
+EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+$")
+MAX_EMAIL = 320
+
 
 class ScryptCost(_Section):
     """How much work turning a password into its stored hash takes (Python's scrypt).
@@ -443,6 +447,22 @@ class AccountsConfig(_Section):
     # Ask for a login before showing any page (F7.4). Off on your own computer; on when
     # the app runs online.
     login_required: bool = False
+    # Emails that may create an account (F7.5), compared without case. Empty = nobody.
+    invited: list[str] = Field(default=[], max_length=500)
+
+    @field_validator("invited")
+    @classmethod
+    def _emails(cls, value: list[str]) -> list[str]:
+        cleaned = []
+        for raw in value:
+            email = str(raw).strip().lower()
+            if len(email) > MAX_EMAIL or not EMAIL_PATTERN.match(email):
+                raise ValueError(f"'{raw}' in the invite list isn't an email address")
+            cleaned.append(email)
+        return list(dict.fromkeys(cleaned))
+
+    def is_invited(self, email: str) -> bool:
+        return email.strip().lower() in self.invited
 
 
 def load_accounts_config(path: Path) -> AccountsConfig:

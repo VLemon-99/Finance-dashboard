@@ -14,6 +14,7 @@
 - Run the baseline test suite to completion **before** editing: a background run while files change gives false failures (e.g. a new setting in `config/accounts.yaml` read by the old `AccountsConfig`, which forbids unknown keys).
 - App with custom settings in tests: see the `make_client` fixture in `tests/test_web_login_required.py` (`create_app(..., accounts=AccountsConfig(...))` with all the fakes).
 - The owner is `ensure_owner(session, default_email)` in `app/services/users.py`: the first user by id (created when there are none). `app.state.user_id` is the owner. Email helpers there too: `is_valid_email()`, `find_by_email()` (case-insensitive), `MAX_EMAIL`. Minimum password length: `AccountsConfig.min_password_length` (12).
+- Starting a signed-in session after login/sign-up (and later Google): `_signed_in_redirect(request, session, user_id, next_url)` in `app/web/account_routes.py` (cookie + safe redirect). Invite list: `AccountsConfig.invited` (lower-cased, checked) and `AccountsConfig.is_invited(email)`. `EMAIL_PATTERN` / `MAX_EMAIL` now live in `app/config.py` (users.py imports them).
 - Ruff's S105/S106 flag fake passwords in tests; mark them `# noqa: S105 (fake test password)` / `# noqa: S106`.
 
 ## Rounds
@@ -61,3 +62,9 @@
 - Files touched: app/accounts_cli.py (new), app/services/users.py, app/main.py, app/config.py, config/accounts.yaml, app/web/account_routes.py, tests/test_accounts_cli.py (22 tests), this task file and log.
 - Test result: baseline exit 0 (run to completion first); verify 22 passed; full suite exit 0; ruff check + format clean.
 - Next round should know: `ensure_default_user()` is kept (several existing tests use it). The README doesn't mention the command yet: the deploy session (F7-S15) should add it. In tests, a user created before the app starts becomes the owner.
+
+## Round — 2026-11-12 — F7-S7 — done
+- What I did: `invited` list in `AccountsConfig` / `config/accounts.yaml` (ships empty, with a note not to invite anyone until the market data question is settled), cleaned to lower case, checked as emails (a bad one stops the app with a message naming the file). New `/signup` page (`signup.html`): email, password, password again; invited emails only (403 "not on the invite list"); an email with an account already gets 409 with a "Log in instead" link; too short (< `min_password_length`), too long (> 1024), not matching, empty or malformed email: 400 with a clear message, nothing created. Success creates the user (password hashed), starts a session and goes to the safe `next`. A double submit hitting the unique email is caught. The login page links to sign-up. The login/sign-up redirect code is now one helper, `_signed_in_redirect`.
+- Files touched: app/config.py, config/accounts.yaml, app/services/users.py, app/web/account_routes.py, app/web/templates/login.html, app/web/templates/signup.html (new), tests/test_web_signup.py (20 tests), this task file and log.
+- Test result: baseline exit 0; verify 20 passed; full suite exit 0; ruff check + format clean.
+- Next round should know: telling a stranger "not on the invite list" or "already has an account" reveals whether an email is invited or has an account; accepted for an invite-only beta (clear messages matter more), worth a line in the security review.

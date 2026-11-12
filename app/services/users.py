@@ -9,23 +9,18 @@ import base64
 import binascii
 import hashlib
 import hmac
-import re
 import secrets
 from datetime import datetime, timedelta
 
 from sqlmodel import Session, func, select
 
-from app.config import ScryptCost
+from app.config import EMAIL_PATTERN, MAX_EMAIL, ScryptCost
 from app.db.models import LoginSession, User
 from app.timeutils import as_utc, utc_now
 
 _SCHEME = "scrypt"
 _SALT_BYTES = 16
 _HASH_BYTES = 32
-
-# One "@", something on both sides, no spaces. Deliberately loose: "owner@localhost" passes.
-EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+$")
-MAX_EMAIL = 320
 
 
 def is_valid_email(email: str) -> bool:
