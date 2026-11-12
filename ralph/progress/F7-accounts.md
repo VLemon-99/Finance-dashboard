@@ -11,6 +11,8 @@
 - Who is signed in: middleware `find_signed_in_user` in `app/main.py` sets `request.state.account` (a `SignedIn(user_id, email)` or None) from the `session` cookie on every non-static request. F7-S4 can read `request.state.account` in `get_user_id`.
 - Jinja escapes apostrophes as `&#39;`, so don't assert on message text containing `'` in page tests.
 - Pages with an "e.g. AAPL" placeholder (portfolio, forms) make `"AAPL" not in page` checks useless; check option symbols or a specific line like "My tickers: AAPL." instead. A planted `Report(body={})` can't be opened (the template needs real sections).
+- Run the baseline test suite to completion **before** editing: a background run while files change gives false failures (e.g. a new setting in `config/accounts.yaml` read by the old `AccountsConfig`, which forbids unknown keys).
+- App with custom settings in tests: see the `make_client` fixture in `tests/test_web_login_required.py` (`create_app(..., accounts=AccountsConfig(...))` with all the fakes).
 - Ruff's S105/S106 flag fake passwords in tests; mark them `# noqa: S105 (fake test password)` / `# noqa: S106`.
 
 ## Rounds
@@ -46,3 +48,9 @@
 - Files touched: app/web/routes.py, tests/test_web_login_isolation.py (6 tests), this task file and log. `tests/test_user_isolation.py` unchanged.
 - Test result: verify 6 passed; full suite exit 0; ruff check + format clean.
 - Next round should know: all ready stories (F7-S1 to F7-S4) are done; F7-S5 to F7-S9 stay blocked on the owner's answers in their notes. The scheduler (app/main.py) still runs for the default user only (F7-S8).
+
+## Round — 2026-11-12 — F7-S5 — done
+- What I did: `login_required` (default false) in `AccountsConfig` and `config/accounts.yaml`. New `require_login` middleware in `app/main.py` (runs after `find_signed_in_user`): when on and nobody is signed in, pages and actions get a 303 to `/login?next=<path and query>` and run nothing; HTMX requests get 401 + `HX-Redirect: /login`. Open without login: `/login`, `/signup`, anything under `/login/` (for Google sign-in later) and `/static/`. The login form carries `next` in a hidden field; `safe_next()` in `app/web/account_routes.py` keeps only addresses inside the app (starts with one '/', no backslash, no control characters, at most 2000 characters), anything else goes to '/'.
+- Files touched: app/config.py, config/accounts.yaml, app/main.py, app/web/account_routes.py, app/web/templates/login.html, tests/test_web_login_required.py (30 tests), this task file and log.
+- Test result: verify 30 passed; full suite exit 0; ruff check + format clean. The background baseline run failed only because it overlapped my edit of `config/accounts.yaml` (see Lessons); the committed starting point had passed the full suite in the F7-S4 round.
+- Next round should know: F7-S7 should add `/signup` (already open when login is required). F7-S12's Google routes must live under `/login/` to stay open.

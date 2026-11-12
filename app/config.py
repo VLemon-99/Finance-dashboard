@@ -438,6 +438,9 @@ class AccountsConfig(_Section):
     scrypt: ScryptCost = ScryptCost()
     # How many days you stay logged in on a device before being asked again.
     session_days: int = Field(default=30, ge=1, le=365)
+    # Ask for a login before showing any page (F7.4). Off on your own computer; on when
+    # the app runs online.
+    login_required: bool = False
 
 
 def load_accounts_config(path: Path) -> AccountsConfig:

@@ -30,6 +30,11 @@ from app.web.routes import SessionDep, _redirect, templates
 
 SESSION_COOKIE = "session"
 
+# Pages that work without being signed in when login is required (F7.4).
+OPEN_PATHS = ("/login", "/signup")
+OPEN_PREFIXES = ("/login/", "/static/")
+MAX_NEXT = 2000
+
 # One "@", something on both sides, no spaces. Deliberately loose: the owner's address
 # (and the default "owner@localhost") must pass; the real check is the password.
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+$")
@@ -55,6 +60,26 @@ def signed_in(session: Session, token: str | None) -> SignedIn | None:
     return None if user is None else SignedIn(user_id=user.id, email=user.email)
 
 
+def is_open_path(path: str) -> bool:
+    """True for the pages anyone may open while login is required."""
+    return path in OPEN_PATHS or path.startswith(OPEN_PREFIXES)
+
+
+def safe_next(value: str | None) -> str:
+    """Where to go after logging in: only an address inside this app, else the home page.
+
+    "//evil.example" or "/\\evil.example" would make the browser leave the site, so they
+    and anything with a scheme, backslash or control character are refused.
+    """
+    if not value or len(value) > MAX_NEXT:
+        return "/"
+    if not value.startswith("/") or value.startswith("//"):
+        return "/"
+    if "\\" in value or any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+        return "/"
+    return value
+
+
 def _accounts(request: Request) -> AccountsConfig:
     return request.app.state.accounts
 
@@ -67,11 +92,13 @@ def _dummy_hash(request: Request) -> str:
     return state.dummy_password_hash
 
 
-def _login_page(request: Request, email: str = "", message: str = "", status: int = 200):
+def _login_page(
+    request: Request, email: str = "", message: str = "", status: int = 200, next_url: str = "/"
+):
     return templates.TemplateResponse(
         request,
         "login.html",
-        {"email": email[:MAX_EMAIL], "message": message},
+        {"email": email[:MAX_EMAIL], "message": message, "next": safe_next(next_url)},
         status_code=status,
     )
 
@@ -89,8 +116,8 @@ def _problem(email: str, password: str) -> str:
 
 
 @router.get("/login", response_class=HTMLResponse)
-def login_form(request: Request):
-    return _login_page(request)
+def login_form(request: Request, next: str = "/"):
+    return _login_page(request, next_url=next)
 
 
 @router.post("/login", response_class=HTMLResponse)
@@ -99,18 +126,19 @@ def login(
     session: SessionDep,
     email: Annotated[str, Form()] = "",
     password: Annotated[str, Form()] = "",
+    next: Annotated[str, Form()] = "/",
 ):
     email = email.strip()
     problem = _problem(email, password)
     if problem:
-        return _login_page(request, email, problem, status=400)
+        return _login_page(request, email, problem, status=400, next_url=next)
     user = session.exec(select(User).where(func.lower(User.email) == email.lower())).first()
     stored = user.password_hash if user is not None else _dummy_hash(request)
     if user is None or not check_password(stored, password):
-        return _login_page(request, email, WRONG, status=401)
+        return _login_page(request, email, WRONG, status=401, next_url=next)
     days = _accounts(request).session_days
     token = start_session(session, user.id, days)
-    response = _redirect("/")
+    response = _redirect(safe_next(next))
     response.set_cookie(
         SESSION_COOKIE,
         token,

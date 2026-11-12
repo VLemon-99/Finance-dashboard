@@ -3,10 +3,10 @@
 import threading
 from collections.abc import Callable, Sequence
 from contextlib import asynccontextmanager
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 from fastapi import FastAPI, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import Engine
 from sqlmodel import Session
@@ -47,7 +47,7 @@ from app.services.users import ensure_default_user
 from app.services.watchlists import WatchlistNotFound
 from app.sources.http import HttpFetcher
 from app.sources.registry import NEWS_USER_AGENT, build_sources
-from app.web.account_routes import SESSION_COOKIE, signed_in
+from app.web.account_routes import SESSION_COOKIE, is_open_path, signed_in
 from app.web.account_routes import router as account_router
 from app.web.assets import STATIC_DIR
 from app.web.calendar_routes import router as calendar_router
@@ -199,6 +199,18 @@ def create_app(
     def look_up_account(token: str):
         with Session(engine) as session:
             return signed_in(session, token)
+
+    @app.middleware("http")  # runs after find_signed_in_user below (added later = runs first)
+    async def require_login(request: Request, call_next):
+        """When login is required (online, F7.4), only signed-in users get past the login page."""
+        if not accounts.login_required or request.state.account is not None:
+            return await call_next(request)
+        if is_open_path(request.url.path):
+            return await call_next(request)
+        if request.headers.get("hx-request"):  # HTMX swaps in parts of a page: reload it all
+            return Response(status_code=401, headers={"HX-Redirect": "/login"})
+        target = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+        return RedirectResponse(f"/login?{urlencode({'next': target})}", status_code=303)
 
     @app.middleware("http")
     async def find_signed_in_user(request: Request, call_next):

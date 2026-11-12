@@ -12,3 +12,7 @@ scrypt:
 # How many days you stay logged in on a device before being asked for your password
 # again (1 to 365).
 session_days: 30
+
+# Ask for a login before showing any page (true/false). Leave false on your own computer;
+# switch to true when the app runs online.
+login_required: false
