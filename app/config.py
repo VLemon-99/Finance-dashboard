@@ -452,6 +452,9 @@ class AccountsConfig(_Section):
     max_failed_logins: int = Field(default=10, ge=1, le=1000)
     failed_login_window_minutes: int = Field(default=15, ge=1, le=1440)
     lockout_minutes: int = Field(default=15, ge=1, le=1440)
+    # "Generate now" reports per US Eastern day for users other than the owner (F7.8),
+    # so others can't use up the AI credit. The owner has no limit.
+    reports_per_day: int = Field(default=2, ge=0, le=1000)
     # Emails that may create an account (F7.5), compared without case. Empty = nobody.
     invited: list[str] = Field(default=[], max_length=500)
 

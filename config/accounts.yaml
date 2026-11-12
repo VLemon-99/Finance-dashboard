@@ -27,6 +27,10 @@ max_failed_logins: 10
 failed_login_window_minutes: 15
 lockout_minutes: 15
 
+# Reports each user other than you may generate per day (US Eastern days). You have no
+# limit. Keeps the AI credit for you.
+reports_per_day: 2
+
 # Who may create an account (sign-up page or "Sign in with Google"), one email per line:
 #   invited:
 #     - friend@example.com

@@ -7,7 +7,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, Response
-from sqlmodel import Session, col, select
+from sqlmodel import Session, col, func, select
 
 from app.db.models import Report, ReportRun
 from app.scheduler import next_scheduled_run
@@ -20,6 +20,33 @@ from app.web.routes import SessionDep, UserDep, _redirect, templates
 router = APIRouter()
 
 HISTORY_LIMIT = 100
+
+
+def reports_left_today(request: Request, session: Session, user_id: int) -> int | None:
+    """How many more reports this user may start today (F7.8); None = no limit (the owner).
+
+    Days are US Eastern days, counted from the runs' start times.
+    """
+    if user_id == request.app.state.user_id:
+        return None
+    limit = request.app.state.accounts.reports_per_day
+    today = utc_now().astimezone(EASTERN).date()
+    start = datetime(today.year, today.month, today.day, tzinfo=EASTERN)
+    used = session.exec(
+        select(func.count())
+        .select_from(ReportRun)
+        .where(ReportRun.user_id == user_id, ReportRun.started_at >= start)
+    ).one()
+    return max(0, limit - used)
+
+
+def _used_up_message(request: Request) -> str:
+    limit = request.app.state.accounts.reports_per_day
+    reports = "report" if limit == 1 else "reports"
+    return (
+        f"You have used all {limit} {reports} for today. "
+        "You can generate more tomorrow (US Eastern time)."
+    )
 
 
 class ReportNotFound(LookupError):
@@ -67,6 +94,8 @@ def _history_page(
             "day": day,
             "today": today_eastern(),
             "schedule": _schedule_info(request),
+            "reports_left": reports_left_today(request, session, user_id),
+            "reports_per_day": request.app.state.accounts.reports_per_day,
             "error": error,
         },
         status_code=status_code,
@@ -129,6 +158,10 @@ def generate_report(
     already = running_run(session, user_id)
     if already is not None:
         return _redirect(f"/reports/runs/{already.id}")  # one run at a time
+    if reports_left_today(request, session, user_id) == 0:
+        return _history_page(
+            request, session, user_id, error=_used_up_message(request), status_code=429
+        )
     if watchlist_id is not None:
         watchlist = wl.get_watchlist(session, user_id, watchlist_id)  # 404 if not yours
         tickers = wl.watchlist_tickers(session, user_id, watchlist_id)

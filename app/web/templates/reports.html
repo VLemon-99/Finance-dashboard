@@ -5,6 +5,7 @@
 {% if error %}<p class="note error" role="alert">{{ error }}</p>{% endif %}
 
 <h2>Generate now</h2>
+{% if reports_left is not none %}<p class="muted">{{ reports_left }} of {{ reports_per_day }} reports left today.</p>{% endif %}
 {% if watchlists %}
 <form method="post" action="/reports/generate" class="inline-form">
   <label for="watchlist_id">Whole watchlist</label>

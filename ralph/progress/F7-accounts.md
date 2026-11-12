@@ -76,3 +76,9 @@
 - Files touched: app/db/models.py, app/db/migrations/versions/a3c9e7f1b2d4_login_failures.py, app/config.py, config/accounts.yaml, app/services/users.py, app/web/account_routes.py, tests/test_web_login_throttle.py (14 tests), this task file and log.
 - Test result: baseline exit 0; verify 14 passed; full suite exit 0; ruff check + format clean.
 - Next round should know: the lock is per email only (as the SPEC says): someone can lock a known email's password login for 15 minutes on purpose; Google sign-in (F7-S12) must not check the lock. There's no per-address (IP) limit; worth a line in the security review.
+
+## Round — 2026-11-12 — F7-S9 — done
+- What I did: `reports_per_day` (2) in `AccountsConfig` / `config/accounts.yaml`. `reports_left_today()` in `app/web/report_routes.py` counts the user's runs started since midnight US Eastern (None for the owner, `app.state.user_id`). "Generate now" (ticker or watchlist) is refused with 429 and "You have used all 2 reports for today..." once none are left; being sent to an already running report isn't counted. The Reports page shows "N of 2 reports left today." for other users only.
+- Files touched: app/config.py, config/accounts.yaml, app/web/report_routes.py, app/web/templates/reports.html, tests/test_web_report_limit.py (11 tests), this task file and log.
+- Test result: baseline exit 0; verify 11 passed; full suite exit 0; ruff check + format clean.
+- Next round should know: tests freeze both `app.web.report_routes.utc_now` and `app.services.reports.utc_now` (run start times come from `start_run`). The watchlist page's own "Generate" buttons don't show the count (only the Reports page does), but they're limited the same way.
