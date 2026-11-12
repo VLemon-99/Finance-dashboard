@@ -3,13 +3,17 @@
   "name": "Accounts & hosting",
   "branch": "ralph/F7-accounts",
   "zone": "accounts",
-  "dependsOnFeatures": ["F0"],
+  "dependsOnFeatures": [
+    "F0"
+  ],
   "stories": [
     {
       "id": "F7-S1",
       "title": "Users can have a securely stored password",
       "description": "Add a password_hash column to the users table (new Alembic migration, nullable so the existing default user keeps working) and two helpers in app/services/users.py: one that turns a password into a salted hash with Python's built-in hashlib.scrypt (no new dependency) and one that checks a password against a stored hash in constant time. CHANGES SHARED FILES: app/db/models.py, app/db/migrations/, app/services/users.py. Never run in parallel with another loop.",
-      "specRefs": ["F7.2"],
+      "specRefs": [
+        "F7.2"
+      ],
       "acceptance": [
         "The migration upgrades and downgrades cleanly (up, down, up) and existing users keep their data with an empty password_hash",
         "Hashing the same password twice gives two different stored values (random salt); neither contains the password itself",
@@ -20,7 +24,7 @@
       "zone": "accounts",
       "priority": 1,
       "dependsOn": [],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
       "notes": ""
     },
@@ -28,7 +32,9 @@
       "id": "F7-S2",
       "title": "Store login sessions in the database",
       "description": "Add a login_sessions table (user_id, a hash of a random token from Python's secrets module, created_at, expires_at; new Alembic migration) and service functions to start a session (returns the token, stores only its hash), look up the user for a token (none if unknown or expired) and end a session. How long a session lasts comes from config/accounts.yaml. CHANGES SHARED FILES: app/db/models.py, app/db/migrations/, app/services/users.py.",
-      "specRefs": ["F7.2"],
+      "specRefs": [
+        "F7.2"
+      ],
       "acceptance": [
         "The migration upgrades and downgrades cleanly (up, down, up); the table has a user_id column",
         "Starting a session returns a token; the database holds only a hash of it, never the token itself",
@@ -39,8 +45,10 @@
       "verify": "uv run pytest tests/test_accounts_sessions.py",
       "zone": "accounts",
       "priority": 2,
-      "dependsOn": ["F7-S1"],
-      "status": "todo",
+      "dependsOn": [
+        "F7-S1"
+      ],
+      "status": "done",
       "attempts": 0,
       "notes": "Session length default is waiting for the owner (proposal: 30 days). Build it as a config value; if the owner hasn't answered when this round runs, use 30 and say so in the progress log."
     },
@@ -48,7 +56,9 @@
       "id": "F7-S3",
       "title": "Log in and log out with email and password",
       "description": "Add a login page (GET/POST /login: email + password) and POST /logout, in a new app/web/account_routes.py and template login.html. A correct email and password starts a login session (F7-S2) and sets its token in a cookie (HttpOnly, SameSite=Lax, Secure when the request is HTTPS), then redirects to the home page. The menu shows the signed-in email and a Log out button. Email is validated and trimmed; queries use parameters only. CHANGES SHARED FILES: app/main.py (registers the router), app/web/templates/base.html (menu), app/web/static/style.css if needed.",
-      "specRefs": ["F7.2"],
+      "specRefs": [
+        "F7.2"
+      ],
       "acceptance": [
         "Posting the right email and password redirects to the home page and sets an HttpOnly, SameSite=Lax session cookie",
         "A wrong password and an unknown email both show the same message (\"Email or password is wrong\") and set no cookie",
@@ -60,8 +70,11 @@
       "verify": "uv run pytest tests/test_web_login.py",
       "zone": "accounts",
       "priority": 3,
-      "dependsOn": ["F7-S1", "F7-S2"],
-      "status": "todo",
+      "dependsOn": [
+        "F7-S1",
+        "F7-S2"
+      ],
+      "status": "done",
       "attempts": 0,
       "notes": ""
     },
@@ -69,7 +82,10 @@
       "id": "F7-S4",
       "title": "Every page uses the signed-in user's data",
       "description": "Change get_user_id in app/web/routes.py so that, when a valid session cookie is present, every page and action works on that user's watchlists, trades, spreads, reports and calendar tickers. Without a cookie the app keeps today's behaviour (the default user) until F7-S5 decides otherwise. CHANGES SHARED FILES: app/web/routes.py (get_user_id), possibly app/main.py. Touches every zone's routes only through the shared UserDep.",
-      "specRefs": ["F7.2", "F7.1"],
+      "specRefs": [
+        "F7.2",
+        "F7.1"
+      ],
       "acceptance": [
         "Two users signed in with two separate test clients each see only their own watchlists, portfolio, reports and calendar 'my tickers' (extends the idea of tests/test_user_isolation.py, without changing its existing tests)",
         "User A cannot open, change or delete user B's watchlist, item, trade, spread or report by guessing its id: the page answers 'not found' and nothing changes",
@@ -79,90 +95,292 @@
       "verify": "uv run pytest tests/test_web_login_isolation.py",
       "zone": "accounts",
       "priority": 4,
-      "dependsOn": ["F7-S3"],
-      "status": "todo",
+      "dependsOn": [
+        "F7-S3"
+      ],
+      "status": "done",
       "attempts": 0,
       "notes": ""
     },
     {
       "id": "F7-S5",
-      "title": "Ask for a login before showing any page",
-      "description": "Placeholder: when signing in is required, any page or action without a valid session redirects to /login (and comes back afterwards). Exact behaviour depends on owner decisions.",
-      "specRefs": ["F7.2"],
+      "title": "Ask for a login only when the app runs online",
+      "description": "Add a `login_required` setting to config/accounts.yaml (AccountsConfig, default false). When true, every page and action without a valid session sends the visitor to /login?next=<where they were>; after logging in they go back there. Allowed without login: /login, /signup, /login/google and its callback (added later, so allow the /login/ prefix), /static/. `next` must be a path inside the app (starts with a single '/', not '//' or a full address); anything else goes to '/'. HTMX requests (header HX-Request) get an HX-Redirect header to /login instead of a page. CHANGES SHARED FILES: app/main.py (middleware), app/config.py, app/web/account_routes.py.",
+      "specRefs": [
+        "F7.4"
+      ],
       "acceptance": [
-        "To be written once the owner answers the question in notes"
+        "With login_required false (the default), every page works without a cookie exactly as before (all existing tests pass unchanged)",
+        "With login_required true, GET and POST requests to pages and actions without a valid session get a 303 to /login?next=<original path and query>, and change nothing",
+        "The login page, static files and the login form post work without a session when login_required is true",
+        "After logging in with a safe next (e.g. /portfolio?x=1) the user lands there; an unsafe next (//evil.example, https://evil.example, /\\evil.example, empty) lands on '/'",
+        "An expired or made-up cookie counts as not signed in",
+        "HTMX requests without a session get status 200 or 401 with an HX-Redirect: /login header instead of the login page's HTML"
       ],
       "verify": "uv run pytest tests/test_web_login_required.py",
       "zone": "accounts",
       "priority": 5,
-      "dependsOn": ["F7-S4"],
-      "status": "blocked",
+      "dependsOn": [
+        "F7-S4"
+      ],
+      "status": "done",
       "attempts": 0,
-      "notes": "NEEDS OWNER: Should the app ask for a login when it runs on your own computer, or only when hosted online (a setting, off locally)? Requiring it everywhere is simplest and safest; making it a setting keeps today's no-login local use."
+      "notes": ""
     },
     {
       "id": "F7-S6",
-      "title": "Create accounts and set your own password",
-      "description": "Placeholder: a way to create user accounts and give the existing default user (owner@localhost, who owns all current data) a real email and password.",
-      "specRefs": ["F7.2"],
-      "acceptance": [
-        "To be written once the owner answers the questions in notes"
+      "title": "A command to set the owner's email and password (and reset any password)",
+      "description": "New module app/accounts_cli.py, run as `uv run python -m app.accounts_cli owner --email you@example.com` (renames the default user, who owns all current data, to that email and sets its password) and `uv run python -m app.accounts_cli password --email someone@example.com` (sets a new password for an existing user: the owner's way to reset a forgotten password). The password is asked for twice with getpass (never a command-line argument, never printed or logged). Uses the database from Settings and config/accounts.yaml for the scrypt cost. Also make the app find the owner by id (the user created first, i.e. the default user), not by default_user_email, so renaming doesn't create a second empty default user at the next start: the default user is still created when no user exists. CHANGES SHARED FILES: app/services/users.py, app/main.py (startup), maybe app/config.py.",
+      "specRefs": [
+        "F7.5"
       ],
-      "verify": "uv run pytest tests/test_accounts_create.py",
+      "acceptance": [
+        "`owner --email` changes the default user's email (trimmed, checked like the login form) and sets a password; its watchlists, trades and reports stay with it",
+        "After renaming, restarting the app keeps using that same user as the owner and creates no new user",
+        "With an empty database, startup still creates the default user as before",
+        "`password --email` sets a new password for an existing user; for an unknown email it says so and changes nothing",
+        "Passwords shorter than 12 characters, or the two entries not matching, are refused with a clear message and change nothing",
+        "An email that already belongs to another user is refused for `owner`",
+        "The password never appears in output or logs; tests feed it through a fake getpass",
+        "The command exits with a non-zero code and a plain message on any refusal"
+      ],
+      "verify": "uv run pytest tests/test_accounts_cli.py",
       "zone": "accounts",
       "priority": 6,
-      "dependsOn": ["F7-S1"],
-      "status": "blocked",
+      "dependsOn": [
+        "F7-S1",
+        "F7-S2"
+      ],
+      "status": "done",
       "attempts": 0,
-      "notes": "NEEDS OWNER: (1) How are accounts created: only by you with a command on the computer (proposal; no public sign-up page), a sign-up page anyone can use, or invite-only? (2) Your current data belongs to 'owner@localhost': OK to rename it to your real email and set a password through the same command? (3) Forgotten passwords: the app can't send email (alerts are out of scope), so the proposal is a command that sets a new password. Is a 'change my password' page also wanted?"
+      "notes": ""
     },
     {
       "id": "F7-S7",
-      "title": "Slow down repeated wrong passwords",
-      "description": "Placeholder: limit failed login attempts so a password can't be guessed by trying many times.",
-      "specRefs": ["F7.2"],
-      "acceptance": [
-        "To be written once the owner answers the question in notes"
+      "title": "Invite-only sign-up with email and password",
+      "description": "Add `invited` (list of emails, shipped empty, compared without case) to config/accounts.yaml, with a comment that nobody should be invited until the market data question is settled (SPEC Open questions). New GET/POST /signup page (template signup.html, in app/web/account_routes.py): email, password, password again. Only invited emails without an account yet can sign up; passwords at least 12 characters (min length in config, default 12) and at most 1024. Success creates the user with a hashed password, starts a session (cookie as in /login) and goes to '/'. The login page links to sign-up. CHANGES SHARED FILES: app/config.py, config/accounts.yaml, app/web/account_routes.py, templates.",
+      "specRefs": [
+        "F7.5"
       ],
-      "verify": "uv run pytest tests/test_web_login_throttle.py",
+      "acceptance": [
+        "An invited email with a good password creates exactly one user (password stored only as a hash), sets the session cookie and redirects to '/'",
+        "The new user starts with no watchlists, trades or reports, and sees none of the owner's",
+        "An email not on the invite list is refused with a clear message; no user is created",
+        "An invited email that already has an account is refused, pointing to the login page",
+        "Too-short password, the two entries not matching, empty or malformed email: clear message, no user, no cookie",
+        "Invite list matching ignores case and surrounding spaces; the invite list is read from config/accounts.yaml and validated (bad emails stop the app with a message naming the file)",
+        "A sign-up form posted from another website is refused (existing cross-site check)"
+      ],
+      "verify": "uv run pytest tests/test_web_signup.py",
       "zone": "accounts",
       "priority": 7,
-      "dependsOn": ["F7-S3"],
-      "status": "blocked",
+      "dependsOn": [
+        "F7-S3"
+      ],
+      "status": "done",
       "attempts": 0,
-      "notes": "NEEDS OWNER (not in SPEC yet): add a criterion to F7.2 such as 'after 5 wrong passwords for one email within 15 minutes, further attempts are refused for 15 minutes (numbers in config)'? Important once the app is online."
+      "notes": ""
     },
     {
       "id": "F7-S8",
-      "title": "Scheduled morning reports for every user",
-      "description": "Placeholder: the optional weekday 7:30am job (app/scheduler.py, started in app/main.py) runs today only for the default user.",
-      "specRefs": ["F4.9", "F7.2"],
-      "acceptance": [
-        "To be written once the owner answers the question in notes"
+      "title": "Refuse password logins after 10 wrong tries",
+      "description": "New table login_failures (email in lower case, failed_at in UTC; new Alembic migration). It isn't user-owned (unknown emails are counted too), so no user_id, like x_checks; note this in the model's docstring. Settings in config/accounts.yaml: max_failed_logins 10, failed_login_window_minutes 15, lockout_minutes 15. On /login: if the email has reached the limit within the window, refuse without checking the password (status 429, message 'Too many wrong passwords for this email. Try again in N minutes, or use Sign in with Google.'). A successful login clears that email's failures. Old rows past the window may be deleted when new ones are added. CHANGES SHARED FILES: app/db/models.py, app/db/migrations/, app/config.py, config/accounts.yaml.",
+      "specRefs": [
+        "F7.7"
       ],
-      "verify": "uv run pytest tests/test_scheduler_users.py",
+      "acceptance": [
+        "The migration upgrades and downgrades cleanly (up, down, up)",
+        "After 10 wrong passwords for one email within 15 minutes, the 11th attempt is refused with 429 and the message, even with the right password, and no cookie is set (fixed clock)",
+        "After the lockout time has passed, the right password works again",
+        "Wrong tries spread over more than 15 minutes don't lock",
+        "Locking one email doesn't affect another email; email case and spaces don't matter",
+        "A successful login clears the count",
+        "Unknown emails are counted the same way, and the message is the same as for a known email",
+        "The three numbers come from config/accounts.yaml"
+      ],
+      "verify": "uv run pytest tests/test_web_login_throttle.py",
       "zone": "accounts",
       "priority": 8,
-      "dependsOn": ["F7-S4"],
-      "status": "blocked",
+      "dependsOn": [
+        "F7-S3"
+      ],
+      "status": "done",
       "attempts": 0,
-      "notes": "NEEDS OWNER: With more than one account, should the morning job run for every user's watchlists (each run uses Gemini credit and the shared X budget), only for users who switch it on, or only for you? Also: should the $10/month AI credit and $5/month X budget be shared by all users or split?"
+      "notes": ""
     },
     {
       "id": "F7-S9",
-      "title": "Get the app ready for the chosen host (HTTPS)",
-      "description": "Placeholder for F7.3. Stories (and their split) depend on the hosting choice. Deploying itself is never done by a loop; an interactive session deploys only with the owner's explicit OK.",
-      "specRefs": ["F7.3"],
-      "acceptance": [
-        "To be written once the owner answers the questions in notes"
+      "title": "At most 2 reports a day for users other than the owner",
+      "description": "Add `reports_per_day` (default 2) to config/accounts.yaml. In app/web/report_routes.py, 'Generate now' (watchlist or single ticker) for a user who isn't the owner (the owner is request.app.state.user_id) is refused once they have started that many report runs in the current US Eastern day, with a clear message. The reports page and the generate buttons say how many are left today for such users. Scheduled runs (owner only) don't count. CHANGES FILES IN THE REPORTS ZONE: app/web/report_routes.py and its templates (reports.html, maybe watchlist.html), plus app/config.py, config/accounts.yaml.",
+      "specRefs": [
+        "F7.8"
       ],
-      "verify": "uv run pytest tests/test_hosting.py",
+      "acceptance": [
+        "A signed-in non-owner can start 2 report runs in one US Eastern day; the 3rd is refused with a clear message and no run is created",
+        "The count resets at midnight US Eastern, not UTC (fixed clock around 11pm ET / 4am UTC)",
+        "The owner (default user, signed in or not) is never limited",
+        "The reports page shows 'N of 2 reports left today' for non-owners and nothing for the owner",
+        "One user's runs don't count against another's",
+        "The limit comes from config/accounts.yaml"
+      ],
+      "verify": "uv run pytest tests/test_web_report_limit.py",
       "zone": "accounts",
       "priority": 9,
-      "dependsOn": ["F7-S5", "F7-S6", "F7-S7"],
+      "dependsOn": [
+        "F7-S4"
+      ],
+      "status": "done",
+      "attempts": 0,
+      "notes": ""
+    },
+    {
+      "id": "F7-S10",
+      "title": "The morning report runs only for the owner",
+      "description": "app/scheduler.py already runs for the user id it's given, which app/main.py sets to the default user. Make this explicit and tested: with several users who all have watchlists, a scheduled run covers only the owner's tickers and is stored under the owner. If code changes are needed, keep them in app/scheduler.py / app/main.py. CHANGES FILES IN THE REPORTS ZONE: app/scheduler.py, tests only if no change is needed (add tests in a new file, don't change tests/test_scheduler.py).",
+      "specRefs": [
+        "F7.9"
+      ],
+      "acceptance": [
+        "With the owner and two other users each having watchlists, run_scheduled_reports as started by the app uses only the owner's tickers and creates runs only under the owner",
+        "Other users get no scheduled run even when the schedule is on",
+        "Manual 'Generate now' still works for other users (within F7.8's limit if built)"
+      ],
+      "verify": "uv run pytest tests/test_scheduler_users.py",
+      "zone": "accounts",
+      "priority": 10,
+      "dependsOn": [
+        "F7-S4"
+      ],
+      "status": "todo",
+      "attempts": 0,
+      "notes": ""
+    },
+    {
+      "id": "F7-S11",
+      "title": "Google sign-in adapter (talking to Google)",
+      "description": "New app/providers/google_auth.py with a small class: build the Google sign-in address (client id, redirect address, scope 'openid email', a random state and nonce, PKCE code challenge S256), and exchange the returned code at Google's token endpoint with httpx (client secret, code verifier), then read the ID token's middle part and check: issuer accounts.google.com or https://accounts.google.com, audience = our client id, not expired, nonce matches, email_verified true. Signature check skipped on purpose (token received directly from Google over HTTPS; DECISIONS 2026-11-12). Returns the verified email (lower case) or raises a GoogleAuthError with a plain message. Settings GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in app/config.py Settings (empty = Google sign-in off), placeholders in .env.example. No new dependency. Tests use httpx.MockTransport and hand-made token answers (fake data). CHANGES SHARED FILES: app/config.py, .env.example.",
+      "specRefs": [
+        "F7.6"
+      ],
+      "acceptance": [
+        "The sign-in address contains the client id, redirect address, 'openid email' scope, state, nonce and an S256 code challenge; state, nonce and verifier differ each time",
+        "A good token answer gives back the verified email in lower case",
+        "Wrong issuer, wrong audience, expired token, wrong nonce, email_verified false or missing, malformed token, Google answering an error or timing out: each raises GoogleAuthError with a plain message (no crash, no secret in the message)",
+        "The code exchange sends the client secret and code verifier only to Google's token endpoint over HTTPS",
+        "With no client id or secret set, the adapter reports Google sign-in as off",
+        "Tests never use the network"
+      ],
+      "verify": "uv run pytest tests/test_google_auth.py",
+      "zone": "accounts",
+      "priority": 11,
+      "dependsOn": [
+        "F7-S1"
+      ],
+      "status": "todo",
+      "attempts": 0,
+      "notes": ""
+    },
+    {
+      "id": "F7-S12",
+      "title": "Sign in with Google on the login and sign-up pages",
+      "description": "Routes in app/web/account_routes.py: GET /login/google starts sign-in (keeps state, nonce, code verifier and the safe `next` in a short-lived HttpOnly, SameSite=Lax cookie, signed or stored as a hash in the database, 10 minutes) and redirects to Google; GET /login/google/callback checks state, uses the F7-S11 adapter, then: an existing user with that email (case-insensitive) is signed in; an invited email without an account gets one (no password); anyone else is refused with a clear message. The login and sign-up pages show a 'Sign in with Google' button only when Google is set up. The adapter is passed into create_app like other outside services, with a fake in tests. Google sign-in works during an F7.7 lockout. CHANGES SHARED FILES: app/main.py, app/web/account_routes.py, templates.",
+      "specRefs": [
+        "F7.6",
+        "F7.5"
+      ],
+      "acceptance": [
+        "The button shows only when GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set",
+        "A callback with a state that doesn't match the cookie, or no cookie, is refused and signs no one in",
+        "A Google email that matches an existing user (any case) signs that user in with the normal session cookie",
+        "An invited email without an account gets a new account (no password) and is signed in; a non-invited email is refused and no user is created",
+        "The owner signs in with Google by the email set with the F7-S6 command",
+        "After sign-in the user lands on the safe `next` address (unsafe ones go to '/')",
+        "Adapter errors (e.g. unverified email) show a plain message on the login page; nothing breaks",
+        "Works while password logins for that email are locked (if F7-S8 is built)"
+      ],
+      "verify": "uv run pytest tests/test_web_google_login.py",
+      "zone": "accounts",
+      "priority": 12,
+      "dependsOn": [
+        "F7-S11",
+        "F7-S7"
+      ],
+      "status": "todo",
+      "attempts": 0,
+      "notes": ""
+    },
+    {
+      "id": "F7-S13",
+      "title": "Only answer requests addressed to the app's own host names",
+      "description": "Same fix as IMPROVE IMP-7, done here for hosting (F7.3). New config/hosting.yaml (HostingConfig in app/config.py): allowed_hosts, default [localhost, 127.0.0.1, '[::1]'] ('testserver' is not a default: the test app adds it through its own config). A request whose Host header (port ignored) isn't on the list is refused with 400 and a plain message naming config/hosting.yaml. The hosted address is added there by the owner at deploy time. CHANGES SHARED FILES: app/main.py, app/config.py, tests/conftest.py (the test app allows 'testserver'; no existing test may change otherwise).",
+      "specRefs": [
+        "F7.3"
+      ],
+      "acceptance": [
+        "A request with Host: evil.example is refused with 400 and the message naming config/hosting.yaml",
+        "Host localhost:8000, 127.0.0.1:8000 and [::1]:8000 work",
+        "The allowed names come from config/hosting.yaml and can be extended without code changes; names are compared without case",
+        "Static files follow the same rule",
+        "All existing tests pass unchanged apart from the test app's allowed host list in conftest"
+      ],
+      "verify": "uv run pytest tests/test_web_allowed_hosts.py",
+      "zone": "accounts",
+      "priority": 13,
+      "dependsOn": [
+        "F7-S4"
+      ],
+      "status": "todo",
+      "attempts": 0,
+      "notes": ""
+    },
+    {
+      "id": "F7-S14",
+      "title": "Package the app as a container for any host",
+      "description": "Add a Dockerfile and .dockerignore: Python 3.12 slim image, install with uv from uv.lock (no dev tools), run as a non-root user, the database in /app/data (a volume, so it survives restarts), and on start run `alembic upgrade head` then uvicorn on port 8000 with --proxy-headers and --forwarded-allow-ips from an environment variable (default 127.0.0.1), so the Secure cookie works behind Cloudflare or another HTTPS proxy. .env, data/, .git, tests and ralph/logs are never copied into the image. A test reads both files and checks these rules (Docker isn't available in the test run). CHANGES SHARED FILES: new Dockerfile, .dockerignore (CI and tooling).",
+      "specRefs": [
+        "F7.3"
+      ],
+      "acceptance": [
+        "The Dockerfile uses a pinned Python 3.12 slim base, installs from uv.lock without dev dependencies, and runs as a non-root user",
+        "The start command runs migrations, then uvicorn with --host 0.0.0.0 --port 8000 --proxy-headers and --forwarded-allow-ips taken from an environment variable",
+        ".dockerignore excludes .env, data/, .git, tests/ and ralph/logs; the Dockerfile never copies .env or sets any secret",
+        "The database location is /app/data and is declared as a volume",
+        "A request with X-Forwarded-Proto: https from the allowed proxy makes the login cookie Secure (tested with uvicorn's ProxyHeadersMiddleware settings the container uses, or the equivalent app setting)"
+      ],
+      "verify": "uv run pytest tests/test_container.py",
+      "zone": "accounts",
+      "priority": 14,
+      "dependsOn": [
+        "F7-S13"
+      ],
+      "status": "todo",
+      "attempts": 0,
+      "notes": ""
+    },
+    {
+      "id": "F7-S15",
+      "title": "Deploy to Google Cloud with Cloudflare in front (interactive, with the owner)",
+      "description": "Not a loop story: loops never deploy. Done in an interactive session, step by step, with the owner's explicit OK at each step.",
+      "specRefs": [
+        "F7.3"
+      ],
+      "acceptance": [
+        "Done in an interactive session: the owner creates the Google Cloud always-free e2-micro server (US region) and, if needed, a Cloudflare domain + tunnel; Claude guides the container start, the server's .env, the Google sign-in keys, the owner's password (F7-S6 command), login_required on, and the hosted name in config/hosting.yaml",
+        "From the owner's phone: the app opens over HTTPS, asks for a login, and Google sign-in works"
+      ],
+      "verify": "manual (interactive session)",
+      "zone": "accounts",
+      "priority": 15,
+      "dependsOn": [
+        "F7-S5",
+        "F7-S6",
+        "F7-S8",
+        "F7-S12",
+        "F7-S14"
+      ],
       "status": "blocked",
       "attempts": 0,
-      "notes": "NEEDS OWNER: (1) Where to host and the monthly budget (e.g. a small cloud server or a platform service; Claude can propose 2-3 options with costs in an interactive session). (2) Keep SQLite on a disk the host keeps, or move to Postgres? (3) Which web address / host names may the app answer to (also settles IMPROVE IMP-7)? (4) How secrets get to the host (its own secret settings, never in git). Also SPEC gap: a 'phone-friendly layout' is promised with hosting (Out of scope list) but has no acceptance criterion."
+      "notes": "INTERACTIVE ONLY: deploying needs the owner's explicit OK (CLAUDE.md). Loops skip this story. Start it in an interactive session once F7-S5 to F7-S14 are merged."
     }
   ]
 }

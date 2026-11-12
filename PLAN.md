@@ -14,7 +14,7 @@
 | F4 — Daily research report | — | reports | merged | — | Phases 3, 5, 7, 8. Reddit is out of scope (owner 2026-11-10); F4.12 narrowed to near-identical headlines (owner 2026-11-10). Owner's real-data checks of F4.7/F4.8 (Phase 7) and X (Phase 8) pending |
 | F5 — Market events calendar | — | calendar | merged | — | Phase 6; owner confirmed with real data |
 | F6 — Macro dashboard | — | macro | merged | — | Phase 9, PR #20; owner's real-data check pending (Next up 1) |
-| F7 — Accounts & hosting | `ralph/tasks/F7-accounts.json` | accounts (+ shared files) | planned | `ralph/F7-accounts` | 9 stories: 4 ready (password storage, login sessions, log in/out, pages use the signed-in user), 5 blocked on owner questions (login required locally?, creating accounts, wrong-password limit, morning job per user, hosting F7.3). F7.1 already built |
+| F7 — Accounts & hosting | `ralph/tasks/F7-accounts.json` | accounts (+ shared files; S9, S10 also touch reports) | looping | `claude/eloquent-bohr-tmxsww` (PR #24) | 15 stories. S1–S4 done in PR #24 (passwords, login sessions, log in/out, pages use the signed-in user). S5–S14 ready from the owner's answers (2026-11-12, DECISIONS): login only online, owner command, invite-only sign-up, 10-wrong-tries lock, 2 reports/day for others, morning report owner-only, Google sign-in, allowed host names, container. S15 (deploy) is interactive only. F7.1 already built |
 
 **Status values:** not planned → planned → looping → in review → merged (or: blocked — needs me)
 
@@ -24,7 +24,7 @@
 
 ## Waiting on me
 <!-- Blocked stories, open questions, pull requests to review. -->
-- **F7 questions (2026-11-11 plan, details in each blocked story's notes in `ralph/tasks/F7-accounts.json`):** login required on your own computer too, or only when hosted? How are accounts created (proposal: a command you run; no public sign-up)? Rename `owner@localhost` to your email? Password reset by command only, or also a change-password page? Limit repeated wrong passwords (new SPEC criterion)? Morning job for every user, and shared or split AI/X budgets? Session length (proposal 30 days)? Hosting: where, budget, SQLite or Postgres, web address (also settles IMP-7), how secrets reach the host. SPEC gaps: phone-friendly layout and the security review have no acceptance criteria.
+- **F7 answered (2026-11-12):** all questions settled (DECISIONS 2026-11-12). Still open: **market data for beta users** (Yahoo is personal-use only, so online stays owner-only until a source that allows sharing is chosen) and a **phone-friendly layout** criterion (SPEC Open questions). Review PR #24 (and the next F7 pull request) when the loop finishes.
 - Test gaps found at the switch (2026-11-10), for the improvement loop (prompt 13, Focus: tests): hand-made samples for every outside service; no tests for the macro charts' JavaScript or page layout; the 25-ticker speed goal never measured; F4.13 tested only for the summary step; F7.1 checked only through the default user; few tests for F4.10 and F5.2.
 - Real-data checks: Phase 9 macro dashboard, Phase 8 X, Phase 7 valuation/holders, Phase 5 timing, Phase 4 leftovers (details in **Next up** below).
 
@@ -111,7 +111,7 @@ Each phase ends with a working app, passing tests, and the docs updated.
    - **Expiry (after Friday Nov 6, 4 PM ET):** record a contract expiring Friday before then; afterwards the Portfolio page should ask "Expired worthless" or "Assigned".
    - **After 4 PM ET**, refresh a watchlist: prices should be that day's close, with the change labelled "today".
    - Optional: in an AMZN report, check that an insider trade matches the SEC's own Form 4 page (click "Form 4").
-7. **Phase 10: polish, security review, accounts, deploy (F7)**. Propose a plan first (security review, login, hosting choice, phone layout).
+7. **F7 (accounts & hosting):** loop running on the F7 task file (see Roadmap). After it: the security review, then deploy step by step together (story F7-S15: Google Cloud free server + Cloudflare).
 8. Later (owner's suggestion): a proper "what's new since my last report" view or an "update this report" button, so frequent reports don't repeat the week's stories.
 9. Later (owner): prune and polish the report's metrics and layout once all features are built.
 10. Owner: when the Fed publishes its 2027 meeting dates, add them to `config/fomc_dates.yaml` (or ask Claude to).
@@ -254,6 +254,7 @@ Each phase ends with a working app, passing tests, and the docs updated.
 
 ## Handoff note (interactive sessions)
 <!-- Where we stopped, anything half-finished, what the next session should check first. -->
+- 2026-11-12: loop built F7-S1 to S4 (PR #24, branch `claude/eloquent-bohr-tmxsww`, 58 new tests). Owner answered the F7 questions; recorded in SPEC (Users, F7.2–F7.9, Out of scope, Constraints, Open questions), DECISIONS 2026-11-12, and the task file (blocked placeholders replaced by S5–S14 `todo` and S15 interactive deploy). Loop restarted on the same branch. Watch for: S6 changes how the owner is found at startup (by first user, not by email); S13 needs `tests/conftest.py` to allow 'testserver'.
 - 2026-11-11: planned F7 (`ralph/tasks/F7-accounts.json`, progress log `ralph/progress/F7-accounts.md`, branch `ralph/F7-accounts`). Proposed (not yet logged in DECISIONS, waiting for the owner's OK): passwords hashed with Python's built-in `hashlib.scrypt` and login sessions stored in the database with random tokens (no new dependencies); new settings in `config/accounts.yaml`. Once the owner answers the F7 questions in **Waiting on me**, rewrite the blocked stories' acceptance criteria and set them to `todo`.
 - 2026-11-10: switched to the Ralph loop workflow (no app code, tests or dependencies changed). Added `ralph/` (prompts, loop script, examples), work zones in `docs/ARCHITECTURE.md`, F0 and IDs/ticks in `docs/SPEC.md`, `.claude/settings.json`. No task files yet. Owner's answers the same day: F4.12 narrowed to near-identical headlines, Reddit moved to Out of scope (F4 now merged), old prompt wording deleted from `docs/PROMPTS.md`, `main` is protected on GitHub, loops may run `uv run alembic upgrade head`. Next: plan F7 with prompt 2 (`ralph/PROMPT_plan.md`), or first add tests for the weak spots with the improvement loop (prompt 13, Focus: tests).
 

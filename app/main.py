@@ -3,21 +3,24 @@
 import threading
 from collections.abc import Callable, Sequence
 from contextlib import asynccontextmanager
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 from fastapi import FastAPI, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import Engine
 from sqlmodel import Session
+from starlette.concurrency import run_in_threadpool
 
 from app.ai.gemini import GeminiLLM
 from app.ai.llm import AIError
 from app.config import (
+    AccountsConfig,
     AppConfig,
     FomcConfig,
     Settings,
     get_settings,
+    load_accounts_config,
     load_app_config,
     load_benchmarks_config,
     load_fomc_config,
@@ -40,10 +43,12 @@ from app.services.market_facts import MarketFacts
 from app.services.options import RiskFreeRate
 from app.services.portfolio import TradeNotFound
 from app.services.reports import ReportServices, execute_run, mark_interrupted_runs
-from app.services.users import ensure_default_user
+from app.services.users import ensure_owner
 from app.services.watchlists import WatchlistNotFound
 from app.sources.http import HttpFetcher
 from app.sources.registry import NEWS_USER_AGENT, build_sources
+from app.web.account_routes import SESSION_COOKIE, is_open_path, signed_in
+from app.web.account_routes import router as account_router
 from app.web.assets import STATIC_DIR
 from app.web.calendar_routes import router as calendar_router
 from app.web.macro_routes import router as macro_router
@@ -141,6 +146,7 @@ def create_app(
     fred: FredClient | None = None,
     fomc: FomcConfig | None = None,
     macro: MacroSetup | None = None,
+    accounts: AccountsConfig | None = None,
 ) -> FastAPI:
     """Build the app. Tests pass in a temporary database, fake data sources and small limits."""
     settings = get_settings()
@@ -152,6 +158,7 @@ def create_app(
     )
     fred = fred or FredClient(settings.fred_api_key, settings.source_timeout_seconds)
     fomc = fomc or load_fomc_config(settings.fomc_dates_file)
+    accounts = accounts or load_accounts_config(settings.accounts_config_file)
     if macro is None:
         macro_config = load_macro_config(settings.macro_config_file)
         macro = MacroSetup(
@@ -176,7 +183,7 @@ def create_app(
                 "Run: uv run alembic upgrade head"
             )
         with Session(engine) as session:
-            app.state.user_id = ensure_default_user(session, settings.default_user_email).id
+            app.state.user_id = ensure_owner(session, settings.default_user_email).id
             mark_interrupted_runs(session)
         app.state.scheduler = start_scheduler(
             engine, app.state.user_id, report_services, app_config.schedule
@@ -188,6 +195,31 @@ def create_app(
                 app.state.scheduler.shutdown(wait=False)
 
     app = FastAPI(title="Finance Dashboard", lifespan=lifespan)
+
+    def look_up_account(token: str):
+        with Session(engine) as session:
+            return signed_in(session, token)
+
+    @app.middleware("http")  # runs after find_signed_in_user below (added later = runs first)
+    async def require_login(request: Request, call_next):
+        """When login is required (online, F7.4), only signed-in users get past the login page."""
+        if not accounts.login_required or request.state.account is not None:
+            return await call_next(request)
+        if is_open_path(request.url.path):
+            return await call_next(request)
+        if request.headers.get("hx-request"):  # HTMX swaps in parts of a page: reload it all
+            return Response(status_code=401, headers={"HX-Redirect": "/login"})
+        target = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+        return RedirectResponse(f"/login?{urlencode({'next': target})}", status_code=303)
+
+    @app.middleware("http")
+    async def find_signed_in_user(request: Request, call_next):
+        """Who is signed in (F7.2), for the menu and the pages: `request.state.account`."""
+        request.state.account = None
+        token = request.cookies.get(SESSION_COOKIE)
+        if token and not request.url.path.startswith("/static/"):
+            request.state.account = await run_in_threadpool(look_up_account, token)
+        return await call_next(request)
 
     @app.middleware("http")
     async def refuse_cross_site_changes(request: Request, call_next):
@@ -219,6 +251,7 @@ def create_app(
         market_data=market_data, fred=fred, fomc=fomc, config=app_config
     )
     app.state.macro = macro
+    app.state.accounts = accounts
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     app.include_router(router)
     app.include_router(report_router)
@@ -226,6 +259,7 @@ def create_app(
     app.include_router(portfolio_router)
     app.include_router(calendar_router)
     app.include_router(macro_router)
+    app.include_router(account_router)
     app.add_exception_handler(WatchlistNotFound, watchlist_not_found)
     app.add_exception_handler(ReportNotFound, report_not_found)
     app.add_exception_handler(TradeNotFound, trade_not_found)

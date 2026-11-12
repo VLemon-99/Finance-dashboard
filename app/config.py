@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     # The macro dashboard's indicators (see MacroConfig below, SPEC F6).
     macro_config_file: Path = PROJECT_ROOT / "config" / "macro.yaml"
 
+    # Login settings: password hashing cost (see AccountsConfig below, SPEC F7.2).
+    accounts_config_file: Path = PROJECT_ROOT / "config" / "accounts.yaml"
+
 
 @lru_cache
 def get_settings() -> Settings:
@@ -406,6 +409,73 @@ class XConfig(_Section):
 def load_x_config(path: Path) -> XConfig:
     """Read config/x.yaml."""
     return _load_yaml(path, XConfig, "X (Twitter)")
+
+
+# --- config/accounts.yaml (login, SPEC F7.2) -------------------------------------------
+
+# One "@", something on both sides, no spaces. Deliberately loose: "owner@localhost" passes.
+EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+$")
+MAX_EMAIL = 320
+
+
+class ScryptCost(_Section):
+    """How much work turning a password into its stored hash takes (Python's scrypt).
+
+    Higher = slower to guess, but each login also takes longer and uses more memory
+    (about 128 * n * r bytes: 32 MB with the defaults). The cost is stored with each
+    hash, so changing it only affects passwords set afterwards.
+    """
+
+    n: int = Field(default=2**15, ge=2, le=2**20)  # must be a power of two
+    r: int = Field(default=8, ge=1, le=32)
+    p: int = Field(default=1, ge=1, le=16)
+
+    @field_validator("n")
+    @classmethod
+    def _power_of_two(cls, value: int) -> int:
+        if value & (value - 1):
+            raise ValueError(f"n must be a power of two (like 16384 or 32768), not {value}")
+        return value
+
+
+class AccountsConfig(_Section):
+    scrypt: ScryptCost = ScryptCost()
+    # How many days you stay logged in on a device before being asked again.
+    session_days: int = Field(default=30, ge=1, le=365)
+    # Shortest password allowed when one is set (sign-up, the owner command).
+    min_password_length: int = Field(default=12, ge=8, le=128)
+    # Ask for a login before showing any page (F7.4). Off on your own computer; on when
+    # the app runs online.
+    login_required: bool = False
+    # Wrong passwords (F7.7): after this many for one email within the window, password
+    # logins for that email are refused for `lockout_minutes`. Google sign-in still works.
+    max_failed_logins: int = Field(default=10, ge=1, le=1000)
+    failed_login_window_minutes: int = Field(default=15, ge=1, le=1440)
+    lockout_minutes: int = Field(default=15, ge=1, le=1440)
+    # "Generate now" reports per US Eastern day for users other than the owner (F7.8),
+    # so others can't use up the AI credit. The owner has no limit.
+    reports_per_day: int = Field(default=2, ge=0, le=1000)
+    # Emails that may create an account (F7.5), compared without case. Empty = nobody.
+    invited: list[str] = Field(default=[], max_length=500)
+
+    @field_validator("invited")
+    @classmethod
+    def _emails(cls, value: list[str]) -> list[str]:
+        cleaned = []
+        for raw in value:
+            email = str(raw).strip().lower()
+            if len(email) > MAX_EMAIL or not EMAIL_PATTERN.match(email):
+                raise ValueError(f"'{raw}' in the invite list isn't an email address")
+            cleaned.append(email)
+        return list(dict.fromkeys(cleaned))
+
+    def is_invited(self, email: str) -> bool:
+        return email.strip().lower() in self.invited
+
+
+def load_accounts_config(path: Path) -> AccountsConfig:
+    """Read config/accounts.yaml."""
+    return _load_yaml(path, AccountsConfig, "Accounts")
 
 
 # --- config/fomc_dates.yaml (Fed meetings, SPEC F5.2) ---------------------------------

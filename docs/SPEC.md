@@ -14,8 +14,9 @@ events. It is **not** linked to any brokerage and never places trades.
 - **The owner (single user, for now):** an active investor who trades stocks and sells/buys
   options. Wants to stop sifting manually through news, X and YouTube every day, and wants
   one place to see prices, greeks, and the return on short-option trades.
-- **Later:** possibly other people with their own accounts. Not built yet, but the data
-  model must not make this hard (see F7 and `docs/DECISIONS.md`).
+- **Beta testers (later):** up to about 100 people the owner invites, each with their own
+  account and data (F7). Until the market data question is settled (Open questions), the
+  hosted app is used by the owner only (owner 2026-11-12, `docs/DECISIONS.md`).
 
 ## Glossary (plain language)
 - **Ticker** — the short code for a stock or ETF, e.g. `AMZN`.
@@ -140,8 +141,14 @@ Acceptance criteria:
 ### F7 — Accounts & hosting (later)
 Acceptance criteria (initial):
 - [x] F7.1 From the first version, every stored watchlist, trade and report belongs to a user, so accounts can be added without redesigning the data.
-- [ ] F7.2 (Later phase) I can log in with email and password; each user only sees their own data.
-- [ ] F7.3 (Later phase) The app can be deployed online and reached securely (HTTPS) from my phone.
+- [ ] F7.2 I can log in with email and password; each user only sees their own data. (Login, logout and per-user pages built on the F7 branch; ticked when merged.)
+- [ ] F7.3 The app can be deployed online and reached securely (HTTPS) from my phone. Plan: Google Cloud's always-free small server, with Cloudflare in front for the web address and HTTPS if needed (owner 2026-11-12). The app answers only to the host names in its settings, and knows it's reached over HTTPS when behind the configured proxy.
+- [ ] F7.4 Logging in is required only when the app runs online: a setting (`login_required`, off by default). When on, every page and action except the login and sign-up pages sends a visitor who isn't signed in to the login page, and back to where they were afterwards (only addresses inside the app).
+- [ ] F7.5 Accounts are invite-only: only emails on the invite list in `config/accounts.yaml` can create an account, with email + password on a sign-up page (passwords at least 12 characters) or with "Sign in with Google". There is no open sign-up. The owner's account is the existing default user; a command run on the server sets its email and password.
+- [ ] F7.6 "Sign in with Google": an invited user (or the owner) can log in with their Google account. Only Google-verified emails are accepted; the Google account is matched to the app account by email.
+- [ ] F7.7 After 10 wrong passwords for one email within 15 minutes, further password logins for that email are refused for 15 minutes, with a clear message (numbers in config). Google sign-in still works during the lock.
+- [ ] F7.8 Users other than the owner can generate at most 2 reports per US Eastern day ("Generate now"; number in config); the page says how many are left. The owner has no limit.
+- [ ] F7.9 The scheduled morning report runs only for the owner. Other users don't get one (how to offer it is decided later: manually by the owner, a subscription or otherwise).
 
 ## Out of scope (for now)
 - Linking to a brokerage account, importing statements, or placing / executing trades.
@@ -153,13 +160,15 @@ Acceptance criteria (initial):
 - Return figures for uncovered (naked) short calls; strategies with 3+ legs (iron condors, butterflies) and the put version of the poor man's covered call, until requested.
 - Backtesting, tax lots, tax reporting.
 - Native mobile app (a phone-friendly web page comes with hosting, F7).
-- Multiple users / login (until F7's phase).
+- Open sign-up (accounts are invite-only, F7.5); passkeys; "forgot password" emails (owner 2026-11-12: maybe later). A forgotten password is reset by the owner with a command on the server.
+- Morning reports for users other than the owner (F7.9), and splitting the AI or X budgets between users.
 - A full adjustable DCF valuation model (after F4.7 is done).
 - Scraping X/Twitter in breach of its terms of service.
 - Reddit as a report source (owner 2026-11-10; parked since 2026-11-05 because Reddit closed free access for personal projects). Its sentiment weight (0.3) stays in the settings; revisit if Reddit offers personal-use access again.
 
 ## Constraints
 - Runs on my own computer first (Mac or Windows, opened in a web browser), and is built so it can move to the cloud later.
+- Hosting: free tier to start (Google Cloud's always-free server; a web address about $10–15/year), for up to about 100 beta users.
 - Ongoing cost: market data must be free to start (Yahoo Finance via an unofficial library). AI usage should stay within the $10/month Google Cloud credit that comes with the owner's Gemini Pro subscription. At most about $5/month extra for YouTube/X aggregation.
 - Starts with one command once installed.
 - A full morning report for 25 tickers finishes in under 10 minutes.
@@ -171,3 +180,5 @@ Acceptance criteria (initial):
 - ~~**X/Twitter source**~~ settled 2026-11-05: X's official pay-per-use API, $5/month (DECISIONS 2026-11-05).
 - ~~**Macro indicators (F6):**~~ settled 2026-11-08 (DECISIONS 2026-11-08; F6 above).
 - **Report delivery:** in the app only for now. Is email or PDF wanted later?
+- **Market data for beta users:** Yahoo Finance's data (via `yfinance`) is for personal use only, so showing it to other people very likely breaks its terms. Before inviting anyone, find a data source that allows it (likely paid) or another arrangement (owner 2026-11-12: stay owner-only online for now).
+- **Phone-friendly layout:** promised with hosting (Out of scope list) but has no acceptance criterion yet.

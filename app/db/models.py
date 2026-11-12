@@ -17,7 +17,35 @@ class User(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     email: str = Field(unique=True, index=True, max_length=320)
+    # Salted scrypt hash (app/services/users.py), never the password. None = can't log in.
+    password_hash: str | None = Field(default=None, max_length=255)
     created_at: datetime = Field(default_factory=utc_now)
+
+
+class LoginSession(SQLModel, table=True):
+    """One signed-in device (F7.2). Only a hash of its token is kept, never the token."""
+
+    __tablename__ = "login_sessions"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    token_hash: str = Field(unique=True, index=True, max_length=64)  # SHA-256, hex
+    created_at: datetime = Field(default_factory=utc_now)
+    expires_at: datetime
+
+
+class LoginFailure(SQLModel, table=True):
+    """One wrong password for an email (F7.7), to refuse guessing after too many.
+
+    Not user-owned (unknown emails are counted too, so nobody can tell which exist), so no
+    `user_id`, like `x_checks`. Old rows are deleted as new ones come in.
+    """
+
+    __tablename__ = "login_failures"
+
+    id: int | None = Field(default=None, primary_key=True)
+    email: str = Field(index=True, max_length=320)  # trimmed, lower case
+    failed_at: datetime = Field(index=True)
 
 
 class Instrument(SQLModel, table=True):
