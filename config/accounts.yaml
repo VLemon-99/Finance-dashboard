@@ -1,0 +1,10 @@
+# Accounts and login (SPEC F7.2). Restart the app after editing. No secrets here.
+
+# How much work turning a password into its stored "hash" takes. Higher numbers make a
+# stolen database slower to crack, but each login takes longer and uses more memory
+# (about 128 x n x r bytes: 32 MB with these numbers). Each stored password remembers
+# the numbers it was made with, so changing them only affects passwords set afterwards.
+scrypt:
+  n: 32768   # must be a power of two
+  r: 8
+  p: 1

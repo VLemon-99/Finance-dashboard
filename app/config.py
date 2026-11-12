@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     # The macro dashboard's indicators (see MacroConfig below, SPEC F6).
     macro_config_file: Path = PROJECT_ROOT / "config" / "macro.yaml"
 
+    # Login settings: password hashing cost (see AccountsConfig below, SPEC F7.2).
+    accounts_config_file: Path = PROJECT_ROOT / "config" / "accounts.yaml"
+
 
 @lru_cache
 def get_settings() -> Settings:
@@ -406,6 +409,38 @@ class XConfig(_Section):
 def load_x_config(path: Path) -> XConfig:
     """Read config/x.yaml."""
     return _load_yaml(path, XConfig, "X (Twitter)")
+
+
+# --- config/accounts.yaml (login, SPEC F7.2) -------------------------------------------
+
+
+class ScryptCost(_Section):
+    """How much work turning a password into its stored hash takes (Python's scrypt).
+
+    Higher = slower to guess, but each login also takes longer and uses more memory
+    (about 128 * n * r bytes: 32 MB with the defaults). The cost is stored with each
+    hash, so changing it only affects passwords set afterwards.
+    """
+
+    n: int = Field(default=2**15, ge=2, le=2**20)  # must be a power of two
+    r: int = Field(default=8, ge=1, le=32)
+    p: int = Field(default=1, ge=1, le=16)
+
+    @field_validator("n")
+    @classmethod
+    def _power_of_two(cls, value: int) -> int:
+        if value & (value - 1):
+            raise ValueError(f"n must be a power of two (like 16384 or 32768), not {value}")
+        return value
+
+
+class AccountsConfig(_Section):
+    scrypt: ScryptCost = ScryptCost()
+
+
+def load_accounts_config(path: Path) -> AccountsConfig:
+    """Read config/accounts.yaml."""
+    return _load_yaml(path, AccountsConfig, "Accounts")
 
 
 # --- config/fomc_dates.yaml (Fed meetings, SPEC F5.2) ---------------------------------

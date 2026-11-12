@@ -17,6 +17,8 @@ class User(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     email: str = Field(unique=True, index=True, max_length=320)
+    # Salted scrypt hash (app/services/users.py), never the password. None = can't log in.
+    password_hash: str | None = Field(default=None, max_length=255)
     created_at: datetime = Field(default_factory=utc_now)
 
 
