@@ -12,6 +12,15 @@
   <header>
     <a href="/" class="brand">Finance Dashboard</a>
     <nav><a href="/">Watchlists</a><a href="/options">Options</a><a href="/portfolio">Portfolio</a><a href="/reports">Reports</a><a href="/calendar">Calendar</a><a href="/macro">Macro</a><a href="/lookup">Quote lookup</a></nav>
+    <div class="account">
+      {%- set account = request.state.account if request and request.state.account is defined else none %}
+      {%- if account %}
+      <span class="account-email">{{ account.email }}</span>
+      <form action="/logout" method="post"><button type="submit" class="link">Log out</button></form>
+      {%- else %}
+      <a href="/login">Log in</a>
+      {%- endif %}
+    </div>
   </header>
   <main class="{% block main_class %}{% endblock %}">{% block content %}{% endblock %}</main>
 </body>
