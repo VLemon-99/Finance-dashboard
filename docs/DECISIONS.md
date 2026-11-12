@@ -2,6 +2,27 @@
 
 > One entry per meaningful choice, newest at the top. This stops future sessions and loop rounds from quietly undoing past decisions. Loop rounds don't edit this file — they record proposals in their progress log, and an interactive session adds them here after review.
 
+## 2026-11-12 — F7: beta users, invite-only accounts, Google sign-in, hosting on Google Cloud + Cloudflare
+- **Decision** (owner's answers to the F7 questions, 2026-11-12):
+  - **Users:** the app is built for the owner plus up to about 100 invited beta testers, each with their own data. **Online it stays owner-only for now**, because Yahoo Finance's data (through `yfinance`) is for personal use only, and showing it to others very likely breaks its terms (the same rule that ruled out X scraping). Before anyone is invited, a data source that allows it must be found (SPEC Open questions).
+  - **Login only online:** a `login_required` setting, off on the owner's computer, on when hosted (F7.4).
+  - **Accounts are invite-only:** emails on an invite list in `config/accounts.yaml` (shipped empty) can sign up with email + password (at least 12 characters) or "Sign in with Google". No open sign-up. The owner's account is the existing default user (it owns all current data); a command on the server sets its real email and password (F7.5, F7.6).
+  - **Not now:** passkeys and "forgot password" emails (they would need an email-sending service and a web address for it). A forgotten password is reset by the owner with the same command.
+  - **Wrong passwords:** at most 10 for one email in 15 minutes, then 15 minutes' wait (owner: "max 10 tries"; the 15 minutes are Claude's proposal, in config). The lock is per email, so someone could lock the owner's password login on purpose; Google sign-in keeps working during a lock (F7.7).
+  - **Reports:** users other than the owner can "Generate now" at most 2 reports a US Eastern day, so the $10/month Gemini credit can't be used up by others (F7.8). The morning report runs only for the owner; how to offer it to others is decided later (F7.9).
+  - **Session length:** 30 days (config `session_days`), the planner's proposal, used by F7-S2.
+  - **Sign in with Google** is built by hand with `httpx` (already used), following Google's OpenID Connect steps: a one-time `state` and `nonce`, the code exchanged directly with Google over HTTPS, then the ID token's issuer, audience, expiry, nonce and `email_verified` checked. Because the token comes straight from Google's token endpoint over HTTPS, its signature check can be skipped (the OpenID Connect spec allows this), so **no new library** is needed. It lives behind an adapter in `app/providers/`, like every outside service. Keys `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` go in `.env`.
+  - **Hosting:** Google Cloud's always-free small server (e2-micro in a US region: 1 GB memory, 30 GB disk, free with no end date; outbound traffic above 1 GB a month costs pennies). SQLite stays: the disk is kept, so no move to Postgres. Cloudflare in front if needed: the web address (sold at cost), HTTPS, a tunnel so the server isn't open to the internet, and optionally Cloudflare Access (Google login before the app is even reached). The app is packaged as a standard container so it can move to another host in about an hour. **Deploying is done in an interactive session, step by step with the owner's OK; loops never deploy.**
+- **Why:** Free to start, nothing tied to one company (a plain server plus one database file), and the owner already has a Google Cloud account for Gemini. Invite-only and the report limit keep cost and risk small for a beta.
+- **Alternatives considered:**
+  - Firebase: built for JavaScript apps with its own database (Firestore). It would mean the paid pay-as-you-go plan and rewriting all data storage.
+  - Cloudflare Workers to run the app: limited Python support, no long background report runs or schedule. Kept only as the front door.
+  - AWS: new accounts get about 6 months of credits, then the free plan ends.
+  - Open sign-up: strangers could use up the AI credit.
+  - A login library: the hand-built version needs nothing new and is small enough to test fully with fakes.
+- **Revisit if:** a market data source for other users is chosen (then invite people); the free server is too small for the reports (about 1 GB memory, so reports run one at a time); the beta grows past about 100 users; email (password reset) becomes wanted.
+- **Supersedes in part:** 2026-11-01 "Local-first, single user": local use stays login-free, but the app now also runs online with accounts.
+
 ## 2026-11-10 — Reddit out of scope; F4.12 means near-identical headlines
 - **Decision** (owner's answers after the switch to Ralph loops): Reddit moves from "parked" to SPEC "Out of scope", so planning never turns it into stories (its 0.3 sentiment weight stays in the settings). SPEC F4.12 now says what the code does: stories are merged when their headlines are nearly identical. Both make F4 complete (`merged`). Loops may also run `uv run alembic upgrade head` without asking (`.claude/settings.json`).
 - **Why:** Reddit still offers no personal-use access (DECISIONS 2026-11-05); near-identical-headline merging is good enough for the owner.
