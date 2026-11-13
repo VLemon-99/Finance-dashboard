@@ -283,3 +283,18 @@ details.more .table-wrap { margin: 6px 0; }
   .add-stock .inline-form input { width: 100%; }
   .add-stock .htmx-indicator { grid-column: 1 / -1; }
 }
+
+/* Portfolio summary strip (IMP-10) */
+.summary { display: grid; grid-template-columns: 1fr auto; gap: 12px 24px; align-items: end; margin: 8px 0 18px; padding: 18px 20px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.summary-label { display: block; color: var(--muted); font-size: 0.85rem; font-weight: 600; }
+.summary-pnl { margin: 2px 0 0; font-size: 2.2rem; font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.summary-stats { display: flex; gap: 28px; margin: 0; }
+.summary-stats dt { color: var(--muted); font-size: 0.8rem; font-weight: 600; }
+.summary-stats dd { margin: 2px 0 0; font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.summary-notes, .summary-foot { grid-column: 1 / -1; margin: 0; }
+.summary-notes { color: var(--warn); }
+@media (max-width: 720px) {
+  .summary { grid-template-columns: 1fr; padding: 16px; }
+  .summary-pnl { font-size: 2rem; }
+  .summary-stats { justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--border); }
+}

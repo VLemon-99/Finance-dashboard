@@ -258,9 +258,9 @@
       "dependsOn": [
         "IMP-8"
       ],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
-      "notes": "Run 2 (bold, UI). REVIEW: approve, split from the original IMP-10 (summary + phone cards was too much for one round); criteria now define position counting, which trades count toward capital at risk, and the expired/missing cases."
+      "notes": "Run 2 (bold, UI). REVIEW: approve, split from the original IMP-10 (summary + phone cards was too much for one round); criteria now define position counting, which trades count toward capital at risk, and the expired/missing cases. DONE 2026-11-13: app/services/portfolio_summary.py (pure `summarize` over SummaryLine, `summary_lines` from the PortfolioView, `notes` naming what's left out); summary card at the top of portfolio.html (Open P&L large and coloured, Open positions, Capital at risk, notes, one-line footer). 18 tests in tests/test_portfolio_summary.py (11 known-answer arithmetic tests incl. the SPEC F3.6 CSP 9,800; 7 page tests incl. a linked spread counting once and expired/unpriced/uncovered cases). Second review: PASS; its suggestion applied: covered calls with no recorded stock price at sale are counted and named (otherwise capital at risk would be quietly understated), and the notes text moved from the template into Python."
     },
     {
       "id": "IMP-10b",

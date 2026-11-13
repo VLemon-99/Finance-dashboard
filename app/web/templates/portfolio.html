@@ -6,6 +6,25 @@
 <p class="muted small">A virtual portfolio for tracking performance. Nothing here is linked to a broker.</p>
 {% if error %}<p class="note error" role="alert">{{ error }}</p>{% endif %}
 
+{% if summary.positions or summary.expired %}
+<section class="summary" aria-label="Portfolio summary">
+  <div class="summary-main">
+    <span class="summary-label">Open P&amp;L</span>
+    {% if summary.total_pnl is not none %}{% set dir = summary.total_pnl | trend %}
+    <p class="summary-pnl"><span class="{{ dir }}" data-total-pnl>{{ summary.total_pnl | signed }}</span></p>
+    {% else %}
+    <p class="summary-pnl"><span class="flat" data-total-pnl>—</span></p>
+    {% endif %}
+  </div>
+  <dl class="summary-stats">
+    <div><dt>Open positions</dt><dd data-positions>{{ summary.positions }}</dd></div>
+    <div><dt>Capital at risk</dt><dd data-capital>${{ summary.capital_at_risk | money }}</dd></div>
+  </dl>
+  {% if summary.notes %}<p class="summary-notes muted small">{{ summary.notes | join(". ") }}.</p>{% endif %}
+  <p class="summary-foot muted small">Dollars, across stocks and options. Capital at risk adds cash-secured puts, covered calls, credit spreads and poor man's covered calls.</p>
+</section>
+{% endif %}
+
 {% if view.expired %}
 <section class="expired-box" aria-labelledby="expired-title">
   <h2 id="expired-title">Expired: how did these end?</h2>
