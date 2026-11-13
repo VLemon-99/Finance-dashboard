@@ -10,6 +10,7 @@ import binascii
 import hashlib
 import hmac
 import secrets
+import threading
 from datetime import datetime, timedelta
 
 from sqlmodel import Session, func, select
@@ -58,7 +59,23 @@ def ensure_default_user(session: Session, email: str) -> User:
     return user
 
 
+# Each scrypt check uses about 32 MB (with the default cost), so only a few may run at once
+# (security review H2, F7.10); the rest wait their turn. Set from config at app start.
+_password_slots = threading.BoundedSemaphore(2)
+
+
+def set_max_parallel_password_checks(limit: int) -> None:
+    global _password_slots
+    _password_slots = threading.BoundedSemaphore(limit)
+
+
 def _scrypt(password: str, salt: bytes, n: int, r: int, p: int) -> bytes:
+    slots = _password_slots
+    with slots:
+        return _derive(password, salt, n, r, p)
+
+
+def _derive(password: str, salt: bytes, n: int, r: int, p: int) -> bytes:
     return hashlib.scrypt(
         password.encode("utf-8"),
         salt=salt,

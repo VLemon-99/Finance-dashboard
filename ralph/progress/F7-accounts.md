@@ -123,3 +123,9 @@
 - Files touched: app/config.py, app/main.py, tests/test_web_online_failsafe.py (9 tests), this task file and log.
 - Test result: baseline exit 0; verify 9 passed; full suite exit 0; ruff check + format clean.
 - Next round should know: next is F7-S17 (limit parallel password checks).
+
+## Round — 2026-11-13 — F7-S17 — done
+- What I did: every scrypt call in `app/services/users.py` (so `hash_password` and `check_password`, used by login, sign-up, the dummy check and the account command) now takes one of a few "slots" (`threading.BoundedSemaphore`); extra checks wait their turn, none are refused. The slot count is `max_parallel_password_checks` (default 2, 1 to 16) in `AccountsConfig` / `config/accounts.yaml`, applied by `create_app` through `set_max_parallel_password_checks()`. The real scrypt call moved into `_derive()` so tests can swap in a slow counting fake.
+- Files touched: app/services/users.py, app/config.py, config/accounts.yaml, app/main.py, tests/test_accounts_password_limit.py (8 tests), this task file and log.
+- Test result: baseline exit 0; verify 8 passed; full suite exit 0; ruff check + format clean.
+- Next round should know: the limit is per running app (one process), which matches the single-server plan. Waiting requests still each hold a web worker thread; the Cloudflare rate-limit rule at deploy (F7-S15) is the other half of H2.

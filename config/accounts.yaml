@@ -13,6 +13,10 @@ scrypt:
 # again (1 to 365).
 session_days: 30
 
+# Password checks allowed at the same time (1 to 16). Each uses about 32 MB of memory, so
+# keep this small on a small server; extra logins just wait a moment.
+max_parallel_password_checks: 2
+
 # Shortest password allowed (8 to 128 characters).
 min_password_length: 12
 

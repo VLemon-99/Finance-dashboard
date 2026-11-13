@@ -47,7 +47,7 @@ from app.services.market_facts import MarketFacts
 from app.services.options import RiskFreeRate
 from app.services.portfolio import TradeNotFound
 from app.services.reports import ReportServices, execute_run, mark_interrupted_runs
-from app.services.users import ensure_owner
+from app.services.users import ensure_owner, set_max_parallel_password_checks
 from app.services.watchlists import WatchlistNotFound
 from app.sources.http import HttpFetcher
 from app.sources.registry import NEWS_USER_AGENT, build_sources
@@ -165,6 +165,7 @@ def create_app(
     fred = fred or FredClient(settings.fred_api_key, settings.source_timeout_seconds)
     fomc = fomc or load_fomc_config(settings.fomc_dates_file)
     accounts = accounts or load_accounts_config(settings.accounts_config_file)
+    set_max_parallel_password_checks(accounts.max_parallel_password_checks)
     hosting_from_file = hosting is None
     hosting = hosting or load_hosting_config(settings.hosting_config_file)
     allowed_hosts = set(hosting.allowed_hosts)
