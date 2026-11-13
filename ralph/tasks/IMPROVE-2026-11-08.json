@@ -456,9 +456,9 @@
       "dependsOn": [
         "IMP-8"
       ],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
-      "notes": "Run 2 (bold, UI), second survey. The report pages are not touched. REVIEW: approve with changes (applied): all columns stay visible on the card; data-trade and the Delete confirmation kept."
+      "notes": "Run 2 (bold, UI), second survey. The report pages are not touched. REVIEW: approve with changes (applied): all columns stay visible on the card; data-trade and the Delete confirmation kept. DONE 2026-11-13: the Trades and Closed positions tables are `responsive` with data-label on every cell (instrument as the card title, price / realized P&L as the headline with its caption, date or realized % under it); phone-only CSS appended. 3 tests appended to tests/test_web_ui_portfolio.py (all failed on the old page). 390px: no sideways scrolling in either box. Second review: PASS; its caption suggestion applied. Its note for the owner: the instrument name in these tables is now bold on laptops too."
     }
   ]
 }

@@ -98,3 +98,61 @@ def test_imp10b_laptop_tables_keep_their_fixed_columns(full):
     assert "<colgroup>" in group.split("<thead>")[0]
     css = (STATIC_DIR / "style.css").read_text()
     assert re.search(r"(?m)^table\.options-positions \{\s*table-layout:\s*fixed;\s*\}", css)
+
+
+# --- IMP-16: Trades and Closed positions -------------------------------------------------
+
+
+@pytest.fixture
+def history(web):
+    trade(web, "AAPL", "bought", 10, 250, day="2026-10-29")
+    trade(web, "AAPL", "sold", 10, 259.58)
+    trade(web, P250, "sold", 1, 3.00)
+    return web.get("/portfolio").text
+
+
+def test_imp16_trade_cells_are_labelled(history):
+    trade_rows = rows(history, "stocks trades responsive")
+    assert len(trade_rows) == 3
+    for row in trade_rows:
+        assert re.match(r'<tr data-trade="\d+">', row)
+        assert unlabelled_cells(row) == [], row[:80]
+        labels = re.findall(r'data-label="([^"]*)"', row)
+        assert labels == [
+            "Date",
+            "Trade",
+            "Instrument",
+            "Quantity",
+            "Price",
+            "Stock price",
+            "Price from",
+            "Actions",
+        ]
+
+
+def test_imp16_closed_cells_are_labelled(history):
+    closed_rows = rows(history, "stocks closed-positions responsive")
+    assert len(closed_rows) == 1
+    labels = re.findall(r'data-label="([^"]*)"', closed_rows[0])
+    assert labels == [
+        "Instrument",
+        "Position",
+        "Avg entry",
+        "Avg exit",
+        "Realized P&amp;L $",
+        "Realized %",
+        "Opened",
+        "Closed",
+    ]
+    assert unlabelled_cells(closed_rows[0]) == []
+
+
+def test_imp16_delete_stays_a_confirmed_post(history):
+    row = rows(history, "stocks trades responsive")[0]
+    trade_id = re.match(r'<tr data-trade="(\d+)">', row).group(1)
+    assert re.search(
+        rf'<form method="post" action="/portfolio/trades/{trade_id}/delete"\s+'
+        r'onsubmit="return confirm\(',
+        row,
+    )
+    assert f'aria-label="Delete trade {trade_id}"' in row

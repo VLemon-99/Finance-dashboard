@@ -445,3 +445,11 @@ a.button:hover { filter: brightness(0.96); }
 a.chip { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border: 1px solid var(--border); border-radius: 999px; background: var(--card); color: var(--text); font-weight: 700; letter-spacing: 0.01em; text-decoration: none; box-shadow: var(--shadow); }
 a.chip:hover { border-color: var(--accent); color: var(--accent); }
 @media (max-width: 720px) { a.chip { min-height: 44px; } }
+
+/* Portfolio Trades and Closed positions as phone cards (IMP-16) */
+@media (max-width: 720px) {
+  table.responsive td[data-col=change]:not(.num) { text-align: right; color: var(--muted); font-size: 0.9rem; }
+  table.responsive.trades td.sym strong, table.responsive.closed-positions td.sym strong { font-size: 1.05rem; }
+  /* Keep the captions on these headline numbers: a trade's price isn't a total. */
+  table.responsive.trades td[data-col=last]::before, table.responsive.closed-positions td[data-col=last]::before { content: attr(data-label); }
+}

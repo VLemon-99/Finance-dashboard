@@ -231,21 +231,21 @@
 {% if view.closed %}
 <h2>Closed positions</h2>
 <div class="table-wrap">
-<table class="stocks closed-positions">
+<table class="stocks closed-positions responsive">
   <thead>
     <tr><th>Instrument</th><th class="num">Position</th><th class="num">Avg entry</th><th class="num">Avg exit</th><th class="num">Realized P&amp;L $</th><th class="num">Realized %</th><th>Opened</th><th>Closed</th></tr>
   </thead>
   <tbody>
   {% for r in view.closed %}{% set p = r.position %}
     <tr data-symbol="{{ r.target.symbol }}">
-      <td>{{ instrument_label(r.target) }}{% if p.ended_by != 'trade' %} <span class="badge plain">{{ p.ended_by }}</span>{% endif %}</td>
-      <td class="num">{{ "Short" if p.direction < 0 else "Long" }} {{ p.quantity | whole }}</td>
-      <td class="num">{{ p.avg_entry | money }}</td>
-      <td class="num">{{ p.avg_exit | money }}</td>
-      <td class="num"><span class="{{ p.realized | trend }}">{{ p.realized | signed }}</span></td>
-      <td class="num">{% if p.realized_pct is not none %}{{ p.realized_pct | signed }}%{% else %}—{% endif %}</td>
-      <td>{{ p.opened_on | short_date }}</td>
-      <td>{{ p.closed_on | short_date }}</td>
+      <td class="sym" data-label="Instrument"><strong>{{ instrument_label(r.target) }}</strong>{% if p.ended_by != 'trade' %} <span class="badge plain">{{ p.ended_by }}</span>{% endif %}</td>
+      <td class="num" data-label="Position">{{ "Short" if p.direction < 0 else "Long" }} {{ p.quantity | whole }}</td>
+      <td class="num" data-label="Avg entry">{{ p.avg_entry | money }}</td>
+      <td class="num" data-label="Avg exit">{{ p.avg_exit | money }}</td>
+      <td class="num" data-label="Realized P&amp;L $" data-col="last"><span class="{{ p.realized | trend }}">{{ p.realized | signed }}</span></td>
+      <td class="num" data-label="Realized %" data-col="change">{% if p.realized_pct is not none %}{{ p.realized_pct | signed }}%{% else %}—{% endif %}</td>
+      <td data-label="Opened">{{ p.opened_on | short_date }}</td>
+      <td data-label="Closed">{{ p.closed_on | short_date }}</td>
     </tr>
   {% endfor %}
   </tbody>
@@ -256,21 +256,21 @@
 <h2>Trades</h2>
 {% if trades %}
 <div class="table-wrap">
-<table class="stocks trades">
+<table class="stocks trades responsive">
   <thead>
     <tr><th>Date</th><th>Trade</th><th>Instrument</th><th class="num">Quantity</th><th class="num">Price</th><th class="num">Stock price</th><th>Price from</th><th><span class="visually-hidden">Actions</span></th></tr>
   </thead>
   <tbody>
   {% for row in trades %}{% set t = row.trade %}
     <tr data-trade="{{ t.id }}">
-      <td>{{ t.trade_date | short_date }}</td>
-      <td>{{ t.side | capitalize }}{% if t.reason != 'trade' %} <span class="badge plain">{{ t.reason }}</span>{% endif %}</td>
-      <td>{{ instrument_label(row.target) }}</td>
-      <td class="num">{{ t.quantity | whole }} {{ "contract" if row.target.kind == "option" else "share" }}{{ "" if t.quantity == 1 else "s" }}</td>
-      <td class="num">{{ t.price | money }}</td>
-      <td class="num">{{ t.underlying_price | money if row.target.kind == "option" else "" }}</td>
-      <td class="small">{{ "app" if t.price_source == "auto" else "typed in" }}</td>
-      <td>
+      <td data-label="Date" data-col="change">{{ t.trade_date | short_date }}</td>
+      <td data-label="Trade">{{ t.side | capitalize }}{% if t.reason != 'trade' %} <span class="badge plain">{{ t.reason }}</span>{% endif %}</td>
+      <td class="sym" data-label="Instrument"><strong>{{ instrument_label(row.target) }}</strong></td>
+      <td class="num" data-label="Quantity">{{ t.quantity | whole }} {{ "contract" if row.target.kind == "option" else "share" }}{{ "" if t.quantity == 1 else "s" }}</td>
+      <td class="num" data-label="Price" data-col="last">{{ t.price | money }}</td>
+      <td class="num" data-label="Stock price">{{ t.underlying_price | money if row.target.kind == "option" else "" }}</td>
+      <td class="small" data-label="Price from">{{ "app" if t.price_source == "auto" else "typed in" }}</td>
+      <td class="actions" data-label="Actions">
         <form method="post" action="/portfolio/trades/{{ t.id }}/delete"
               onsubmit="return confirm('Delete this trade? Positions and returns are recalculated without it.');">
           <button type="submit" class="link" aria-label="Delete trade {{ t.id }}">Delete</button>
