@@ -1,0 +1,12 @@
+# Never copied into the container image (Dockerfile).
+.env
+.env.*
+data/
+.git/
+.github/
+.venv/
+tests/
+ralph/logs/
+**/__pycache__/
+*.pyc
+.claude/
