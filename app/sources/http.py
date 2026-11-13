@@ -19,6 +19,16 @@ log = logging.getLogger(__name__)
 MAX_BYTES = 25_000_000
 
 
+MAX_REDIRECTS = 5
+
+
+def _refuse_non_https(request: httpx.Request) -> None:
+    """A redirect to a plain-http address is refused before it's sent (the first address
+    is checked in `__call__`)."""
+    if request.url.scheme != "https":
+        raise SourceError("Refused a redirect to a non-HTTPS address.")
+
+
 class HttpFetcher:
     """Callable `Fetch`: `fetcher(url) -> bytes`, raising SourceError on any problem."""
 
@@ -34,6 +44,9 @@ class HttpFetcher:
             headers={"User-Agent": user_agent, "Accept-Encoding": "gzip, deflate"},
             timeout=timeout_seconds,
             follow_redirects=True,
+            max_redirects=MAX_REDIRECTS,
+            # Checked for every request, redirects included (security review L2, F7.10).
+            event_hooks={"request": [_refuse_non_https]},
         )
         # The SEC asks for no more than 10 requests a second; we leave a gap between calls.
         self._min_interval = min_interval_seconds

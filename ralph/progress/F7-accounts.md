@@ -135,3 +135,9 @@
 - Files touched: app/services/users.py, app/accounts_cli.py, tests/test_accounts_cli_signout.py (7 tests), this task file and log. `tests/test_accounts_cli.py` unchanged and passing.
 - Test result: baseline exit 0; verify 7 passed; full suite exit 0; ruff check + format clean.
 - Next round should know: next is F7-S19 (refuse redirects to non-HTTPS addresses in `app/sources/http.py`, reports zone).
+
+## Round — 2026-11-13 — F7-S19 — done
+- What I did: `HttpFetcher` in `app/sources/http.py` now has an httpx "request" event hook (`_refuse_non_https`), which httpx runs for every request it sends, redirects included: a redirect to a non-HTTPS address raises SourceError("Refused a redirect to a non-HTTPS address.") before it is requested. `max_redirects=5` (`MAX_REDIRECTS`); a longer chain becomes a SourceError through the existing httpx error handling.
+- Files touched: app/sources/http.py, tests/test_sources_http_redirects.py (5 tests), this task file and log. Existing source tests unchanged and passing.
+- Test result: baseline exit 0; verify 5 passed; full suite exit 0; ruff check + format clean.
+- Next round should know: only `HttpFetcher` (news, blogs, YouTube, SEC, Damodaran, ICI) follows redirects; FRED, X and Google use fixed HTTPS addresses with their own clients. Next is F7-S20 (no API description pages).
