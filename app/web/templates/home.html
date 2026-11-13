@@ -1,10 +1,58 @@
 {% extends "base.html" %}
 {% block title %}Watchlists · Finance Dashboard{% endblock %}
 {% block content %}
+<h1>Watchlists</h1>
+{% if error %}<p class="note error" role="alert">{{ error }}</p>{% endif %}
+{% if watchlists %}
+<ul class="list-cards wl-cards">
+  {% for w in watchlists %}{% set p = previews[w.id] %}
+  <li class="wl-card" data-watchlist="{{ w.id }}">
+    <div class="wl-head"><a href="/watchlists/{{ w.id }}">{{ w.name }}</a>
+      <span class="muted">{{ w.item_count }} item{{ "" if w.item_count == 1 else "s" }}</span></div>
+    {% if p.rows %}
+    <ul class="wl-rows">
+      {% for q in p.rows %}
+      <li data-symbol="{{ q.symbol }}">
+        <span class="wl-sym">{{ q.symbol }}</span>
+        <span class="wl-price">{{ q.last_price | money }}</span>
+        {% if q.change is not none %}{% set dir = q.change_pct | trend %}{# follows the % shown #}
+        <span class="chg"><span class="{{ dir }}">{% if dir != 'flat' %}<span class="arrow" aria-hidden="true">{{ '▲' if dir == 'up' else '▼' }}</span> {% endif %}{{ q.change_pct | signed }}%</span></span>
+        {% else %}<span class="chg"><span class="flat">—</span></span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% elif w.item_count %}
+    <p class="muted small wl-empty">Only option contracts in this list.</p>
+    {% else %}
+    <p class="muted small wl-empty">Empty. <a href="/watchlists/{{ w.id }}">Add a stock</a>.</p>
+    {% endif %}
+    {% if p.more or p.rows %}
+    <p class="wl-foot muted small">
+      {%- if p.more %}<a href="/watchlists/{{ w.id }}">+{{ p.more }} more</a>{% endif %}
+      {%- if p.more and p.rows %} · {% endif %}
+      {%- if p.rows %}{% if p.fetched_at %}Prices from {{ p.fetched_at | eastern }}{% else %}Prices not fetched yet{% endif %}{% if p.stale %} <span class="badge">stale</span>{% endif %}{% endif %}
+    </p>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+<p class="muted small">Prices shown here are the last ones stored; open a list to refresh them.</p>
+{% else %}
+<div class="empty-state">
+  <p><strong>No watchlists yet.</strong> Create your first one below: give it a name, then add the stocks you follow.</p>
+</div>
+{% endif %}
+<form method="post" action="/watchlists" class="inline-form new-list">
+  <label for="name">New list name</label>
+  <input id="name" name="name" value="{{ name }}" maxlength="60" required placeholder="e.g. Tech" autocapitalize="sentences">
+  <button type="submit">Create list</button>
+</form>
+<p class="muted small">{{ watchlists | length }} of {{ limits.max_watchlists }} lists used.</p>
+
 <section class="home-events" aria-labelledby="coming-up">
   <h2 id="coming-up">Coming up: high-impact events</h2>
   {% if events %}
-  <ul class="events">{% for e in events %}
+  <ul class="events event-chips">{% for e in events %}
     <li class="event {{ e.kind }}">
       <span class="event-time">{{ "{:%a}".format(e.day) }}, {{ e.day | short_date }}</span>
       <span class="event-title">{% if e.ticker %}<a href="/lookup?ticker={{ e.ticker }}">{{ e.title }}</a>{% else %}{{ e.title }}{% endif %}</span>
@@ -16,23 +64,4 @@
   {% endif %}
   <p class="small"><a href="/calendar">Full calendar</a>{% if calendar_notes %} <span class="muted">· some dates may be missing (see the calendar)</span>{% endif %}</p>
 </section>
-
-<h1>Watchlists</h1>
-{% if error %}<p class="note error" role="alert">{{ error }}</p>{% endif %}
-{% if watchlists %}
-<ul class="list-cards">
-  {% for w in watchlists %}
-  <li><a href="/watchlists/{{ w.id }}">{{ w.name }}</a>
-      <span class="muted">{{ w.item_count }} item{{ "" if w.item_count == 1 else "s" }}</span></li>
-  {% endfor %}
-</ul>
-{% else %}
-<p>No watchlists yet. Create your first one below.</p>
-{% endif %}
-<form method="post" action="/watchlists" class="inline-form">
-  <label for="name">New list name</label>
-  <input id="name" name="name" value="{{ name }}" maxlength="60" required placeholder="e.g. Tech" autocapitalize="sentences">
-  <button type="submit">Create list</button>
-</form>
-<p class="muted small">{{ watchlists | length }} of {{ limits.max_watchlists }} lists used.</p>
 {% endblock %}

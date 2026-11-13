@@ -102,6 +102,31 @@ def get_quotes(
     return views
 
 
+def stored_quote_views(
+    session: Session, symbols: Sequence[str], max_age: timedelta
+) -> dict[str, QuoteView]:
+    """Views from stored prices only, never fetching (the home page, IMP-12). A price older
+    than `max_age` is marked stale; a stock never fetched has no price (status "error")."""
+    wanted = set(symbols)
+    if not wanted:
+        return {}
+    rows = session.exec(
+        select(Instrument.symbol, Quote)
+        .join(Quote, Quote.instrument_id == Instrument.id)  # type: ignore[arg-type]
+        .where(Instrument.symbol.in_(wanted))  # type: ignore[attr-defined]
+    ).all()
+    stored = dict(rows)
+    views = {}
+    for symbol in wanted:
+        quote = stored.get(symbol)
+        if quote is None:
+            views[symbol] = QuoteView(symbol=symbol, status="error", note="Not fetched yet.")
+        else:
+            status = "ok" if _is_fresh(quote, max_age) else "stale"
+            views[symbol] = _view_from_stored(symbol, quote, status=status)
+    return views
+
+
 def _is_fresh(quote: Quote | None, max_age: timedelta | None) -> bool:
     if quote is None or max_age is None:
         return False

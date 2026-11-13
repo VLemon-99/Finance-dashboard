@@ -104,6 +104,8 @@ def _home(request, session, user_id, config, error=None, name="", status_code=20
             "events": events,
             "calendar_notes": calendar_notes,
             "watchlists": wl.list_watchlists(session, user_id),
+            # Stored prices only: the home page never waits on the data source (IMP-12).
+            "previews": wl.watchlist_previews(session, user_id, _refresh_window(config)),
             "limits": config.watchlists,
             "error": error,
             "name": name,

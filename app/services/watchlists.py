@@ -21,7 +21,7 @@ from app.db.models import Instrument, Watchlist, WatchlistItem
 from app.providers.market_data import MarketData
 from app.services.options import contract_instrument, stored_contract
 from app.services.options_math import is_expired
-from app.services.quotes import QuoteView, get_quotes, lookup_quote
+from app.services.quotes import QuoteView, get_quotes, lookup_quote, stored_quote_views
 from app.tickers import InvalidTicker, normalize_ticker
 
 MAX_NAME_LENGTH = 60
@@ -46,6 +46,38 @@ class WatchlistSummary:
 class WatchlistRow:
     item_id: int
     quote: QuoteView
+
+
+@dataclass(frozen=True)
+class WatchlistPreview:
+    """A list's first few stocks with their stored prices, for the home page (IMP-12)."""
+
+    rows: list[QuoteView]
+    more: int  # items not shown: further stocks plus every option contract
+    fetched_at: datetime | None  # oldest fetch among the shown prices (UTC)
+    stale: bool  # some shown price is older than the refresh window
+
+
+def watchlist_previews(
+    session: Session, user_id: int, max_age: timedelta, per_list: int = 5
+) -> dict[int, WatchlistPreview]:
+    """Previews for each of the user's lists, from stored prices only (no fetching)."""
+    lists = list_watchlists(session, user_id)
+    shown = {w.id: _items(session, w.id, kind="stock")[:per_list] for w in lists}
+    views = stored_quote_views(
+        session, sorted({symbol for items in shown.values() for _, symbol in items}), max_age
+    )
+    previews = {}
+    for w in lists:
+        rows = [views[symbol] for _, symbol in shown[w.id]]
+        times = [r.fetched_at for r in rows if r.fetched_at is not None]
+        previews[w.id] = WatchlistPreview(
+            rows=rows,
+            more=w.item_count - len(rows),
+            fetched_at=min(times) if times else None,
+            stale=any(r.status == "stale" for r in rows),
+        )
+    return previews
 
 
 def clean_name(raw: str) -> str:

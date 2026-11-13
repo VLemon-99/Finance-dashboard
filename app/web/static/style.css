@@ -186,7 +186,6 @@ table.options-positions { table-layout: fixed; }
   .event-time { grid-column: 1 / 3; }
   .event-source { grid-column: 1 / 3; }
 }
-.home-events { margin-bottom: 20px; }
 /* Report v3 (Phase 7): compact tables and "more" disclosures */
 table.compact th, table.compact td { padding: 5px 10px; }
 .valuation tbody th { font-weight: 600; color: var(--text); font-size: 0.9rem; }
@@ -347,4 +346,35 @@ details.more .table-wrap { margin: 6px 0; }
   .segmented-radio { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .segmented-radio legend { float: none; grid-column: 1 / -1; min-width: 0; margin-bottom: 6px; font-weight: 600; }
   .segmented-radio label { justify-content: center; min-height: 44px; }
+}
+
+/* Home dashboard (IMP-12): watchlist cards with their first stocks, events as chips */
+.wl-cards { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.wl-cards > li.wl-card { display: block; padding: 0; overflow: hidden; }
+.wl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 14px 16px 10px; }
+.wl-head a { font-size: 1.1rem; font-weight: 700; text-decoration: none; }
+.wl-head a:hover { text-decoration: underline; }
+.wl-rows { list-style: none; margin: 0; padding: 0 16px; }
+/* .list-cards li styles every <li> inside; the rows inside a card are plain lines. */
+.wl-cards .wl-rows li { background: none; border: none; border-radius: 0; box-shadow: none; justify-content: initial; }
+.wl-cards .wl-rows li { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 9px 0; border-top: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+.wl-sym { font-weight: 700; }
+.wl-price { font-weight: 600; }
+.wl-rows .chg > span { min-width: 5.6em; text-align: center; }
+.wl-empty { margin: 0; padding: 0 16px 14px; }
+.wl-foot { margin: 0; padding: 10px 16px 12px; border-top: 1px solid var(--border); }
+.wl-foot a { color: var(--accent); font-weight: 600; text-decoration: none; }
+.empty-state { padding: 18px 20px; background: var(--card); border: 1px dashed var(--border); border-radius: var(--radius); }
+.empty-state p { margin: 0; }
+.home-events { margin: 28px 0 12px; }
+.home-events h2 { font-size: 1.15rem; margin: 0 0 10px; }
+.event-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.event-chips .event { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.event-chips .event-time { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
+.event-chips .event-title { font-weight: 600; }
+.event-chips .event-title a { text-decoration: none; }
+@media (max-width: 720px) {
+  .wl-cards { grid-template-columns: 1fr; }
+  .event-chips { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(200px, 72%); overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x mandatory; }
+  .event-chips .event { scroll-snap-align: start; }
 }
