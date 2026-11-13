@@ -31,7 +31,7 @@
 {% endif %}
 <form method="post" action="/watchlists" class="inline-form">
   <label for="name">New list name</label>
-  <input id="name" name="name" value="{{ name }}" maxlength="60" required placeholder="e.g. Tech">
+  <input id="name" name="name" value="{{ name }}" maxlength="60" required placeholder="e.g. Tech" autocapitalize="sentences">
   <button type="submit">Create list</button>
 </form>
 <p class="muted small">{{ watchlists | length }} of {{ limits.max_watchlists }} lists used.</p>

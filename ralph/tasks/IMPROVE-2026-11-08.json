@@ -315,9 +315,9 @@
       "dependsOn": [
         "IMP-8"
       ],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
-      "notes": "Run 2 (bold, UI). The report pages (_ticker_report.html, report.html, report_run.html, reports.html) are not touched: the owner is reworking the report in another session. REVIEW: approve with changes (applied): much already exists, so the criteria are a regression test plus the missing attributes; email keeps autocomplete=username; reports.html excluded."
+      "notes": "Run 2 (bold, UI). The report pages (_ticker_report.html, report.html, report_run.html, reports.html) are not touched: the owner is reworking the report in another session. REVIEW: approve with changes (applied): much already exists, so the criteria are a regression test plus the missing attributes; email keeps autocomplete=username; reports.html excluded. DONE 2026-11-13: autocorrect=off + spellcheck=false (and autocomplete=off where missing) on every ticker field outside the report pages; enterkeyhint=search on the watchlist search; autocapitalize=sentences on list-name fields; Bought/Sold radios styled as a two-pill switch. Phone CSS: .inline-form / .quote-form become a 2-column grid (labels and fields full width, a single button full width, two buttons share the row; quote lookup and options start keep field + button on one row), .trade-form fields stack under bold labels with full-width Save. 12 tests in tests/test_web_ui_forms.py (regression of existing attributes + new ones). Second review: FAIL on the first pass: a descendant `.inline-form input { width: 100% }` stretched the calendar's checkboxes on phones. Fixed once (direct-child selectors, also for IMP-9's add-stock rule) with a test that no full-width rule uses a descendant input selector; calendar screenshot re-checked. Note for the owner: the shared .inline-form phone rule also stacks the forms on reports.html (its template wasn't edited)."
     },
     {
       "id": "IMP-12",

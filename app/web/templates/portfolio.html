@@ -55,7 +55,7 @@
 
 <form method="get" action="/portfolio/trade" class="inline-form">
   <label for="symbol">Record a stock trade</label>
-  <input id="symbol" name="symbol" maxlength="12" required placeholder="e.g. AAPL" autocapitalize="characters" class="ticker-input">
+  <input id="symbol" name="symbol" maxlength="12" required placeholder="e.g. AAPL" autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off" class="ticker-input">
   <button type="submit" name="side" value="bought">Bought</button>
   <button type="submit" name="side" value="sold" class="secondary">Sold</button>
 </form>

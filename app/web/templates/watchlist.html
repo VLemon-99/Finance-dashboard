@@ -26,14 +26,14 @@
 <form method="get" action="/watchlists/{{ watchlist.id }}" hx-get="/watchlists/{{ watchlist.id }}/search"
       hx-target="#search-results" hx-indicator="#searching" class="inline-form">
   <label for="q">Search by ticker or company name</label>
-  <input id="q" name="q" value="{{ search.query }}" maxlength="50" placeholder="e.g. amazon or AMZN" autocomplete="off">
+  <input id="q" name="q" value="{{ search.query }}" maxlength="50" placeholder="e.g. amazon or AMZN" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="search">
   <button type="submit">Search</button>
   <span id="searching" class="htmx-indicator">Searching…</span>
 </form>
 <div id="search-results">{% include "_search_results.html" %}</div>
 <form method="post" action="/watchlists/{{ watchlist.id }}/items" class="inline-form">
   <label for="ticker">Or add by ticker</label>
-  <input id="ticker" name="ticker" maxlength="12" required placeholder="e.g. AAPL" autocapitalize="characters" class="ticker-input">
+  <input id="ticker" name="ticker" maxlength="12" required placeholder="e.g. AAPL" autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off" class="ticker-input">
   <button type="submit">Add</button>
 </form>
 </section>
@@ -153,7 +153,7 @@
 <h2>Manage this list</h2>
 <form method="post" action="/watchlists/{{ watchlist.id }}/rename" class="inline-form">
   <label for="rename">Name</label>
-  <input id="rename" name="name" value="{{ watchlist.name }}" maxlength="60" required>
+  <input id="rename" name="name" value="{{ watchlist.name }}" maxlength="60" required autocapitalize="sentences">
   <button type="submit">Rename</button>
 </form>
 <form method="post" action="/watchlists/{{ watchlist.id }}/delete" class="inline-form"
