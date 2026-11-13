@@ -37,6 +37,9 @@ options:
   # Yahoo shows a tiny placeholder IV (like 0.001%) for strikes that barely trade.
   # IVs below this (percent) are shown as "—" and no greeks are calculated for them.
   min_implied_volatility_percent: 1.0
+  # The Option chains page shows your watchlist and portfolio stocks as one-tap shortcuts,
+  # A to Z; at most this many (0 hides them).
+  max_quick_tickers: 20
   # Option prices follow market_data.refresh_minutes above, like stocks.
 
 search:

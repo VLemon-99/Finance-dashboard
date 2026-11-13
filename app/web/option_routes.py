@@ -14,6 +14,7 @@ from sqlmodel import Session
 
 from app.config import AppConfig
 from app.providers.market_data import MarketData
+from app.services import portfolio as pf
 from app.services import watchlists as wl
 from app.services.options import ChainView, RiskFreeRate, option_chain
 from app.services.quotes import lookup_quote
@@ -48,8 +49,15 @@ def _chain_url(symbol: str, expiration: date | None, option_type: str, **extra) 
 
 
 @router.get("/options", response_class=HTMLResponse)
-def options_start(request: Request, ticker: Annotated[str, Query(max_length=50)] = ""):
-    """A box to type a ticker; submitting it opens that ticker's chain."""
+def options_start(
+    request: Request,
+    session: SessionDep,
+    user_id: UserDep,
+    config: ConfigDep,
+    ticker: Annotated[str, Query(max_length=50)] = "",
+):
+    """A box to type a ticker; submitting it opens that ticker's chain. Below it, the user's
+    watchlist and portfolio stocks as shortcuts (IMP-15), read from stored rows only."""
     error = None
     if ticker.strip():
         try:
@@ -59,9 +67,19 @@ def options_start(request: Request, ticker: Annotated[str, Query(max_length=50)]
     return templates.TemplateResponse(
         request,
         "options_start.html",
-        {"ticker": ticker.strip(), "error": error},
+        {
+            "ticker": ticker.strip(),
+            "error": error,
+            "quick": _quick_tickers(session, user_id, config),
+        },
         status_code=400 if error else 200,
     )
+
+
+def _quick_tickers(session: Session, user_id: int, config: AppConfig) -> list[str]:
+    """Stocks in the user's watchlists (incl. those behind contracts) and open positions."""
+    tickers = wl.all_tickers(session, user_id) | pf.held_tickers(session, user_id)
+    return sorted(tickers)[: config.options.max_quick_tickers]
 
 
 def _chain_page(

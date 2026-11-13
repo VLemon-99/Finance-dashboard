@@ -438,3 +438,10 @@ a.button:hover { filter: brightness(0.96); }
   .add-to-list { display: grid; grid-template-columns: 1fr auto; }
   .add-to-list label { grid-column: 1 / -1; }
 }
+
+/* Option chains start page: one-tap ticker chips (IMP-15) */
+.quick-title { font-size: 1rem; margin: 18px 0 8px; }
+.quick-tickers { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+a.chip { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border: 1px solid var(--border); border-radius: 999px; background: var(--card); color: var(--text); font-weight: 700; letter-spacing: 0.01em; text-decoration: none; box-shadow: var(--shadow); }
+a.chip:hover { border-color: var(--accent); color: var(--accent); }
+@media (max-width: 720px) { a.chip { min-height: 44px; } }

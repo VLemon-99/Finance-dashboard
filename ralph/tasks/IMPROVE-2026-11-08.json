@@ -430,9 +430,9 @@
       "dependsOn": [
         "IMP-8"
       ],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
-      "notes": "Run 2 (bold, UI), second survey. The report pages are not touched. REVIEW: approve with changes (applied): the cap lives in config, 'portfolio' = open positions, above the cap first N A-Z."
+      "notes": "Run 2 (bold, UI), second survey. The report pages are not touched. REVIEW: approve with changes (applied): the cap lives in config, 'portfolio' = open positions, above the cap first N A-Z. DONE 2026-11-13: new setting options.max_quick_tickers (default 20, 0-100; config/settings.yaml with a plain comment, 0 hides them). The /options start handler reads watchlists.all_tickers | portfolio.held_tickers (stored rows only), sorted A-Z and cut to the cap; options_start.html shows them as 'Your stocks' chips linking to each chain. 11 tests in tests/test_web_ui_options_start.py (all failed or errored on the old code). Second review: PASS; its two suggested tests added (a watchlist contract's stock becomes a chip; 0 hides the chips, built with the same fakes as the client fixture so nothing reaches the network)."
     },
     {
       "id": "IMP-16",
