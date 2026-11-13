@@ -298,3 +298,25 @@ details.more .table-wrap { margin: 6px 0; }
   .summary-pnl { font-size: 2rem; }
   .summary-stats { justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--border); }
 }
+
+/* Portfolio positions as cards on phones (IMP-10b); laptops keep the tables. */
+@media (max-width: 720px) {
+  table.responsive tbody > tr > td:empty { display: none; }
+  table.responsive.options-positions { table-layout: auto; }
+  table.responsive.options-positions colgroup { display: none; }
+  table.responsive.options-positions tbody > tr { grid-template-columns: 1fr 1fr; }
+  table.responsive.options-positions td.sym { grid-column: 1; }
+  table.responsive.options-positions td[data-col=last] { grid-column: 2; }
+  table.responsive td[data-col=returns], table.responsive td[colspan] { grid-column: 1 / -1; }
+  table.responsive td.num[data-col=change] .block, table.responsive td.num[data-col=last] .block { font-size: 0.8rem; font-weight: 400; }
+  table.responsive td.num[data-col=change] > span:first-child { font-weight: 700; }
+  table.responsive tbody > tr.pair-head { background: var(--itm-bg); margin-bottom: 4px; }
+  table.responsive tbody > tr.pair-head > td { background: none; }
+  table.responsive tbody > tr.leg { margin: 0 0 4px 14px; padding: 10px 14px; box-shadow: none; }
+  table.responsive tbody > tr.leg + tr:not(.leg) { margin-top: 10px; }
+  table.responsive tr.leg td.sym strong { font-size: 1rem; }
+  table.responsive td.actions a, table.responsive td.actions button.link { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; margin-right: 6px; border: 1px solid var(--border); border-radius: 999px; color: var(--text); font-size: 0.85rem; font-weight: 600; text-decoration: none; background: var(--card); }
+  table.responsive td.actions > span.small { font-size: 0; }
+  table.responsive td.actions form { display: inline; margin: 0; }
+  .ticker-group > summary { padding: 10px 2px; }
+}

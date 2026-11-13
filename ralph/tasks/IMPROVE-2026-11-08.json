@@ -288,9 +288,9 @@
         "IMP-8",
         "IMP-9"
       ],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
-      "notes": "Run 2 (bold, UI). REVIEW: approve as the second half of the split IMP-10; laptop per-ticker tables stay as they are."
+      "notes": "Run 2 (bold, UI). REVIEW: approve as the second half of the split IMP-10; laptop per-ticker tables stay as they are. DONE 2026-11-13: portfolio.html cells carry data-label / data-col (Current = headline, P&L = change; a pair's P&L is its headline) and `sym` / `actions` classes; both position tables are `responsive`. Phone-only CSS: cards for stocks, single options, pair heads (tinted) and their legs (indented), empty cells hidden, returns and the uncovered note full-width, Bought/Sold/Unlink as chips. Laptops unchanged (colgroup + table-layout: fixed kept). 5 tests in tests/test_web_ui_portfolio.py (4 failed on the old page). 390px screenshots: no overlap, no sideways page scroll (the Trades table still scrolls inside its own box). Second review: PASS; duplicate CSS rule removed and the layout test made format-proof."
     },
     {
       "id": "IMP-11",
