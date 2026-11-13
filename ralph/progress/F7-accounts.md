@@ -141,3 +141,9 @@
 - Files touched: app/sources/http.py, tests/test_sources_http_redirects.py (5 tests), this task file and log. Existing source tests unchanged and passing.
 - Test result: baseline exit 0; verify 5 passed; full suite exit 0; ruff check + format clean.
 - Next round should know: only `HttpFetcher` (news, blogs, YouTube, SEC, Damodaran, ICI) follows redirects; FRED, X and Google use fixed HTTPS addresses with their own clients. Next is F7-S20 (no API description pages).
+
+## Round — 2026-11-13 — F7-S20 — done
+- What I did: `FastAPI(..., docs_url=None, redoc_url=None, openapi_url=None)` in `app/main.py`, so /docs, /redoc, /openapi.json (and the docs' OAuth helper page) answer 404.
+- Files touched: app/main.py, tests/test_web_no_api_docs.py (5 tests), this task file and log.
+- Test result: baseline exit 0; verify 5 passed (4 failed before the change, as expected); full suite exit 0; ruff check + format clean.
+- Next round should know: last ready story is F7-S21 (soupsieve upgrade; changes uv.lock, a shared file). If beautifulsoup4 or yfinance cap soupsieve below 4, block it.

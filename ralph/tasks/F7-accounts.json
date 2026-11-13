@@ -462,7 +462,7 @@
       "zone": "accounts",
       "priority": 20,
       "dependsOn": [],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
       "notes": ""
     },

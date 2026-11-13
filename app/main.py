@@ -217,7 +217,15 @@ def create_app(
             if app.state.scheduler is not None:
                 app.state.scheduler.shutdown(wait=False)
 
-    app = FastAPI(title="Finance Dashboard", lifespan=lifespan)
+    # No automatic API description pages (/docs, /redoc, /openapi.json): this app is web
+    # pages only, and they would publish a map of every address (security review L3).
+    app = FastAPI(
+        title="Finance Dashboard",
+        lifespan=lifespan,
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
 
     def look_up_account(token: str):
         with Session(engine) as session:
