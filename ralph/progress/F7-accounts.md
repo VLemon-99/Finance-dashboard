@@ -116,3 +116,10 @@
 - Files touched: Dockerfile (new), .dockerignore (new), tests/test_container.py (13 tests), this task file and log.
 - Test result: baseline exit 0; verify 13 passed; full suite exit 0; ruff check + format clean. A real `docker build` could not run here (the Docker program is installed but its background service isn't running), so the image itself has not been built yet.
 - Next round should know: the first real build happens in the deploy session (F7-S15): check the base image tag still exists (pick the newest 3.12 patch), that the build works, and that `config/` edits on the server are kept (mount `config/` or rebuild after edits). With Cloudflare's tunnel on the same server, FORWARDED_ALLOW_IPS=127.0.0.1 is right; if the tunnel runs in another container, set it to that container's address.
+
+## Round — 2026-11-13 — F7-S16 — done
+- What I did: `HostingConfig.public_names()` in `app/config.py` (names with a dot, except 127.0.0.1; so localhost, [::1], "testserver" and single-word computer names aren't public, but a LAN address like 192.168.1.20 is). `create_app` in `app/main.py` raises a RuntimeError naming the address, `login_required` and `config/accounts.yaml` when the names read from `config/hosting.yaml` include a public one while login is off. Because `app = create_app()` runs when uvicorn loads the app, the app won't start at all.
+- Design note: the check runs on the names read from the file (where the real app always gets them), not on a `hosting=` passed in by tests. My first version checked both and broke the existing `test_f7_3_hosted_name_can_be_added_in_config` (it adds a public name with login off to test the host rule). Per the test-integrity rule I left that test unchanged and narrowed the check instead; the new tests go through the file-reading path (monkeypatching `app.main.load_hosting_config`).
+- Files touched: app/config.py, app/main.py, tests/test_web_online_failsafe.py (9 tests), this task file and log.
+- Test result: baseline exit 0; verify 9 passed; full suite exit 0; ruff check + format clean.
+- Next round should know: next is F7-S17 (limit parallel password checks).

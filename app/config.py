@@ -514,6 +514,11 @@ class HostingConfig(_Section):
             names.append(name)
         return list(dict.fromkeys(names))
 
+    def public_names(self) -> list[str]:
+        """Names that could be reached from the internet: any with a dot, except 127.0.0.1.
+        (localhost, [::1] and single-word computer names only work on your own network.)"""
+        return [n for n in self.allowed_hosts if "." in n and n != "127.0.0.1"]
+
 
 def load_hosting_config(path: Path) -> HostingConfig:
     """Read config/hosting.yaml."""

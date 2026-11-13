@@ -165,6 +165,7 @@ def create_app(
     fred = fred or FredClient(settings.fred_api_key, settings.source_timeout_seconds)
     fomc = fomc or load_fomc_config(settings.fomc_dates_file)
     accounts = accounts or load_accounts_config(settings.accounts_config_file)
+    hosting_from_file = hosting is None
     hosting = hosting or load_hosting_config(settings.hosting_config_file)
     allowed_hosts = set(hosting.allowed_hosts)
     google = google or GoogleSignIn(
@@ -182,6 +183,16 @@ def create_app(
             config=macro_config,
             extra_closed_days=app_config.market_data.extra_closed_days,
             parallel=app_config.market_data.max_parallel_fetches,
+        )
+
+    # Security review H1 (F7.10): checked on the names read from config/hosting.yaml, which
+    # is where the real app always gets them (tests that pass `hosting=` test other things).
+    public = hosting.public_names() if hosting_from_file else []
+    if public and not accounts.login_required:
+        raise RuntimeError(
+            f"The app is set up to answer at {', '.join(public)} (config/hosting.yaml) but "
+            "login is switched off, so every visitor would be treated as you. Set "
+            "login_required: true in config/accounts.yaml, or remove that name."
         )
 
     @asynccontextmanager
