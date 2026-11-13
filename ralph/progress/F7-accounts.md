@@ -147,3 +147,9 @@
 - Files touched: app/main.py, tests/test_web_no_api_docs.py (5 tests), this task file and log.
 - Test result: baseline exit 0; verify 5 passed (4 failed before the change, as expected); full suite exit 0; ruff check + format clean.
 - Next round should know: last ready story is F7-S21 (soupsieve upgrade; changes uv.lock, a shared file). If beautifulsoup4 or yfinance cap soupsieve below 4, block it.
+
+## Round — 2026-11-13 — F7-S21 — done
+- What I did: `uv lock --upgrade-package soupsieve` moved soupsieve 3.0.4 -> 4.1 (no other package changed; beautifulsoup4 and yfinance allow it). **Dependency upgrade, no new package; `pyproject.toml` unchanged.** New test checks the installed version is at least 4.0.0. `pip-audit` (run with `uvx pip-audit` on `uv export --no-dev`) now finds no known vulnerabilities.
+- Files touched: uv.lock, tests/test_dependency_versions.py (1 test), this task file and log.
+- Test result: baseline exit 0; verify 1 passed; full suite exit 0 (Yahoo parsing tests unchanged); ruff check + format clean.
+- Next round should know: all ready stories are done. Only F7-S15 (deploy, interactive only) is left, blocked by design.
