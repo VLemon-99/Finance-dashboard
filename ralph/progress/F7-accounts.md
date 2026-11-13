@@ -129,3 +129,9 @@
 - Files touched: app/services/users.py, app/config.py, config/accounts.yaml, app/main.py, tests/test_accounts_password_limit.py (8 tests), this task file and log.
 - Test result: baseline exit 0; verify 8 passed; full suite exit 0; ruff check + format clean.
 - Next round should know: the limit is per running app (one process), which matches the single-server plan. Waiting requests still each hold a web worker thread; the Cloudflare rate-limit rule at deploy (F7-S15) is the other half of H2.
+
+## Round — 2026-11-13 — F7-S18 — done
+- What I did: new `end_all_sessions(session, user_id) -> count` in `app/services/users.py`. Both account commands (`owner`, `password`) call it after saving the new password, and their message ends with "N logged-in devices were signed out." Refused commands change nothing, so nobody is signed out.
+- Files touched: app/services/users.py, app/accounts_cli.py, tests/test_accounts_cli_signout.py (7 tests), this task file and log. `tests/test_accounts_cli.py` unchanged and passing.
+- Test result: baseline exit 0; verify 7 passed; full suite exit 0; ruff check + format clean.
+- Next round should know: next is F7-S19 (refuse redirects to non-HTTPS addresses in `app/sources/http.py`, reports zone).

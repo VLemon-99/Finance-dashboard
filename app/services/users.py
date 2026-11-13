@@ -168,6 +168,15 @@ def end_session(session: Session, token: str | None) -> None:
         session.commit()
 
 
+def end_all_sessions(session: Session, user_id: int) -> int:
+    """Log out every device of one user (after a new password is set). Returns how many."""
+    rows = session.exec(select(LoginSession).where(LoginSession.user_id == user_id)).all()
+    for row in rows:
+        session.delete(row)
+    session.commit()
+    return len(rows)
+
+
 # --- wrong passwords (F7.7) ---------------------------------------------------------------
 
 

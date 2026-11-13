@@ -20,7 +20,13 @@ from sqlmodel import Session
 
 from app.config import AccountsConfig, get_settings, load_accounts_config
 from app.db.session import database_is_set_up, database_is_up_to_date, make_engine
-from app.services.users import ensure_owner, find_by_email, hash_password, is_valid_email
+from app.services.users import (
+    end_all_sessions,
+    ensure_owner,
+    find_by_email,
+    hash_password,
+    is_valid_email,
+)
 
 
 class Refused(Exception):
@@ -68,7 +74,8 @@ def _set_owner(session: Session, email: str, password_hash: str, default_email: 
     owner.password_hash = password_hash
     session.add(owner)
     session.commit()
-    return f"Done: the owner account is now {email}, with the new password."
+    ended = end_all_sessions(session, owner.id)  # security review M1 (F7.10)
+    return f"Done: the owner account is now {email}, with the new password. {_signed_out(ended)}"
 
 
 def _set_password(session: Session, email: str, password_hash: str) -> str:
@@ -78,7 +85,13 @@ def _set_password(session: Session, email: str, password_hash: str) -> str:
     user.password_hash = password_hash
     session.add(user)
     session.commit()
-    return f"Done: new password set for {user.email}."
+    ended = end_all_sessions(session, user.id)  # security review M1 (F7.10)
+    return f"Done: new password set for {user.email}. {_signed_out(ended)}"
+
+
+def _signed_out(count: int) -> str:
+    devices = "device was" if count == 1 else "devices were"
+    return f"{count} logged-in {devices} signed out."
 
 
 def main(
