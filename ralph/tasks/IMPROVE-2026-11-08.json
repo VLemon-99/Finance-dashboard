@@ -347,6 +347,118 @@
       "status": "done",
       "attempts": 0,
       "notes": "Run 2 (bold, UI). The report pages (_ticker_report.html, report.html, report_run.html, reports.html) are not touched: the owner is reworking the report in another session. REVIEW: approve with changes (applied): fetch time + stale shown; 'no market-data calls' narrowed to quotes/chains (the F5.6 earnings refresh may call get_earnings); stocks only; isolation about watchlists. DONE 2026-11-13: quotes.stored_quote_views (stored rows only, stale past the refresh window, 'error' when never fetched) + watchlists.watchlist_previews (first 5 stocks per list, '+N more' counting further stocks and contracts, oldest fetch time, stale flag); home.html rewritten: watchlist cards first (name, item count, stock lines with price and % pill, '+N more · Prices from … ET', stale badge), empty-list and no-list states with a first step, then the new-list form and the events as chips (a swipeable row on phones). 11 tests in tests/test_web_ui_home.py (9 of the first 10 failed on the old page). Second review: PASS; its suggestion applied (the home arrow follows the % shown, with a test). Its other notes: outside market hours every card shows 'stale' (correct, maybe noisy); query count grows with the number of lists (small limit)."
+    },
+    {
+      "id": "IMP-13",
+      "title": "Option chain on phones: tidy controls and a readable chain",
+      "description": "On a phone the chain page stacks its controls unevenly (expiration, Show, Calls/Puts, Refresh, Add-to-list each on their own odd-width rows) and the chain table shows only Strike, Bid, Ask and Mid before it scrolls sideways; the Bought / Sold / Add buttons are off-screen at the far right. Make it work like a brokerage app's chain: one tidy control bar (expiration picker and Calls/Puts switch on one row, Refresh as a small button), the Strike column stays pinned on the left while the numbers scroll, and on phones a compact set of columns is shown by default (Strike, Bid, Ask, Mid, IV, Delta, actions) with a 'Show all columns' switch that works without JavaScript. Laptops keep every column. Run 2 (bold, UI), second survey. The report pages are not touched.",
+      "category": "ui",
+      "value": "high",
+      "risk": "medium",
+      "specRefs": [
+        "F2.1",
+        "F2.2",
+        "F2.3",
+        "F2.5a"
+      ],
+      "acceptance": [
+        "Every chain header (<th>) carries a data-col naming its column; the <td> cells stay exactly as they are (existing tests match `<td class=\"num\">(.*?)</td>` and expect 13 per row); the compact phone set is Strike, Bid, Ask, Mid, IV, Delta and the actions, hidden/shown with nth-child rules tied to the fixed column order",
+        "A 'Show all columns' checkbox with a real <label> sits above the chain only when there are rows; it is a plain form control (no JavaScript) and the stylesheet hides the non-compact columns on phones only while it is unchecked",
+        "The Strike column (first child) is sticky (position: sticky; left: 0) inside the scrolling table box",
+        "The expiration Show button stays (no auto-submit replaces it); the Bought, Sold and Add actions stay plain links/forms with the same addresses; pinned markup kept: <tr data-strike=…> with its class, aria-current on Calls/Puts, the selected expiration <option>, no extra <select>, no <table> when nothing is stored",
+        "At 390px the page doesn't scroll sideways and the controls line up (checked with screenshots); all existing tests keep passing unchanged"
+      ],
+      "verify": "uv run pytest tests/test_web_ui_chain.py",
+      "zone": "options (option_chain.html) + style.css",
+      "priority": 13,
+      "dependsOn": [
+        "IMP-8"
+      ],
+      "status": "todo",
+      "attempts": 0,
+      "notes": "Run 2 (bold, UI), second survey. The report pages are not touched. REVIEW: approve with changes (applied): data-col on <th> only, nth-child CSS, pinned markup listed, Show button kept. For the owner: the compact phone set hides Theta, Volume and Open interest by default (one tap shows them); the switch resets on reload."
+    },
+    {
+      "id": "IMP-14",
+      "title": "Quote lookup as a stock page: big price, key stats, clear actions, add to a watchlist",
+      "description": "The quote lookup shows a plain card whose actions (Option chain, Bought, Sold) are tiny text links squeezed into the 'Fetched' line, and there is no way to add the stock to a watchlist from it. Redesign the card like a brokerage stock page: ticker and price large, the day change as the same pill used elsewhere, key stats in a two-column grid, and clear buttons for Option chain, Bought, Sold, plus 'Add to watchlist' (a list picker posting to the existing add-stock action; shown only when the user has a list). The fetch time stays visible. Run 2 (bold, UI), second survey. The report pages are not touched.",
+      "category": "ui",
+      "value": "medium",
+      "risk": "low",
+      "specRefs": [
+        "F1.1",
+        "F1.4",
+        "F1.5",
+        "F1.6"
+      ],
+      "acceptance": [
+        "The lookup result keeps `class=\"change up|down|flat\"` on the change element (styled as the pill) with the arrow before the unbroken text '+1.54 (+0.60%) on Fri, Oct 30'; 'Fetched {time}', the ranges and '$3.85T' stay exactly as rendered today; every F1.4 figure is in a stats grid",
+        "Option chain, Bought and Sold are shown as buttons/links with the same addresses (href=\"/options/AAPL\", href=\"/portfolio/trade?symbol=AAPL&amp;side=sold\" etc.)",
+        "Both /lookup?ticker=… and the HTMX /lookup/result show an 'Add to watchlist' form listing only the signed-in user's lists, posting `ticker` to /watchlists/{id}/items; with no lists it isn't shown",
+        "Adding through it puts the stock in that list and lands on that watchlist page (existing limits and checks apply); another user's list id is refused (404) and changes nothing",
+        "All existing tests keep passing unchanged"
+      ],
+      "verify": "uv run pytest tests/test_web_ui_quote.py",
+      "zone": "watchlists (_quote_result.html, lookup routes in routes.py) + style.css",
+      "priority": 14,
+      "dependsOn": [
+        "IMP-8"
+      ],
+      "status": "todo",
+      "attempts": 0,
+      "notes": "Run 2 (bold, UI), second survey. The report pages are not touched. REVIEW: approve with changes (applied): pinned markup named, both lookup routes take the user, other user's list refused, landing page stated."
+    },
+    {
+      "id": "IMP-15",
+      "title": "Options start page: one-tap chips for the stocks you follow",
+      "description": "The Option chains start page is an empty ticker box. Most of the time the owner wants a chain for a stock already in a watchlist or the portfolio. Show those tickers as one-tap chips under the box (watchlist stocks incl. the stocks behind watchlist contracts, and stocks with open positions or open options in the portfolio; A-Z; above the cap, the first N alphabetically; the cap lives in config/settings.yaml), each linking to its chain. Nothing is fetched to draw them. Run 2 (bold, UI), second survey. The report pages are not touched.",
+      "category": "ui",
+      "value": "medium",
+      "risk": "low",
+      "specRefs": [
+        "F2.1"
+      ],
+      "acceptance": [
+        "The /options page shows a chip linking to /options/{TICKER} for each stock in the user's watchlists (incl. the stocks behind contracts) and open portfolio positions, A-Z, no duplicates; above the cap (config/settings.yaml, default 20) the first N alphabetically",
+        "Another user's tickers never appear",
+        "Opening the page makes no market-data calls (FakeMarketData.calls, chain_calls and expiration_calls stay empty)",
+        "With no tickers, the page shows the box and a short hint only; 'Show options' and the 303 redirect on /options?ticker= keep working; all existing tests keep passing unchanged"
+      ],
+      "verify": "uv run pytest tests/test_web_ui_options_start.py",
+      "zone": "options (options_start.html, option_routes.py start handler; reads watchlists.all_tickers and portfolio.held_tickers) + style.css; config/settings.yaml + app/config.py (one new setting)",
+      "priority": 15,
+      "dependsOn": [
+        "IMP-8"
+      ],
+      "status": "todo",
+      "attempts": 0,
+      "notes": "Run 2 (bold, UI), second survey. The report pages are not touched. REVIEW: approve with changes (applied): the cap lives in config, 'portfolio' = open positions, above the cap first N A-Z."
+    },
+    {
+      "id": "IMP-16",
+      "title": "Portfolio Trades and Closed positions readable on phones",
+      "description": "The portfolio's Trades table (8 columns) and Closed positions table still scroll sideways inside their boxes on a phone. Give them the same card layout as the position tables (IMP-10b): each trade as a compact card with date, Bought/Sold, instrument, quantity and price, and Delete as a button. Laptops keep the tables. Run 2 (bold, UI), second survey. The report pages are not touched.",
+      "category": "ui",
+      "value": "low",
+      "risk": "low",
+      "specRefs": [
+        "F3.1",
+        "F3.3"
+      ],
+      "acceptance": [
+        "Every data cell in the Trades and Closed positions tables carries a data-label (full-width cells excepted) and both tables are marked for the card layout; every column stays visible on the phone card (incl. Stock price, Price from, Opened/Closed and badges); only an empty cell may be hidden",
+        "Each trade row keeps data-trade=\"{id}\"; Delete stays a plain POST form to the same address with its confirmation and aria-label",
+        "At 390px those sections don't scroll sideways (checked with screenshots); all existing tests keep passing unchanged"
+      ],
+      "verify": "uv run pytest tests/test_web_ui_portfolio.py",
+      "zone": "options (portfolio.html) + style.css",
+      "priority": 16,
+      "dependsOn": [
+        "IMP-8"
+      ],
+      "status": "todo",
+      "attempts": 0,
+      "notes": "Run 2 (bold, UI), second survey. The report pages are not touched. REVIEW: approve with changes (applied): all columns stay visible on the card; data-trade and the Delete confirmation kept."
     }
   ]
 }
