@@ -2,6 +2,31 @@
 
 > One entry per meaningful choice, newest at the top. This stops future sessions and loop rounds from quietly undoing past decisions. Loop rounds don't edit this file — they record proposals in their progress log, and an interactive session adds them here after review.
 
+## 2026-11-13 — Security review before going online: what gets fixed when
+- **Decision** (owner approved Claude's suggestion after the review, 2026-11-13). Nothing was open while the app runs only on the owner's computer. The git history has no secrets.
+  - **Fix now (loop, F7-S16 to S21, SPEC F7.10):**
+    - **H1:** refuse to start when `config/hosting.yaml` lists a public name while login is off. A public name is one with a dot, except 127.0.0.1, so a single-word computer name or "testserver" doesn't count.
+    - **H2:** at most 2 password checks at once (`max_parallel_password_checks`). Each uses about 32 MB, and the free server has 1 GB.
+    - **M1:** the account command signs out that account's devices after setting a new password.
+    - **L2:** downloads refuse a redirect to a non-HTTPS address.
+    - **L3:** no automatic API description pages.
+    - **L1:** soupsieve upgraded past CVE-2026-126190.
+  - **Fixed in the same session, by hand (M3):** `.claude/settings.json` no longer allows `cat` in general, which could have printed `.env` past the "never read .env" rule; `.env` reads are now also denied as `Bash(cat .env*)` and `Read(./.env.*)`. Done by hand, not by a loop, so a loop never edits its own permissions.
+  - **At deploy (F7-S15):**
+    - **M2:** daily disk snapshot on Google Cloud.
+    - **L5:** HTTPS-only (HSTS) switched on in Cloudflare.
+    - **H2's second half:** Cloudflare's free rate-limiting rule on `/login` and `/signup`.
+  - **Later, before inviting beta users:**
+    - **L4:** sign-up and Google messages reveal whether an email is invited or has an account. The lock is per email only (the Cloudflare rule covers most of this).
+    - **L6:** pin the container base image and GitHub Actions by exact fingerprint, and switch on Dependabot.
+    - **L7:** count a non-owner's report by tickers rather than runs.
+  - **Accepted as a known limit (L8):** news text could try to steer the AI's summaries. Every claim must cite a stored source, and the AI never sees personal data.
+- **Why:** H1 and H2 would be serious online (anyone treated as the owner; a cheap way to crash the free server). The rest are small and cheap to fix now.
+- **Alternatives considered:**
+  - For H2, a lower scrypt cost. This would make stolen password hashes easier to crack; queuing costs only a short wait.
+  - For H1, forcing login on automatically. A refusal to start makes the mistake visible instead of hiding it.
+- **Revisit if:** the app moves to a bigger server (raise the parallel checks), or more people get accounts (L4, L7).
+
 ## 2026-11-12 — F7: beta users, invite-only accounts, Google sign-in, hosting on Google Cloud + Cloudflare
 - **Decision** (owner's answers to the F7 questions, 2026-11-12):
   - **Users:** the app is built for the owner plus up to about 100 invited beta testers, each with their own data. **Online it stays owner-only for now**, because Yahoo Finance's data (through `yfinance`) is for personal use only, and showing it to others very likely breaks its terms (the same rule that ruled out X scraping). Before anyone is invited, a data source that allows it must be found (SPEC Open questions).

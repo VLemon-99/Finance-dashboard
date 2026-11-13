@@ -358,6 +358,135 @@
       "notes": ""
     },
     {
+      "id": "F7-S16",
+      "title": "Refuse to start online with login switched off",
+      "description": "Security review H1 (2026-11-13). At startup (create_app or the lifespan in app/main.py), if config/hosting.yaml lists any public name while accounts.login_required is false, stop with a RuntimeError whose message says to set login_required: true in config/accounts.yaml (or remove the name). A public name is one containing a dot that isn't 127.0.0.1 (so localhost, 127.0.0.1, [::1] and single-word computer or test names like 'testserver' don't count). Put the rule in a small function in app/config.py (e.g. HostingConfig.public_names()). CHANGES SHARED FILES: app/main.py, app/config.py.",
+      "specRefs": [
+        "F7.10"
+      ],
+      "acceptance": [
+        "With allowed_hosts [localhost, 127.0.0.1, [::1]] and login off, the app starts as before (all existing tests pass unchanged)",
+        "With a public name (e.g. dashboard.example.com) in allowed_hosts and login off, startup fails with a message naming login_required and config/accounts.yaml",
+        "With the same public name and login on, the app starts",
+        "Single-word names (testserver, my-laptop) and [::1] don't count as public; names with a dot do, except 127.0.0.1"
+      ],
+      "verify": "uv run pytest tests/test_web_online_failsafe.py",
+      "zone": "accounts",
+      "priority": 16,
+      "dependsOn": [
+        "F7-S13"
+      ],
+      "status": "todo",
+      "attempts": 0,
+      "notes": ""
+    },
+    {
+      "id": "F7-S17",
+      "title": "At most a few password checks at the same time",
+      "description": "Security review H2. Each scrypt hash uses about 32 MB, so many logins at once could use up the free server's 1 GB. Wrap the scrypt call in app/services/users.py (used by hash_password and check_password) in a threading.BoundedSemaphore sized by a new AccountsConfig setting max_parallel_password_checks (default 2, 1 to 16; in config/accounts.yaml). The limit is set when the app starts (create_app calls a setter in users.py) and has a default before that. Others wait their turn; nothing is refused. CHANGES SHARED FILES: app/services/users.py, app/config.py, config/accounts.yaml, app/main.py.",
+      "specRefs": [
+        "F7.10"
+      ],
+      "acceptance": [
+        "With the limit at 2, ten password checks started at once in threads never have more than 2 running at the same time (measured with a slowed fake scrypt), and all ten finish with the right answers",
+        "Changing the setting changes the limit",
+        "The default is 2, in AccountsConfig and the real config/accounts.yaml",
+        "Login, sign-up and the account command still work (existing tests pass unchanged)"
+      ],
+      "verify": "uv run pytest tests/test_accounts_password_limit.py",
+      "zone": "accounts",
+      "priority": 17,
+      "dependsOn": [
+        "F7-S8"
+      ],
+      "status": "todo",
+      "attempts": 0,
+      "notes": ""
+    },
+    {
+      "id": "F7-S18",
+      "title": "Setting a new password signs out that account's devices",
+      "description": "Security review M1. In app/accounts_cli.py, both `owner` and `password` end every login session of that account after setting the new password (new end_all_sessions(session, user_id) in app/services/users.py), and say so in their message. CHANGES SHARED FILES: app/services/users.py.",
+      "specRefs": [
+        "F7.10"
+      ],
+      "acceptance": [
+        "After `password --email X`, every session token X had stops working; other users' sessions keep working",
+        "After `owner --email ...`, every session of the owner stops working",
+        "The command's message says the account's devices were signed out",
+        "A refused command (too short, not matching, unknown email) ends no sessions"
+      ],
+      "verify": "uv run pytest tests/test_accounts_cli_signout.py",
+      "zone": "accounts",
+      "priority": 18,
+      "dependsOn": [
+        "F7-S6"
+      ],
+      "status": "todo",
+      "attempts": 0,
+      "notes": ""
+    },
+    {
+      "id": "F7-S19",
+      "title": "Downloads refuse redirects to non-HTTPS addresses",
+      "description": "Security review L2. app/sources/http.py checks that the first address is https, but httpx then follows redirects unchecked. Check every request the client makes, redirects included (an httpx 'request' event hook, or following redirects by hand up to 5 times), and raise SourceError('Refused a redirect to a non-HTTPS address.') otherwise. CHANGES FILES IN THE REPORTS ZONE: app/sources/http.py.",
+      "specRefs": [
+        "F7.10"
+      ],
+      "acceptance": [
+        "A redirect from https to http is refused with a SourceError and the http address is never requested (MockTransport records requests)",
+        "A redirect from https to another https address still works",
+        "More than 5 redirects in a row is refused with a SourceError",
+        "Existing source tests pass unchanged"
+      ],
+      "verify": "uv run pytest tests/test_sources_http_redirects.py",
+      "zone": "accounts",
+      "priority": 19,
+      "dependsOn": [],
+      "status": "todo",
+      "attempts": 0,
+      "notes": ""
+    },
+    {
+      "id": "F7-S20",
+      "title": "Switch off FastAPI's automatic API description pages",
+      "description": "Security review L3. Create the app with docs_url=None, redoc_url=None, openapi_url=None in app/main.py. CHANGES SHARED FILES: app/main.py.",
+      "specRefs": [
+        "F7.10"
+      ],
+      "acceptance": [
+        "/docs, /redoc and /openapi.json answer 404",
+        "Every page still works (existing tests pass unchanged)"
+      ],
+      "verify": "uv run pytest tests/test_web_no_api_docs.py",
+      "zone": "accounts",
+      "priority": 20,
+      "dependsOn": [],
+      "status": "todo",
+      "attempts": 0,
+      "notes": ""
+    },
+    {
+      "id": "F7-S21",
+      "title": "Upgrade soupsieve past its known security issue",
+      "description": "Security review L1: soupsieve 3.0.4 (pulled in by yfinance through beautifulsoup4) has CVE-2026-126190 (a slowdown on specially built pages), fixed in 4.0.0. Run `uv lock --upgrade-package soupsieve` and `uv sync`. If beautifulsoup4 or yfinance don't allow soupsieve 4, don't force it: set this story to blocked and write which package limits it. Add a small test that the installed soupsieve is at least 4.0.0. Log the change in the progress log (dependency upgrade, no new package). CHANGES SHARED FILES: uv.lock (and pyproject.toml only if a lower bound is needed).",
+      "specRefs": [
+        "F7.10"
+      ],
+      "acceptance": [
+        "uv.lock has soupsieve 4.0.0 or later and `uv sync --locked` works",
+        "A test checks the installed soupsieve version is at least 4.0.0",
+        "The full test suite passes (Yahoo parsing tests unchanged)"
+      ],
+      "verify": "uv run pytest tests/test_dependency_versions.py",
+      "zone": "accounts",
+      "priority": 21,
+      "dependsOn": [],
+      "status": "todo",
+      "attempts": 0,
+      "notes": ""
+    },
+    {
       "id": "F7-S15",
       "title": "Deploy to Google Cloud with Cloudflare in front (interactive, with the owner)",
       "description": "Not a loop story: loops never deploy. Done in an interactive session, step by step, with the owner's explicit OK at each step.",
@@ -366,17 +495,24 @@
       ],
       "acceptance": [
         "Done in an interactive session: the owner creates the Google Cloud always-free e2-micro server (US region) and, if needed, a Cloudflare domain + tunnel; Claude guides the container start, the server's .env, the Google sign-in keys, the owner's password (F7-S6 command), login_required on, and the hosted name in config/hosting.yaml",
+        "At deploy (security review 2026-11-13): a daily automatic disk snapshot on Google Cloud (M2), HTTPS-only (HSTS) switched on in Cloudflare (L5), and Cloudflare's free rate-limiting rule on /login and /signup (H2)",
         "From the owner's phone: the app opens over HTTPS, asks for a login, and Google sign-in works"
       ],
       "verify": "manual (interactive session)",
       "zone": "accounts",
-      "priority": 15,
+      "priority": 22,
       "dependsOn": [
         "F7-S5",
         "F7-S6",
         "F7-S8",
         "F7-S12",
-        "F7-S14"
+        "F7-S14",
+        "F7-S16",
+        "F7-S17",
+        "F7-S18",
+        "F7-S19",
+        "F7-S20",
+        "F7-S21"
       ],
       "status": "blocked",
       "attempts": 0,

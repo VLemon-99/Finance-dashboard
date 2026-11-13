@@ -16,7 +16,6 @@
       "Bash(gh pr create:*)",
       "Bash(gh pr view:*)",
       "Bash(ls:*)",
-      "Bash(cat:*)",
       "Bash(mkdir:*)",
       "Bash(uv sync:*)",
       "Bash(uv run pytest:*)",
@@ -41,7 +40,11 @@
       "Bash(rm -rf:*)",
       "Bash(sudo:*)",
       "Bash(curl:*)",
-      "Bash(wget:*)"
+      "Bash(wget:*)",
+      "Read(./.env.*)",
+      "Read(**/.env)",
+      "Bash(cat .env*)",
+      "Bash(cat ./.env*)"
     ]
   }
 }
