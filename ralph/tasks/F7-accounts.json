@@ -251,7 +251,7 @@
       "dependsOn": [
         "F7-S4"
       ],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
       "notes": ""
     },
@@ -276,7 +276,7 @@
       "dependsOn": [
         "F7-S1"
       ],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
       "notes": ""
     },
@@ -305,7 +305,7 @@
         "F7-S11",
         "F7-S7"
       ],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
       "notes": ""
     },
@@ -329,7 +329,7 @@
       "dependsOn": [
         "F7-S4"
       ],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
       "notes": ""
     },
@@ -353,7 +353,7 @@
       "dependsOn": [
         "F7-S13"
       ],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
       "notes": ""
     },

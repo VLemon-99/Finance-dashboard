@@ -3,6 +3,7 @@
 {% block content %}
 <h1>Log in</h1>
 {% if message %}<p class="note error" role="alert">{{ message }}</p>{% endif %}
+{% if google_on %}<p><a class="google-button" href="/login/google{% if next != '/' %}?next={{ next | urlencode }}{% endif %}">Sign in with Google</a></p>{% endif %}
 <form action="/login" method="post" class="trade-form login-form">
   <input type="hidden" name="next" value="{{ next }}">
   <div class="field">
