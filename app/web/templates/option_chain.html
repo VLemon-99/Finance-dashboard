@@ -23,8 +23,8 @@
 {% endfor %}
 
 {% if chain.expirations %}
-<div class="toolbar">
-  <form method="get" action="/options/{{ chain.symbol }}" class="inline-form">
+<div class="toolbar chain-toolbar">
+  <form method="get" action="/options/{{ chain.symbol }}" class="inline-form expiration-form">
     <label for="expiration">Expiration</label>
     <select id="expiration" name="expiration">
       {% for d in chain.expirations %}
@@ -49,7 +49,7 @@
 
 {% if chain.rows %}
 {% if target %}
-<form method="get" action="/options/{{ chain.symbol }}" class="inline-form">
+<form method="get" action="/options/{{ chain.symbol }}" class="inline-form list-form">
   <input type="hidden" name="expiration" value="{{ chain.expiration.isoformat() }}">
   <input type="hidden" name="type" value="{{ chain.option_type }}">
   <label for="list">Add contracts to</label>
@@ -66,15 +66,18 @@
   Greeks use stock price {{ chain.underlying_price | money }} and a risk-free rate of {{ chain.rate.rate | percent(2) }}{% if chain.rate.is_fallback %} (fallback from settings){% else %} (13-week T-bill){% endif %}.
   Shaded rows are in the money; the outlined row is the strike closest to the stock price.
 </p>
+{#- On phones a compact set of columns shows until this is ticked (style.css, IMP-13). -#}
+<input type="checkbox" id="all-columns" class="all-columns">
+<label for="all-columns">Show all columns</label>
 <div class="table-wrap">
 <table class="stocks chain" data-type="{{ chain.option_type }}">
   <thead>
     <tr>
-      <th class="num">Strike</th><th class="num">Bid</th><th class="num">Ask</th><th class="num">Mid</th>
-      <th class="num">Last</th><th class="num">Volume</th><th class="num">Open int.</th><th class="num">IV</th>
-      <th class="num">Delta</th><th class="num">Gamma</th><th class="num" title="Change in price per day">Theta</th>
-      <th class="num" title="Change in price per 1 point of IV">Vega</th><th class="num">DTE</th>
-      <th><span class="visually-hidden">Actions</span></th>
+      <th class="num" data-col="strike">Strike</th><th class="num" data-col="bid">Bid</th><th class="num" data-col="ask">Ask</th><th class="num" data-col="mid">Mid</th>
+      <th class="num" data-col="last">Last</th><th class="num" data-col="volume">Volume</th><th class="num" data-col="open-interest">Open int.</th><th class="num" data-col="iv">IV</th>
+      <th class="num" data-col="delta">Delta</th><th class="num" data-col="gamma">Gamma</th><th class="num" data-col="theta" title="Change in price per day">Theta</th>
+      <th class="num" data-col="vega" title="Change in price per 1 point of IV">Vega</th><th class="num" data-col="dte">DTE</th>
+      <th data-col="actions"><span class="visually-hidden">Actions</span></th>
     </tr>
   </thead>
   <tbody>

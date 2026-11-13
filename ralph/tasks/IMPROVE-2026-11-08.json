@@ -374,9 +374,9 @@
       "dependsOn": [
         "IMP-8"
       ],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
-      "notes": "Run 2 (bold, UI), second survey. The report pages are not touched. REVIEW: approve with changes (applied): data-col on <th> only, nth-child CSS, pinned markup listed, Show button kept. For the owner: the compact phone set hides Theta, Volume and Open interest by default (one tap shows them); the switch resets on reload."
+      "notes": "Run 2 (bold, UI), second survey. The report pages are not touched. REVIEW: approve with changes (applied): data-col on <th> only, nth-child CSS, pinned markup listed, Show button kept. For the owner: the compact phone set hides Theta, Volume and Open interest by default (one tap shows them); the switch resets on reload. DONE 2026-11-13: option_chain.html: data-col on every <th> (cells untouched), a 'Show all columns' checkbox before the table box, chain-toolbar / expiration-form / list-form classes. CSS: sticky strike column (all widths); on phones a tidy toolbar (expiration picker + Show on one row, Calls/Puts + Refresh on the next, list picker + Use this list on one row), smaller chain text, the 'near the stock' badge under the strike, action chips in one line, and the non-compact columns (Last, Volume, Open int., Gamma, Theta, Vega, DTE) hidden while the box is unticked. 7 tests in tests/test_web_ui_chain.py (4 failed before). 390px screenshots: the six compact number columns fit; actions one swipe away with the strike pinned; page doesn't scroll sideways. Second review: PASS; its CSS tidy-ups applied."
     },
     {
       "id": "IMP-14",

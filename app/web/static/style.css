@@ -378,3 +378,35 @@ details.more .table-wrap { margin: 6px 0; }
   .event-chips { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(200px, 72%); overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x mandatory; }
   .event-chips .event { scroll-snap-align: start; }
 }
+
+/* Option chain (IMP-13): the strike stays in view while the numbers scroll */
+.chain :is(th, td):first-child { position: sticky; left: 0; z-index: 1; background: var(--card); }
+.all-columns, .all-columns + label { display: none; }
+@media (max-width: 720px) {
+  .chain-toolbar { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
+  .chain-toolbar .expiration-form { grid-column: 1 / -1; grid-template-columns: 1fr auto; margin: 0; }
+  .chain-toolbar .expiration-form > label { grid-column: 1 / -1; }
+  .chain-toolbar .expiration-form > select { grid-column: 1; }
+  .chain-toolbar .expiration-form > button { grid-column: 2; }
+  .chain-toolbar .segmented { justify-self: start; }
+  .chain-toolbar > form:last-child button { min-height: 40px; }
+  .list-form { grid-template-columns: 1fr auto; }
+  .list-form > select { grid-column: 1; }
+  .list-form > button:only-of-type { grid-column: 2; }
+  .all-columns { display: inline-block; width: 22px; height: 22px; min-height: 0; margin: 0 6px 8px 0; vertical-align: middle; accent-color: var(--accent); }
+  .all-columns + label { display: inline-block; margin-bottom: 8px; font-weight: 600; vertical-align: middle; }
+  .chain { font-size: 0.9rem; }
+  .chain th, .chain td { padding: 8px 7px; }
+  .chain td:first-child .badge { display: block; width: max-content; margin: 2px 0 0 auto; font-size: 0.65rem; }
+  .chain :is(th, td):first-child { box-shadow: 1px 0 0 var(--border); }
+  .chain .row-links { gap: 6px; flex-wrap: nowrap; }
+  .chain .row-links a, .chain .row-links button.link { display: inline-flex; align-items: center; min-height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: 999px; text-decoration: none; color: var(--text); font-size: 0.8rem; }
+  /* Compact columns: Strike, Bid, Ask, Mid, IV, Delta and the actions (see option_chain.html). */
+  .all-columns:not(:checked) ~ .table-wrap .chain :is(th, td):nth-child(5),
+  .all-columns:not(:checked) ~ .table-wrap .chain :is(th, td):nth-child(6),
+  .all-columns:not(:checked) ~ .table-wrap .chain :is(th, td):nth-child(7),
+  .all-columns:not(:checked) ~ .table-wrap .chain :is(th, td):nth-child(10),
+  .all-columns:not(:checked) ~ .table-wrap .chain :is(th, td):nth-child(11),
+  .all-columns:not(:checked) ~ .table-wrap .chain :is(th, td):nth-child(12),
+  .all-columns:not(:checked) ~ .table-wrap .chain :is(th, td):nth-child(13) { display: none; }
+}
