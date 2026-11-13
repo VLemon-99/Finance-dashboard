@@ -301,6 +301,12 @@ details.more .table-wrap { margin: 6px 0; }
 /* Portfolio positions as cards on phones (IMP-10b); laptops keep the tables. */
 @media (max-width: 720px) {
   table.responsive tbody > tr > td:empty { display: none; }
+  /* The laptop pair title (.stocks td.wrap) has min-width: 280px, which pushed pair cards
+     past the screen edge; the laptop leg borders drew stray lines inside the cards. */
+  table.responsive td.wrap { min-width: 0; }
+  table.responsive.options-positions tbody > tr > td,
+  table.responsive.options-positions tbody > tr.leg:last-child > td,
+  table.responsive.options-positions tbody > tr.leg + tr:not(.leg) > td { border-bottom: none; }
   table.responsive.options-positions { table-layout: auto; }
   table.responsive.options-positions colgroup { display: none; }
   table.responsive.options-positions tbody > tr { grid-template-columns: 1fr 1fr; }

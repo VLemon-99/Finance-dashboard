@@ -86,6 +86,13 @@ def test_notes_name_what_is_left_out_with_plurals():
     ]
 
 
+def test_stale_prices_count_and_are_named():
+    """Owner 2026-11-13: a stale (last stored) price stays in the total and is named."""
+    s = summarize([SummaryLine(pnl=95.80, stale=True), SummaryLine(pnl=None, stale=True)])
+    assert (s.total_pnl, s.stale, s.unpriced) == (95.80, 1, 1)
+    assert "1 position uses a stale price (included in the P&L)" in s.notes
+
+
 def test_empty_portfolio():
     s = summarize([])
     assert (s.positions, s.total_pnl, s.capital_at_risk) == (0, None, 0.0)
@@ -174,3 +181,11 @@ def test_page_expired_position_is_named(web, options_clock):
 
 def test_page_without_trades_has_no_summary(web):
     assert '<section class="summary"' not in web.get("/portfolio").text
+
+
+def test_page_stale_stock_is_named(web, fake_market_data):
+    trade(web, "AAPL", "bought", 10, 250, day="2026-10-29")
+    fake_market_data.down_for.add("AAPL")
+    pnl, positions, _, notes, _ = summary(web, refresh=1)
+    assert (pnl, positions) == ("+95.80", "1")
+    assert "1 position uses a stale price (included in the P&L)" in notes

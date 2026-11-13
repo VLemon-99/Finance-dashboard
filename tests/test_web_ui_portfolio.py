@@ -156,3 +156,11 @@ def test_imp16_delete_stays_a_confirmed_post(history):
         row,
     )
     assert f'aria-label="Delete trade {trade_id}"' in row
+
+
+def test_pair_cards_drop_the_laptop_min_width_on_phones():
+    """Fix before merging PR #27: `.stocks td.wrap { min-width: 280px }` made linked-pair
+    cards wider than a 390px screen."""
+    css = (STATIC_DIR / "style.css").read_text()
+    phone = "\n".join(re.findall(r"@media \(max-width: 720px\) \{(.*?)\n\}", css, re.S))
+    assert re.search(r"table\.responsive td\.wrap \{ min-width: 0; \}", phone)
