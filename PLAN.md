@@ -15,6 +15,7 @@
 | F5 — Market events calendar | — | calendar | merged | — | Phase 6; owner confirmed with real data |
 | F6 — Macro dashboard | — | macro | merged | — | Phase 9, PR #20; owner's real-data check pending (Next up 1) |
 | F7 — Accounts & hosting | `ralph/tasks/F7-accounts.json` | accounts (+ shared files; S9, S10, S19 also touch reports) | looping | `claude/eloquent-bohr-tmxsww` | S1–S14 merged (PRs #24, #25). Security review 2026-11-13 (DECISIONS): S16–S21 `todo` (online fail-safe, password-check limit, sign out on password reset, HTTPS-only redirects, no API pages, soupsieve upgrade). S15 (deploy) interactive only, now also covers backups, HSTS and a Cloudflare rate-limit rule. F7.1–F7.2 and F7.4–F7.9 ticked |
+| UI redesign (improvement loop run 2) | `ralph/tasks/IMPROVE-2026-11-08.json` | shared (base.html, style.css) + watchlists, options, calendar | in review | `claude/trusting-babbage-wi8ivs` | IMP-8 to IMP-16 done (10 items), PR #27; owner decisions recorded (DECISIONS 2026-11-13). Report pages untouched: the owner reworks the report next, in a new session |
 
 **Status values:** not planned → planned → looping → in review → merged (or: blocked — needs me)
 
@@ -24,7 +25,8 @@
 
 ## Waiting on me
 <!-- Blocked stories, open questions, pull requests to review. -->
-- **F7 answered (2026-11-12):** all questions settled (DECISIONS 2026-11-12). Still open: **market data for beta users** (Yahoo is personal-use only, so online stays owner-only until a source that allows sharing is chosen) and a **phone-friendly layout** criterion (SPEC Open questions). Review PR #24 (and the next F7 pull request) when the loop finishes.
+- **Merge PR #27** (UI redesign). Next: the report rework in a new session; the report pages already share the new frame, colours and phone form layout.
+- **F7 answered (2026-11-12):** all questions settled (DECISIONS 2026-11-12). Still open: **market data for beta users** (Yahoo is personal-use only, so online stays owner-only until a source that allows sharing is chosen) (the phone-friendly layout is now SPEC F7.10). Review PR #24 (and the next F7 pull request) when the loop finishes.
 - Test gaps found at the switch (2026-11-10), for the improvement loop (prompt 13, Focus: tests): hand-made samples for every outside service; no tests for the macro charts' JavaScript or page layout; the 25-ticker speed goal never measured; F4.13 tested only for the summary step; F7.1 checked only through the default user; few tests for F4.10 and F5.2.
 - Real-data checks: Phase 9 macro dashboard, Phase 8 X, Phase 7 valuation/holders, Phase 5 timing, Phase 4 leftovers (details in **Next up** below).
 

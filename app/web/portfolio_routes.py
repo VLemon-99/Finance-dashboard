@@ -14,6 +14,7 @@ from sqlmodel import Session
 from app.config import AppConfig
 from app.providers.market_data import MarketData
 from app.services import portfolio as pf
+from app.services.portfolio_summary import portfolio_summary
 from app.timeutils import utc_now
 from app.web.formatting import short_date
 from app.web.routes import (
@@ -84,6 +85,7 @@ def _portfolio(
         "portfolio.html",
         {
             "view": view,
+            "summary": portfolio_summary(view),
             "trades": pf.list_trades(session, user_id),
             "refresh_minutes": config.market_data.refresh_minutes,
             "error": error,

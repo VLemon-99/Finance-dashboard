@@ -21,9 +21,26 @@
 <p class="note warning" role="status">The data source failed for {{ problem_count }} of {{ rows | length }} stocks. Those rows show the last stored values, marked stale.</p>
 {% endif %}
 
+<section class="add-stock" aria-labelledby="add-stock">
+<h2 id="add-stock">Add a stock</h2>
+<form method="get" action="/watchlists/{{ watchlist.id }}" hx-get="/watchlists/{{ watchlist.id }}/search"
+      hx-target="#search-results" hx-indicator="#searching" class="inline-form">
+  <label for="q">Search by ticker or company name</label>
+  <input id="q" name="q" value="{{ search.query }}" maxlength="50" placeholder="e.g. amazon or AMZN" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="search">
+  <button type="submit">Search</button>
+  <span id="searching" class="htmx-indicator">Searching…</span>
+</form>
+<div id="search-results">{% include "_search_results.html" %}</div>
+<form method="post" action="/watchlists/{{ watchlist.id }}/items" class="inline-form">
+  <label for="ticker">Or add by ticker</label>
+  <input id="ticker" name="ticker" maxlength="12" required placeholder="e.g. AAPL" autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off" class="ticker-input">
+  <button type="submit">Add</button>
+</form>
+</section>
+
 {% if rows %}
 <div class="table-wrap">
-<table class="stocks">
+<table class="stocks responsive">
   <thead>
     <tr>
       <th>Ticker</th><th class="num">Last</th><th class="num">Change</th><th class="num">Day range</th>
@@ -34,21 +51,21 @@
   <tbody>
   {% for row in rows %}{% set q = row.quote %}
     <tr data-symbol="{{ q.symbol }}" data-status="{{ q.status }}"{% if q.status != 'ok' %} class="{{ q.status }}"{% endif %}>
-      <td><strong>{{ q.symbol }}</strong>{% if q.status == 'stale' %} <span class="badge">stale</span>{% elif q.status == 'error' %} <span class="badge">missing</span>{% endif %}</td>
-      <td class="num">{{ q.last_price | money }}</td>
-      <td class="num">
-        {% if q.change is not none %}
-        <span class="{{ 'up' if q.change > 0 else ('down' if q.change < 0 else 'flat') }}">{{ q.change | signed }} ({{ q.change_pct | signed }}%)</span>
+      <td class="sym" data-label="Ticker"><strong>{{ q.symbol }}</strong>{% if q.status == 'stale' %} <span class="badge">stale</span>{% elif q.status == 'error' %} <span class="badge">missing</span>{% endif %}</td>
+      <td class="num" data-label="Last" data-col="last">{{ q.last_price | money }}</td>
+      <td class="num" data-label="Change" data-col="change">
+        {% if q.change is not none %}{% set dir = q.change | trend %}
+        <span class="chg"><span class="{{ dir }}">{% if dir != 'flat' %}<span class="arrow" aria-hidden="true">{{ '▲' if dir == 'up' else '▼' }}</span> {% endif %}{{ q.change | signed }} ({{ q.change_pct | signed }}%)</span></span>
         <span class="muted small block">{{ q.session_date | session_label }}</span>
         {% else %}—{% endif %}
       </td>
-      <td class="num">{{ price_range(q.day_low, q.day_high) }}</td>
-      <td class="num">{{ price_range(q.year_low, q.year_high) }}</td>
-      <td class="num">{{ q.volume | compact }}</td>
-      <td class="num">{% if q.market_cap is not none %}${{ q.market_cap | compact }}{% else %}—{% endif %}</td>
-      <td>{{ q.next_earnings | short_date }}</td>
-      <td class="small">{% if q.fetched_at %}{{ q.fetched_at | eastern }}{% else %}Not fetched yet{% endif %}</td>
-      <td><div class="row-actions">
+      <td class="num" data-label="Day range">{{ price_range(q.day_low, q.day_high) }}</td>
+      <td class="num" data-label="52-week range">{{ price_range(q.year_low, q.year_high) }}</td>
+      <td class="num" data-label="Volume">{{ q.volume | compact }}</td>
+      <td class="num" data-label="Market cap">{% if q.market_cap is not none %}${{ q.market_cap | compact }}{% else %}—{% endif %}</td>
+      <td data-label="Next earnings">{{ q.next_earnings | short_date }}</td>
+      <td class="small" data-label="Fetched" data-col="fetched">{% if q.fetched_at %}{{ q.fetched_at | eastern }}{% else %}Not fetched yet{% endif %}</td>
+      <td class="actions" data-label="Actions"><div class="row-actions">
         <a href="/options/{{ q.symbol }}" class="small" aria-label="Options for {{ q.symbol }}">Options</a>
         <span class="small"><a href="/portfolio/trade?symbol={{ q.symbol }}&amp;side=bought" aria-label="Bought {{ q.symbol }}">Bought</a> · <a href="/portfolio/trade?symbol={{ q.symbol }}&amp;side=sold" aria-label="Sold {{ q.symbol }}">Sold</a></span>
         <form method="post" action="/reports/generate">
@@ -75,7 +92,7 @@
 <p class="note warning" role="status">The data source failed for {{ contract_problems }} of {{ contracts | length }} contracts. Those rows show the last stored values, marked stale.</p>
 {% endif %}
 <div class="table-wrap">
-<table class="stocks contracts">
+<table class="stocks responsive contracts">
   <thead>
     <tr>
       <th>Contract</th><th class="num">Stock</th><th class="num">Bid</th><th class="num">Ask</th><th class="num">Mid</th>
@@ -88,33 +105,33 @@
   <tbody>
   {% for row in contracts %}{% set c = row.view %}{% set label = contract_label(row.underlying, row.expiration, row.strike, row.option_type) %}
     <tr data-symbol="{{ row.contract_symbol }}" data-status="{{ row.status }}"{% if row.status in ('stale', 'error') %} class="{{ row.status }}"{% elif row.status == 'expired' %} class="expired"{% endif %}>
-      <td><a href="/options/{{ row.underlying }}?expiration={{ row.expiration.isoformat() }}&amp;type={{ row.option_type }}" aria-label="{{ label }}"><strong>{{ row.underlying }} {{ row.strike | strike }} {{ row.option_type }}</strong></a>
+      <td class="sym" data-label="Contract"><a href="/options/{{ row.underlying }}?expiration={{ row.expiration.isoformat() }}&amp;type={{ row.option_type }}" aria-label="{{ label }}"><strong>{{ row.underlying }} {{ row.strike | strike }} {{ row.option_type }}</strong></a>
         <span class="muted small block">{{ row.expiration | short_date }}</span>
         {% if row.status == 'stale' %} <span class="badge">stale</span>{% elif row.status == 'error' %} <span class="badge">missing</span>{% elif row.status == 'expired' %} <span class="badge plain">expired</span>{% endif %}</td>
       {% if c %}
-      <td class="num">{{ c.underlying_price | money }}</td>
-      <td class="num">{{ c.bid | money }}</td>
-      <td class="num">{{ c.ask | money }}</td>
-      <td class="num">{{ c.mid | money }}</td>
-      <td class="num">{{ c.last_price | money }}</td>
-      <td class="num">{{ c.volume | whole }}</td>
-      <td class="num">{{ c.open_interest | whole }}</td>
-      <td class="num">{{ c.implied_volatility | percent }}</td>
+      <td class="num" data-label="Stock">{{ c.underlying_price | money }}</td>
+      <td class="num" data-label="Bid">{{ c.bid | money }}</td>
+      <td class="num" data-label="Ask">{{ c.ask | money }}</td>
+      <td class="num" data-label="Mid" data-col="last">{{ c.mid | money }}</td>
+      <td class="num" data-label="Last">{{ c.last_price | money }}</td>
+      <td class="num" data-label="Volume">{{ c.volume | whole }}</td>
+      <td class="num" data-label="Open int.">{{ c.open_interest | whole }}</td>
+      <td class="num" data-label="IV">{{ c.implied_volatility | percent }}</td>
       {% if c.greeks %}
-      <td class="num">{{ c.greeks.delta | number(3) }}</td>
-      <td class="num">{{ c.greeks.gamma | number(4) }}</td>
-      <td class="num">{{ c.greeks.theta | number(3) }}</td>
-      <td class="num">{{ c.greeks.vega | number(3) }}</td>
+      <td class="num" data-label="Delta">{{ c.greeks.delta | number(3) }}</td>
+      <td class="num" data-label="Gamma">{{ c.greeks.gamma | number(4) }}</td>
+      <td class="num" data-label="Theta">{{ c.greeks.theta | number(3) }}</td>
+      <td class="num" data-label="Vega">{{ c.greeks.vega | number(3) }}</td>
       {% else %}
-      <td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>
+      <td class="num" data-label="Delta">—</td><td class="num" data-label="Gamma">—</td><td class="num" data-label="Theta">—</td><td class="num" data-label="Vega">—</td>
       {% endif %}
-      <td class="num">{{ 'expired' if row.status == 'expired' else c.dte }}</td>
-      <td class="small">{{ c.fetched_at | eastern }}</td>
+      <td class="num" data-label="DTE">{{ 'expired' if row.status == 'expired' else c.dte }}</td>
+      <td class="small" data-label="Fetched" data-col="fetched">{{ c.fetched_at | eastern }}</td>
       {% else %}
-      <td class="num" colspan="13">—</td>
-      <td class="small">Not fetched yet</td>
+      <td class="num span-all" colspan="13">—</td>
+      <td class="small" data-label="Fetched" data-col="fetched">Not fetched yet</td>
       {% endif %}
-      <td><div class="row-actions">
+      <td class="actions" data-label="Actions"><div class="row-actions">
         <span class="small"><a href="/portfolio/trade?symbol={{ row.contract_symbol }}&amp;side=bought" aria-label="Bought {{ label }}">Bought</a> · <a href="/portfolio/trade?symbol={{ row.contract_symbol }}&amp;side=sold" aria-label="Sold {{ label }}">Sold</a></span>
         <form method="post" action="/watchlists/{{ watchlist.id }}/items/{{ row.item_id }}/delete">
           <button type="submit" class="link" aria-label="Remove {{ label }}">Remove</button>
@@ -133,25 +150,10 @@
 {% endif %}
 <p class="muted small">{{ (rows | length) + (contracts | length) }} of {{ limits.max_items_per_list }} items.</p>
 
-<h2>Add a stock</h2>
-<form method="get" action="/watchlists/{{ watchlist.id }}" hx-get="/watchlists/{{ watchlist.id }}/search"
-      hx-target="#search-results" hx-indicator="#searching" class="inline-form">
-  <label for="q">Search by ticker or company name</label>
-  <input id="q" name="q" value="{{ search.query }}" maxlength="50" placeholder="e.g. amazon or AMZN" autocomplete="off">
-  <button type="submit">Search</button>
-  <span id="searching" class="htmx-indicator">Searching…</span>
-</form>
-<div id="search-results">{% include "_search_results.html" %}</div>
-<form method="post" action="/watchlists/{{ watchlist.id }}/items" class="inline-form">
-  <label for="ticker">Or add by ticker</label>
-  <input id="ticker" name="ticker" maxlength="12" required placeholder="e.g. AAPL" autocapitalize="characters" class="ticker-input">
-  <button type="submit">Add</button>
-</form>
-
 <h2>Manage this list</h2>
 <form method="post" action="/watchlists/{{ watchlist.id }}/rename" class="inline-form">
   <label for="rename">Name</label>
-  <input id="rename" name="name" value="{{ watchlist.name }}" maxlength="60" required>
+  <input id="rename" name="name" value="{{ watchlist.name }}" maxlength="60" required autocapitalize="sentences">
   <button type="submit">Rename</button>
 </form>
 <form method="post" action="/watchlists/{{ watchlist.id }}/delete" class="inline-form"

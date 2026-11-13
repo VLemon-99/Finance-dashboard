@@ -2,26 +2,72 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block title %}Finance Dashboard{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v={{ asset_version('style.css') }}">
   <script src="{{ url_for('static', path='htmx.min.js') }}?v={{ asset_version('htmx.min.js') }}" defer></script>
   {% block head %}{% endblock %}
 </head>
 <body>
-  <header>
-    <a href="/" class="brand">Finance Dashboard</a>
-    <nav><a href="/">Watchlists</a><a href="/options">Options</a><a href="/portfolio">Portfolio</a><a href="/reports">Reports</a><a href="/calendar">Calendar</a><a href="/macro">Macro</a><a href="/lookup">Quote lookup</a></nav>
-    <div class="account">
-      {%- set account = request.state.account if request and request.state.account is defined else none %}
-      {%- if account %}
-      <span class="account-email">{{ account.email }}</span>
-      <form action="/logout" method="post"><button type="submit" class="link">Log out</button></form>
-      {%- else %}
-      <a href="/login">Log in</a>
-      {%- endif %}
-    </div>
+  {#- Which menu section this page belongs to. A page can override it with
+      {% set nav_section = "none" %} outside its blocks (the 404 page does). -#}
+  {%- set path = request.url.path if request else "" %}
+  {%- if nav_section is not defined %}
+    {%- if path == "/" or path.startswith("/watchlists") %}{% set nav_section = "watchlists" %}
+    {%- elif path.startswith("/portfolio") %}{% set nav_section = "portfolio" %}
+    {%- elif path.startswith("/options") %}{% set nav_section = "options" %}
+    {%- elif path.startswith("/reports") %}{% set nav_section = "reports" %}
+    {%- elif path.startswith("/calendar") %}{% set nav_section = "calendar" %}
+    {%- elif path.startswith("/macro") %}{% set nav_section = "macro" %}
+    {%- elif path.startswith("/lookup") %}{% set nav_section = "lookup" %}
+    {%- else %}{% set nav_section = "none" %}{% endif %}
+  {%- endif %}
+  {%- set account = request.state.account if request and request.state.account is defined else none %}
+  {#- Menu links stay plain <a href="/x">Label</a> (tests check that exact markup); the
+      current section is marked on its list item, and icons come from the stylesheet. -#}
+  {%- macro item(key, href, label) -%}
+    <li class="tab tab-{{ key }}"{% if nav_section == key %} aria-current="page"{% endif %}><a href="{{ href }}">{{ label }}</a></li>
+  {%- endmacro %}
+  <header class="topbar">
+    <a href="/" class="brand"><span class="brand-mark" aria-hidden="true"></span>Finance Dashboard</a>
+    <nav class="main-nav" aria-label="Main">
+      <ul class="tabs">
+        {{ item("watchlists", "/", "Watchlists") }}
+        {{ item("portfolio", "/portfolio", "Portfolio") }}
+        {{ item("options", "/options", "Options") }}
+        {{ item("reports", "/reports", "Reports") }}
+        <li class="tab tab-more">
+          <details class="nav-more">
+            <summary{% if nav_section in ('calendar', 'macro', 'lookup') %} class="is-current"{% endif %}>More</summary>
+            <ul class="more-menu">
+              {{ item("calendar", "/calendar", "Calendar") }}
+              {{ item("macro", "/macro", "Macro") }}
+              {{ item("lookup", "/lookup", "Quote lookup") }}
+              <li class="account">
+                {%- if account %}
+                <span class="account-email">{{ account.email }}</span>
+                <form action="/logout" method="post"><button type="submit" class="link">Log out</button></form>
+                {%- else %}
+                <a href="/login">Log in</a>
+                {%- endif %}
+              </li>
+            </ul>
+          </details>
+        </li>
+      </ul>
+    </nav>
   </header>
   <main class="{% block main_class %}{% endblock %}">{% block content %}{% endblock %}</main>
+  <script>
+    // Close the "More" menu when tapping elsewhere or pressing Escape (it works without this too).
+    document.addEventListener("click", function (e) {
+      document.querySelectorAll("details.nav-more[open]").forEach(function (d) {
+        if (!d.contains(e.target)) d.removeAttribute("open");
+      });
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") document.querySelectorAll("details.nav-more[open]").forEach(function (d) { d.removeAttribute("open"); });
+    });
+  </script>
 </body>
 </html>

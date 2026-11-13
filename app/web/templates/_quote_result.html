@@ -7,21 +7,36 @@
   <section class="quote-card{% if quote.status == 'stale' %} stale{% endif %}" data-status="{{ quote.status }}">
     <h2>{{ quote.symbol }}{% if quote.status == 'stale' %} <span class="badge">stale</span>{% endif %}</h2>
     <p class="price">{{ quote.last_price | money }}{% if quote.currency %} <span class="currency">{{ quote.currency }}</span>{% endif %}</p>
-    {% if quote.change is not none %}
-    <p class="change {{ 'up' if quote.change > 0 else ('down' if quote.change < 0 else 'flat') }}">
-      {{ quote.change | signed }} ({{ quote.change_pct | signed }}%) {{ quote.session_date | session_label }}
+    {% if quote.change is not none %}{% set dir = 'up' if quote.change > 0 else ('down' if quote.change < 0 else 'flat') %}
+    <p class="change {{ dir }}">
+      {% if dir != 'flat' %}<span class="arrow" aria-hidden="true">{{ '▲' if dir == 'up' else '▼' }}</span> {% endif %}{{ quote.change | signed }} ({{ quote.change_pct | signed }}%) {{ quote.session_date | session_label }}
     </p>
     {% else %}
     <p class="change flat">Day change not available</p>
     {% endif %}
-    <dl class="facts">
-      <dt>Day range</dt><dd>{{ price_range(quote.day_low, quote.day_high) }}</dd>
-      <dt>52-week range</dt><dd>{{ price_range(quote.year_low, quote.year_high) }}</dd>
-      <dt>Volume</dt><dd>{{ quote.volume | compact }}</dd>
-      <dt>Market cap</dt><dd>{% if quote.market_cap is not none %}${{ quote.market_cap | compact }}{% else %}—{% endif %}</dd>
-      <dt>Next earnings</dt><dd>{{ quote.next_earnings | short_date }}</dd>
+    <div class="quote-actions">
+      <a class="button" href="/options/{{ quote.symbol }}">Option chain</a>
+      <a class="button primary" href="/portfolio/trade?symbol={{ quote.symbol }}&amp;side=bought">Bought</a>
+      <a class="button" href="/portfolio/trade?symbol={{ quote.symbol }}&amp;side=sold">Sold</a>
+    </div>
+    <dl class="facts stats">
+      <div><dt>Day range</dt><dd>{{ price_range(quote.day_low, quote.day_high) }}</dd></div>
+      <div><dt>52-week range</dt><dd>{{ price_range(quote.year_low, quote.year_high) }}</dd></div>
+      <div><dt>Volume</dt><dd>{{ quote.volume | compact }}</dd></div>
+      <div><dt>Market cap</dt><dd>{% if quote.market_cap is not none %}${{ quote.market_cap | compact }}{% else %}—{% endif %}</dd></div>
+      <div><dt>Next earnings</dt><dd>{{ quote.next_earnings | short_date }}</dd></div>
     </dl>
-    <p class="fetched">Fetched {{ quote.fetched_at | eastern }} · <a href="/options/{{ quote.symbol }}">Option chain</a> · <a href="/portfolio/trade?symbol={{ quote.symbol }}&amp;side=bought">Bought</a> · <a href="/portfolio/trade?symbol={{ quote.symbol }}&amp;side=sold">Sold</a></p>
+    {% if watchlists %}
+    <form method="post" action="/lookup/add" class="add-to-list">
+      <input type="hidden" name="ticker" value="{{ quote.symbol }}">
+      <label for="add-to-list">Add to watchlist</label>
+      <select id="add-to-list" name="watchlist_id">
+        {% for w in watchlists %}<option value="{{ w.id }}">{{ w.name }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="secondary">Add</button>
+    </form>
+    {% endif %}
+    <p class="fetched">Fetched {{ quote.fetched_at | eastern }}</p>
     {% if quote.note %}<p class="note warning" role="status">{{ quote.note }}</p>{% endif %}
   </section>
   {% endif %}

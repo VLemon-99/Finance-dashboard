@@ -121,6 +121,8 @@ class OptionsConfig(_Section):
     # Yahoo gives a tiny placeholder IV for strikes that barely trade. IVs below this
     # (percent) are shown as missing and no greeks are calculated from them.
     min_implied_volatility_percent: float = Field(default=1.0, ge=0, le=50)
+    # Most ticker shortcuts shown on the Option chains start page (IMP-15).
+    max_quick_tickers: int = Field(default=20, ge=0, le=100)
 
 
 class SearchConfig(_Section):

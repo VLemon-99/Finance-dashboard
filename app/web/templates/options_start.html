@@ -6,8 +6,14 @@
 <form action="/options" method="get" class="quote-form">
   <label for="ticker">Ticker</label>
   <input id="ticker" name="ticker" value="{{ ticker }}" placeholder="e.g. AAPL" maxlength="12"
-         autocomplete="off" autocapitalize="characters" required autofocus>
+         autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" required autofocus>
   <button type="submit">Show options</button>
 </form>
+{% if quick %}
+<h2 class="quick-title">Your stocks</h2>
+<nav class="quick-tickers" aria-label="Open the option chain for one of your stocks">
+  {% for t in quick %}<a class="chip" href="/options/{{ t }}">{{ t }}</a>{% endfor %}
+</nav>
+{% endif %}
 <p class="muted small">You can also open a chain from the "Options" link on any watchlist row or quote.</p>
 {% endblock %}

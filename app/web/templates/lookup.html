@@ -5,7 +5,7 @@
 <form action="/lookup" method="get" hx-get="/lookup/result" hx-target="#result" hx-indicator="#loading" class="quote-form">
   <label for="ticker">Ticker</label>
   <input id="ticker" name="ticker" value="{{ ticker }}" placeholder="e.g. AAPL" maxlength="12"
-         autocomplete="off" autocapitalize="characters" required autofocus>
+         autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" required autofocus>
   <button type="submit">Get quote</button>
   <span id="loading" class="htmx-indicator">Fetching…</span>
 </form>
