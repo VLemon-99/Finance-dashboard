@@ -459,3 +459,18 @@ a.chip:hover { border-color: var(--accent); color: var(--accent); }
   /* Keep the captions on these headline numbers: a trade's price isn't a total. */
   table.responsive.trades td[data-col=last]::before, table.responsive.closed-positions td[data-col=last]::before { content: attr(data-label); }
 }
+
+/* Report: the "At a glance" strip of key figures on top of each ticker's report */
+.glance { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin: 14px 0 4px; }
+.glance-tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text); text-decoration: none; }
+.glance-tile:hover { border-color: var(--muted); }
+.glance-label { font-size: 0.7rem; font-weight: 650; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.glance-value { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.glance-value.flat, .glance-value.warn { color: var(--text); } .glance-value.up { color: var(--up); } .glance-value.down { color: var(--down); }
+.glance-detail { font-size: 0.78rem; color: var(--muted); line-height: 1.3; }
+.glance-value.warn + .glance-detail { color: var(--warn); }
+@media (max-width: 1000px) { .glance { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 720px) {
+  .glance { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .glance-tile { min-height: 44px; }
+}

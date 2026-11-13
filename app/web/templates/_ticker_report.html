@@ -16,7 +16,17 @@
   </div>
   {% endif %}
 
-  <section>
+  <nav class="glance" aria-label="{{ report.ticker }} at a glance">
+    {% for t in report_glance(body, report.missing) %}
+    <a class="glance-tile" href="#r{{ rid }}-{{ t.section }}">
+      <span class="glance-label">{{ t.label }}</span>
+      <strong class="glance-value {{ t.tone }}">{{ t.value }}</strong>
+      <span class="glance-detail">{{ t.detail }}</span>
+    </a>
+    {% endfor %}
+  </nav>
+
+  <section id="r{{ rid }}-developments">
     <h3>Major developments</h3>
     {% if body.developments %}
     <ul class="claims">{% for c in body.developments %}<li>{{ c.text }} {{ cite(c.refs) }}</li>{% endfor %}</ul>
@@ -27,7 +37,7 @@
     {% endif %}
   </section>
 
-  <section>
+  <section id="r{{ rid }}-rumors">
     <h3>Rumors &amp; speculation</h3>
     {% if body.rumors %}
     <ul class="claims">{% for c in body.rumors %}<li><span class="badge">unconfirmed</span> {{ c.text }} {{ cite(c.refs) }}</li>{% endfor %}</ul>
@@ -36,7 +46,7 @@
     {% endif %}
   </section>
 
-  <section>
+  <section id="r{{ rid }}-insider">
     {% set ins = body.insider %}
     <h3>Institutional &amp; insider activity</h3>
     {% set inst = body.institutional %}
@@ -118,7 +128,7 @@
     {% endif %}
   </section>
 
-  <section>
+  <section id="r{{ rid }}-valuation">
     <h3>Valuation snapshot</h3>
     {% set v = body.valuation %}
     {% if v %}
@@ -172,7 +182,7 @@
     {% endif %}
   </section>
 
-  <section>
+  <section id="r{{ rid }}-sentiment">
     {% set s = body.sentiment %}
     <h3>Sentiment</h3>
     {% if s.score is not none %}
@@ -185,7 +195,7 @@
     <p class="muted small">Weights used: {% for k, v in s.weights.items() %}{{ k }} {{ v }}{{ " · " if not loop.last }}{% endfor %}. Change them in config/settings.yaml.</p>
   </section>
 
-  <section>
+  <section id="r{{ rid }}-sources">
     <h3>Sources</h3>
     {% if body.stories %}
     <ol class="sources">{% for st in body.stories %}
