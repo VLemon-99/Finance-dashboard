@@ -325,6 +325,7 @@ def lookup_page(
     request: Request,
     session: SessionDep,
     market_data: MarketDataDep,
+    user_id: UserDep,
     config: ConfigDep,
     ticker: str = "",
 ):
@@ -335,7 +336,12 @@ def lookup_page(
     return templates.TemplateResponse(
         request,
         "lookup.html",
-        {"ticker": ticker.strip(), "quote": quote, "input_error": input_error},
+        {
+            "ticker": ticker.strip(),
+            "quote": quote,
+            "input_error": input_error,
+            "watchlists": wl.list_watchlists(session, user_id),
+        },
     )
 
 
@@ -344,11 +350,33 @@ def lookup_result(
     request: Request,
     session: SessionDep,
     market_data: MarketDataDep,
+    user_id: UserDep,
     config: ConfigDep,
     ticker: str = "",
 ):
     """Just the result box; the page swaps it in with HTMX."""
     quote, input_error = _lookup(session, market_data, config, ticker)
     return templates.TemplateResponse(
-        request, "_quote_result.html", {"quote": quote, "input_error": input_error}
+        request,
+        "_quote_result.html",
+        {
+            "quote": quote,
+            "input_error": input_error,
+            "watchlists": wl.list_watchlists(session, user_id),
+        },
     )
+
+
+@router.post("/lookup/add", response_class=HTMLResponse)
+def lookup_add(
+    request: Request,
+    session: SessionDep,
+    market_data: MarketDataDep,
+    user_id: UserDep,
+    config: ConfigDep,
+    ticker: Annotated[str, Form(max_length=50)] = "",
+    watchlist_id: Annotated[int, Form()] = 0,
+):
+    """The quote's Add to watchlist form (IMP-14). The list is picked in the form, so this
+    passes it on to the normal add-a-stock action (same checks, limits and pages)."""
+    return add_item(request, watchlist_id, session, market_data, user_id, config, ticker)

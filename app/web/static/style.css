@@ -410,3 +410,31 @@ details.more .table-wrap { margin: 6px 0; }
   .all-columns:not(:checked) ~ .table-wrap .chain :is(th, td):nth-child(12),
   .all-columns:not(:checked) ~ .table-wrap .chain :is(th, td):nth-child(13) { display: none; }
 }
+
+/* Quote lookup as a stock page (IMP-14) */
+.quote-card { max-width: 640px; }
+.quote-card h2 { font-size: 1.1rem; color: var(--muted); font-weight: 700; letter-spacing: 0.02em; }
+.quote-card .price { font-size: 2.4rem; font-weight: 750; letter-spacing: -0.02em; line-height: 1.1; }
+.quote-card .change { display: inline-block; margin: 8px 0 4px; padding: 3px 10px; border-radius: 999px; font-weight: 600; }
+.quote-card .change.up { background: var(--up-bg); }
+.quote-card .change.down { background: var(--down-bg); }
+.quote-card .change.flat { background: var(--bg); }
+.quote-card .change .arrow { font-size: 0.7em; vertical-align: 0.1em; }
+.quote-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 4px; }
+a.button { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 18px; border: 1px solid var(--border); border-radius: 999px; background: var(--card); color: var(--text); font-weight: 600; text-decoration: none; }
+a.button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+a.button:hover { filter: brightness(0.96); }
+.facts.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px 20px; margin: 16px 0 4px; padding-top: 14px; border-top: 1px solid var(--border); }
+.facts.stats > div { min-width: 0; }
+.facts.stats dt { font-size: 0.78rem; font-weight: 600; }
+.facts.stats dd { margin: 2px 0 0; font-weight: 600; }
+.add-to-list { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px 0 0; padding-top: 14px; border-top: 1px solid var(--border); }
+.add-to-list label { font-weight: 600; }
+@media (max-width: 720px) {
+  .quote-card { padding: 16px; }
+  .quote-actions { display: grid; grid-template-columns: repeat(3, 1fr); }
+  a.button { min-height: 44px; padding: 0 6px; font-size: 0.9rem; white-space: nowrap; }
+  .facts.stats { grid-template-columns: 1fr 1fr; }
+  .add-to-list { display: grid; grid-template-columns: 1fr auto; }
+  .add-to-list label { grid-column: 1 / -1; }
+}
