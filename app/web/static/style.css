@@ -141,6 +141,7 @@ a.cite:hover { color: var(--text); text-decoration: underline; }
 .stocks tr.expired td { color: var(--muted); }
 .note.success { background: var(--itm-bg); color: var(--text); }
 .row-actions a { color: var(--muted); }
+.row-actions button.link { font-size: 0.875rem; }
 .trade-form { display: grid; gap: 14px; max-width: 640px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; }
 .trade-form .field { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .trade-form .field > label { min-width: 13em; }
@@ -233,4 +234,52 @@ details.more .table-wrap { margin: 6px 0; }
   button.link { min-height: 0; }
   .segmented a { padding: 10px 16px; }
   h1 { font-size: 1.6rem; }
+}
+
+/* Day change as a pill with an arrow (IMP-9). The up/down/flat classes keep the colour. */
+.chg > span { display: inline-block; padding: 2px 8px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+.chg > .up { background: var(--up-bg); }
+.chg > .down { background: var(--down-bg); }
+.chg > .flat { background: var(--bg); }
+.chg .arrow { font-size: 0.7em; vertical-align: 0.1em; }
+.add-stock { margin: 4px 0 18px; padding: 12px 16px 4px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.add-stock h2 { margin: 0 0 4px; font-size: 1.05rem; }
+.add-stock .inline-form { margin: 8px 0 10px; }
+.stocks td.sym strong { font-size: 1.02rem; }
+.stocks td[data-col=fetched] { white-space: normal; min-width: 7.5em; }
+.stocks td.actions .row-actions { min-width: 5.5em; }
+
+/* Phones: tables marked "responsive" show each row as a card; every cell's data-label is its caption. */
+@media (max-width: 720px) {
+  .table-wrap:has(> table.responsive) { overflow: visible; background: none; border: none; box-shadow: none; border-radius: 0; }
+  table.responsive, table.responsive tbody { display: block; }
+  table.responsive thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  table.responsive tbody > tr { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; margin: 0 0 10px; padding: 14px 16px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  table.responsive.contracts tbody > tr { grid-template-columns: repeat(3, 1fr); }
+  table.responsive tbody > tr > td { display: block; padding: 0; border: none; white-space: normal; text-align: left; min-width: 0; }
+  table.responsive td.num { text-align: left; }
+  table.responsive td[data-label]::before { content: attr(data-label); display: block; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; color: var(--muted); margin-bottom: 1px; }
+  table.responsive td.sym::before, table.responsive td[data-col=last]::before, table.responsive td[data-col=change]::before, table.responsive td.actions::before { content: none; }
+  table.responsive td.sym { grid-column: 1; grid-row: 1 / span 2; align-self: center; }
+  table.responsive td.sym strong { font-size: 1.25rem; letter-spacing: -0.01em; }
+  table.responsive td.num[data-col=last] { grid-column: 2 / -1; grid-row: 1; text-align: right; font-size: 1.35rem; font-weight: 700; }
+  table.responsive td.num[data-col=change] { grid-column: 2 / -1; grid-row: 2; text-align: right; }
+  table.responsive.contracts td.sym { grid-column: 1 / span 2; }
+  table.responsive.contracts td[data-col=last] { grid-column: 3; }
+  table.responsive.contracts td[data-col=last]::before { content: attr(data-label); text-align: right; }
+  table.responsive td[data-col=fetched], table.responsive td.span-all, table.responsive td.actions { grid-column: 1 / -1; }
+  table.responsive td.actions { padding-top: 10px; border-top: 1px solid var(--border); }
+  table.responsive tbody > tr.row-note { display: block; margin-top: -6px; padding: 10px 16px; }
+  table.responsive tbody > tr.row-note > td { background: none; }
+  table.responsive tr.stale, table.responsive tr.error { background: var(--warn-bg); }
+  table.responsive tr.stale td, table.responsive tr.error td { background: none; }
+  table.responsive .row-actions { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px; }
+  table.responsive .row-actions a, table.responsive .row-actions button.link { display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; color: var(--text); font-size: 0.85rem; font-weight: 600; text-decoration: none; background: var(--card); }
+  /* Bought · Sold become two chips: the span steps aside and its " · " text shrinks to nothing. */
+  table.responsive .row-actions > span.small { display: contents; font-size: 0; }
+  table.responsive .row-actions form { margin: 0; }
+  .add-stock .inline-form { display: grid; grid-template-columns: 1fr auto; }
+  .add-stock .inline-form label { grid-column: 1 / -1; }
+  .add-stock .inline-form input { width: 100%; }
+  .add-stock .htmx-indicator { grid-column: 1 / -1; }
 }

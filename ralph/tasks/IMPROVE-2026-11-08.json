@@ -229,9 +229,9 @@
       "dependsOn": [
         "IMP-8"
       ],
-      "status": "todo",
+      "status": "done",
       "attempts": 0,
-      "notes": "Run 2 (bold, UI). The report pages (_ticker_report.html, report.html, report_run.html, reports.html) are not touched: the owner is reworking the report in another session. REVIEW: approve with changes (applied): zone includes options; keep up/down/flat classes; colspan cells exempt; Fetched visible; forms stay plain POST."
+      "notes": "Run 2 (bold, UI). The report pages (_ticker_report.html, report.html, report_run.html, reports.html) are not touched: the owner is reworking the report in another session. REVIEW: approve with changes (applied): zone includes options; keep up/down/flat classes; colspan cells exempt; Fetched visible; forms stay plain POST. DONE 2026-11-13: watchlist.html cells carry data-label (+ data-col for last/change/fetched, class sym/actions); both tables are `stocks responsive`, shown as cards on phones (ticker left, big price and change pill right, label/value pairs, actions as chips, full-width Fetched). Change pill: <span class=\"chg\"><span class=\"up|down|flat\">▲/▼ ...</span></span>, direction from the existing `trend` filter (a change that rounds to 0.00 is now grey, per DECISIONS). The add-a-stock forms sit in a card above the table. Laptop: Fetched wraps so the actions column fits. 13 tests in tests/test_web_ui_watchlist.py (10 of the first 11 failed on the old page). Second review: PASS; its minor suggestions applied (helper renamed, CSS comment, contract Remove form and Fetched-on-every-card tests). Its note: the phone layout uses CSS :has(); very old browsers fall back to sideways scrolling. The 16-column contracts table still scrolls inside its box on laptops (as before)."
     },
     {
       "id": "IMP-10",
