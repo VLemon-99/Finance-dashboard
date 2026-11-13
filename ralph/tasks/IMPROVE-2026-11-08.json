@@ -1,6 +1,6 @@
 {
   "feature": "IMPROVE",
-  "name": "Improvement loop (safe mode, focus: all)",
+  "name": "Improvement loop (run 1, 2026-11-11: safe mode, focus all; run 2, 2026-11-13: bold mode, focus UI, max 10, report pages excluded)",
   "branch": "ralph/improve-2026-11-08",
   "zone": "mixed (each item names its zone)",
   "dependsOnFeatures": [],
@@ -175,6 +175,178 @@
       "status": "done",
       "attempts": 0,
       "notes": "PROPOSAL: the owner must decide which host names the app may answer to (only localhost, 127.0.0.1 and [::1], or also this computer's network name/address for a phone at home), ideally together with F7.3 hosting. Changes shared files (app/main.py, app/config.py) and adds a config file. Could lock the owner out if they open the app by another name (e.g. a phone on the home network using the computer's address). REVIEW: needs owner. It could lock the owner out (PLAN 'Next up' suggests looking at the app on a phone), so it doesn't fit safe mode without the owner's OK. DONE ELSEWHERE (2026-11-13): built as F7-S13 (config/hosting.yaml), merged in PR #25."
+    },
+    {
+      "id": "IMP-8",
+      "title": "App shell: a modern, phone-first frame for every page",
+      "description": "Today the menu is a row of grey links that wraps onto two lines on a phone and doesn't show where you are. Give the app a consumer-app frame in the spirit of Robinhood: a calm, clean colour palette (white/near-black, one green accent, red only for losses), bolder numbers, rounder cards and larger tap targets. On phones a fixed bottom tab bar (Watchlists, Portfolio, Options, Calendar, More) replaces the wrapping menu; on laptops a single top bar with the same pages. The current page is highlighted. Light and dark mode both kept. Run 2 (bold, UI). The report pages (_ticker_report.html, report.html, report_run.html, reports.html) are not touched: the owner is reworking the report in another session.",
+      "category": "ui",
+      "value": "high",
+      "risk": "medium",
+      "specRefs": [
+        "Open questions: phone-friendly layout"
+      ],
+      "acceptance": [
+        "Every page has one main menu (<nav class=\"main-nav\">) where the current section's link carries aria-current=\"page\": / and /watchlists/* mark Watchlists, /options* marks Options, /portfolio* (incl. /portfolio/trade) marks Portfolio, /reports* marks Reports, /calendar marks Calendar, /macro marks Macro, /lookup marks Quote lookup; login and 404 pages mark nothing. The check looks only inside the main menu (page switches elsewhere already use aria-current)",
+        "The menu lists every section: Watchlists, Portfolio, Options, Reports, Calendar, Macro, Quote lookup. On phones a bottom tab bar shows the main ones and the rest sit behind a 'More' menu built with <details> (works without JavaScript); on laptops 'More' may be a dropdown",
+        "The account email and the Log out form (action=\"/logout\") stay reachable on phones",
+        "The existing colour variable names (--up, --down, --card, --border, --text, --muted, --bg, --warn*, --err-bg, --itm-bg) are kept (only their values may change), so the report styles keep working; report templates and report-only CSS rules are not edited",
+        "On phones buttons and menu links are at least 44px tall, and the bottom bar doesn't cover content (body has bottom padding); no outside fonts, scripts or CDNs",
+        "Screenshots at 390px and 1280px wide (light and dark) show no sideways scrolling of the page frame and no browser errors",
+        "All existing tests keep passing unchanged"
+      ],
+      "verify": "uv run pytest tests/test_web_ui_shell.py",
+      "zone": "shared: app/web/templates/base.html, app/web/static/style.css; new test file tests/test_web_ui_shell.py",
+      "priority": 8,
+      "dependsOn": [],
+      "status": "todo",
+      "attempts": 0,
+      "notes": "Touches shared files base.html/style.css: run alone. Run 2 (bold, UI). The report pages (_ticker_report.html, report.html, report_run.html, reports.html) are not touched: the owner is reworking the report in another session. REVIEW: approve with changes (applied to the criteria): keep colour variable names, don't touch report templates/report CSS, aria-current checked inside the main nav only, logout reachable on phones, no outside assets. The base.html/style.css are shared with the report-rework session, so merges may conflict."
+    },
+    {
+      "id": "IMP-9",
+      "title": "Watchlist page: stock rows become tappable cards on phones",
+      "description": "On a phone the watchlist table shows only ticker, price and part of the change; the rest (ranges, volume, market cap, earnings, actions) is off to the side and needs sideways scrolling, and the row actions are four tiny links. On narrow screens show each stock as a card: ticker and price large, the day change as a green/red pill with an arrow (so it's not colour-only), then the other figures as small label/value pairs, and the actions (Options, Bought, Sold, Report, Remove) as proper buttons. On laptops the table stays, with the change shown as the same pill. The option-contracts table gets the same card treatment. The add-a-stock section (search box and add-by-ticker field, both kept) moves above the table, since adding is the main thing you do here. Run 2 (bold, UI). The report pages (_ticker_report.html, report.html, report_run.html, reports.html) are not touched: the owner is reworking the report in another session.",
+      "category": "ui",
+      "value": "high",
+      "risk": "medium",
+      "specRefs": [
+        "F1.4",
+        "F1.5",
+        "F2.6"
+      ],
+      "acceptance": [
+        "Every data cell in the stocks and contracts tables carries a data-label naming its column (used for the phone card layout), except full-width colspan cells (row notes, the contract '—' cell); the tables keep their header row for screen readers",
+        "The day change is shown with an up/down arrow (▲/▼) and a pill style as well as colour, keeping the existing up/down/flat classes; a zero change shows no arrow; a missing change still shows '—'",
+        "The add-a-stock forms (search and add by ticker) appear before the stocks table",
+        "The 'Fetched' time stays visible on every row/card (F1.5); Report and Remove stay plain POST forms that work without JavaScript",
+        "At 390px wide the watchlist page doesn't scroll sideways (checked with screenshots) and every F1.4 figure is still visible for each stock",
+        "All existing tests keep passing unchanged"
+      ],
+      "verify": "uv run pytest tests/test_web_ui_watchlist.py",
+      "zone": "watchlists + options (watchlist.html stocks and contracts tables) + style.css",
+      "priority": 9,
+      "dependsOn": [
+        "IMP-8"
+      ],
+      "status": "todo",
+      "attempts": 0,
+      "notes": "Run 2 (bold, UI). The report pages (_ticker_report.html, report.html, report_run.html, reports.html) are not touched: the owner is reworking the report in another session. REVIEW: approve with changes (applied): zone includes options; keep up/down/flat classes; colspan cells exempt; Fetched visible; forms stay plain POST."
+    },
+    {
+      "id": "IMP-10",
+      "title": "Portfolio page: a summary of how the portfolio is doing",
+      "description": "Nowhere does the portfolio page say how it's doing overall. Add a summary strip at the top (like a brokerage home screen): total open P&L in dollars across stocks and options, the number of open positions, and total capital at risk on short options, calculated by a pure Python function with known-answer tests. Run 2 (bold, UI). The report pages are not touched.",
+      "category": "ui",
+      "value": "high",
+      "risk": "medium",
+      "specRefs": [
+        "F3.3",
+        "F3.5",
+        "F3.8"
+      ],
+      "acceptance": [
+        "A pure function in app/services/ computes the summary; tests give known answers: long 10 AAPL at 250 (now 259.58) alone → total P&L +95.80, 1 open position, capital at risk 0.00; the F3.6 cash-secured put plus that AAPL stock → total capital at risk 9,800.00 and the P&L of both summed",
+        "One open position = one stock holding or one option position; a linked credit spread or poor man's covered call counts as 1",
+        "Capital at risk sums cash-secured puts, covered calls, credit spreads and poor man's covered calls only; uncovered short calls and long options are left out, and the summary says how many uncovered short calls were left out (F3.8)",
+        "Positions whose current price is missing, and expired positions awaiting confirmation, are left out of the total P&L, and the summary says how many were left out",
+        "The portfolio page shows the summary above the positions; all existing tests keep passing unchanged"
+      ],
+      "verify": "uv run pytest tests/test_portfolio_summary.py",
+      "zone": "options (portfolio.html, portfolio_routes.py, a summary function in app/services/) + style.css",
+      "priority": 10,
+      "dependsOn": [
+        "IMP-8"
+      ],
+      "status": "todo",
+      "attempts": 0,
+      "notes": "Run 2 (bold, UI). REVIEW: approve, split from the original IMP-10 (summary + phone cards was too much for one round); criteria now define position counting, which trades count toward capital at risk, and the expired/missing cases."
+    },
+    {
+      "id": "IMP-10b",
+      "title": "Portfolio page: readable positions on phones",
+      "description": "On a phone the options positions table is broken: columns overlap and the numbers can't be read (seen in a 390px screenshot). Show stock and option positions as cards on phones (same pattern as IMP-9) so every figure is readable. Laptops keep the per-ticker tables with their fixed column widths (DECISIONS 2026-11-04). Run 2 (bold, UI). The report pages are not touched.",
+      "category": "ui",
+      "value": "high",
+      "risk": "medium",
+      "specRefs": [
+        "F3.3",
+        "F3.4",
+        "F3.5",
+        "F3.8"
+      ],
+      "acceptance": [
+        "Every data cell in the stock and option position tables has a data-label (except full-width colspan cells)",
+        "At 390px the portfolio page doesn't scroll sideways and no figures overlap (checked with screenshots)",
+        "On laptops the per-ticker <details> tables keep their fixed column layout",
+        "All existing tests keep passing unchanged"
+      ],
+      "verify": "uv run pytest tests/test_web_ui_portfolio.py",
+      "zone": "options (portfolio.html) + style.css",
+      "priority": 10.5,
+      "dependsOn": [
+        "IMP-8",
+        "IMP-9"
+      ],
+      "status": "todo",
+      "attempts": 0,
+      "notes": "Run 2 (bold, UI). REVIEW: approve as the second half of the split IMP-10; laptop per-ticker tables stay as they are."
+    },
+    {
+      "id": "IMP-11",
+      "title": "Forms that are easy to fill in on a phone",
+      "description": "Forms (record a trade, create/rename a list, login, sign-up, quote lookup, ticker fields) put labels beside small fields; on a phone they squeeze. Many phone attributes already exist (number keyboards on the trade form, email/password autofill, autocapitalize on most ticker fields). Add what's missing: autocorrect and spell-check off on every ticker field (so 'aapl' isn't changed to 'Apple'), autocapitalize on the options start field, and stacked labels above full-width fields and buttons on phones. A test locks in the existing attributes too. Run 2 (bold, UI). The report pages (incl. the reports.html ticker field) are not touched.",
+      "category": "ui",
+      "value": "medium",
+      "risk": "low",
+      "specRefs": [
+        "F3.1",
+        "F7.2"
+      ],
+      "acceptance": [
+        "Regression: price, premium and stock-price fields on the trade form keep inputmode=\"decimal\"; quantity keeps inputmode=\"numeric\"; login/sign-up email fields keep type=email and autocomplete=\"username\"; password fields keep autocomplete=\"current-password\" (login) / \"new-password\" (sign-up)",
+        "Every ticker field outside the report pages (watchlist add + search, quote lookup, options start, portfolio stock trade) has autocapitalize=\"characters\", autocorrect=\"off\" and spellcheck=\"false\"",
+        "At 390px wide, form fields stack under their labels and fields and submit buttons span the content width (checked with screenshots)",
+        "All existing tests keep passing unchanged"
+      ],
+      "verify": "uv run pytest tests/test_web_ui_forms.py",
+      "zone": "mixed templates incl. accounts (trade_form.html, login.html, signup.html, lookup.html, options_start.html, home.html, watchlist.html, portfolio.html) + style.css; run alone",
+      "priority": 11,
+      "dependsOn": [
+        "IMP-8"
+      ],
+      "status": "todo",
+      "attempts": 0,
+      "notes": "Run 2 (bold, UI). The report pages (_ticker_report.html, report.html, report_run.html, reports.html) are not touched: the owner is reworking the report in another session. REVIEW: approve with changes (applied): much already exists, so the criteria are a regression test plus the missing attributes; email keeps autocomplete=username; reports.html excluded."
+    },
+    {
+      "id": "IMP-12",
+      "title": "Home page as an at-a-glance dashboard",
+      "description": "The home page is a plain list of events and list names. Make it the screen you open first: each watchlist card shows its stocks with last price and day change pill, from prices already stored (no new data fetches, so the page stays fast and works when Yahoo is down); the next 3 high-impact events become compact date chips; empty states explain the first step (create a list) with one clear button. Run 2 (bold, UI). The report pages (_ticker_report.html, report.html, report_run.html, reports.html) are not touched: the owner is reworking the report in another session.",
+      "category": "ui",
+      "value": "medium",
+      "risk": "low",
+      "specRefs": [
+        "F1.4",
+        "F5.6"
+      ],
+      "acceptance": [
+        "Each watchlist card shows up to 5 of its stocks (option contracts left out, or counted in '+N more') with the last stored price and day change (arrow + sign), and '+N more' when there are more",
+        "Each card shows when its stored prices were fetched (F1.5), and prices older than the refresh window are marked stale",
+        "Opening the home page fetches no quotes or option chains (FakeMarketData.calls and chain_calls stay empty)",
+        "A stock never fetched yet shows '—' rather than an error",
+        "Another user's watchlists are never shown (existing isolation tests keep passing)",
+        "The next 3 high-impact events still show (F5.6), and all existing tests keep passing unchanged"
+      ],
+      "verify": "uv run pytest tests/test_web_ui_home.py",
+      "zone": "watchlists + calendar (home.html, routes.py home handler, a read of stored quotes) + style.css",
+      "priority": 12,
+      "dependsOn": [
+        "IMP-8"
+      ],
+      "status": "todo",
+      "attempts": 0,
+      "notes": "Run 2 (bold, UI). The report pages (_ticker_report.html, report.html, report_run.html, reports.html) are not touched: the owner is reworking the report in another session. REVIEW: approve with changes (applied): fetch time + stale shown; 'no market-data calls' narrowed to quotes/chains (the F5.6 earnings refresh may call get_earnings); stocks only; isolation about watchlists."
     }
   ]
 }
