@@ -2,6 +2,20 @@
 
 > One entry per meaningful choice, newest at the top. This stops future sessions and loop rounds from quietly undoing past decisions. Loop rounds don't edit this file — they record proposals in their progress log, and an interactive session adds them here after review.
 
+## 2026-11-13 — UI redesign (improvement loop run 2): phone-first frame, cards, stored-price home page
+- **Decision** (owner reviewed PR #27, 2026-11-13). Built by the improvement loop in bold mode, Focus UI (IMP-8 to IMP-16; details in `ralph/tasks/IMPROVE-2026-11-08.json`):
+  - **One app frame:** a sticky top bar on laptops, a fixed bottom tab bar on phones (Watchlists, Portfolio, Options, Reports, More). Calendar, Macro, Quote lookup and the account sit under **More**, on laptops too (owner OK'd the email and Log out living there). The current section is marked on the menu item (`<li aria-current>`), because tests pin the links to plain `<a href="/x">Label</a>`. Colour names in `style.css` are kept and only their values changed, so the report styles keep working.
+  - **Wide tables become labelled cards on phones** (`table.responsive` + `data-label`); laptops keep the tables.
+  - **Option chain on phones:** compact columns by default (Strike, Bid, Ask, Mid, IV, Delta, actions) with a "Show all columns" switch, CSS only; **Theta, Volume and Open interest stay hidden by default** (owner 2026-11-13). The strike column is pinned.
+  - **Home page uses stored prices only** (no fetching), with fetch time and a stale tag; outside market hours the cards show "stale".
+  - **Portfolio summary** (total open P&L, open positions, capital at risk) is calculated in Python with known-answer tests (`app/services/portfolio_summary.py`); what it leaves out is named on the page.
+  - **Quote lookup → Add to watchlist** goes through `POST /lookup/add`, a pass-through to the existing add-a-stock handler, because a plain form can't take its address from a dropdown without JavaScript.
+  - New setting `options.max_quick_tickers` (shortcut chips on the Option chains page). No new dependencies.
+  - SPEC F7.10 added for the phone-friendly layout (owner OK'd).
+- **Why:** The pages were usable on a laptop, but on a phone the menu wrapped, tables scrolled sideways and the portfolio's options table overlapped. A consumer-app layout (inspiration: retail brokerage apps) makes the daily check quicker on any screen.
+- **Alternatives considered:** a CSS framework (new dependency, would fight the existing styles); hiding columns on phones without a switch (loses information an options seller needs); JavaScript-driven menus and tables (the app must work without JavaScript, DECISIONS 2026-11-01).
+- **Revisit if:** the report rework needs a different frame, the owner wants Theta in the default phone chain, or a very old phone browser shows tables scrolling sideways (the card layout relies on CSS `:has()`).
+
 ## 2026-11-13 — Security review before going online: what gets fixed when
 - **Decision** (owner approved Claude's suggestion after the review, 2026-11-13). Nothing was open while the app runs only on the owner's computer. The git history has no secrets.
   - **Fix now (loop, F7-S16 to S21, SPEC F7.10):**

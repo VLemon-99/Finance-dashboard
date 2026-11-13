@@ -149,6 +149,7 @@ Acceptance criteria (initial):
 - [x] F7.7 After 10 wrong passwords for one email within 15 minutes, further password logins for that email are refused for 15 minutes, with a clear message (numbers in config). Google sign-in still works during the lock.
 - [x] F7.8 Users other than the owner can generate at most 2 reports per US Eastern day ("Generate now"; number in config); the page says how many are left. The owner has no limit.
 - [x] F7.9 The scheduled morning report runs only for the owner. Other users don't get one (how to offer it is decided later: manually by the owner, a subscription or otherwise).
+- [x] F7.10 Phone-friendly pages (owner 2026-11-13): every page works at 390px wide without sideways page scrolling; on phones a bottom tab bar replaces the top menu, tap targets are at least 44px, and wide tables become labelled cards (the option chain keeps a scrolling table with the strike pinned). Markup and rules are tested (`tests/test_web_ui_*.py`); the layout itself is checked with screenshots. *(Report pages: their own layout is being reworked separately; they share the frame.)*
 - [ ] F7.10 The security review's findings (2026-11-13, DECISIONS) that must be fixed before going online are fixed: the app refuses to start when it's set up for a public address with login off; at most a few password checks run at the same time (number in config), so a flood of login attempts can't use up the server's memory; setting a new password with the account command signs out all of that account's devices; downloads refuse a redirect to a non-HTTPS address; FastAPI's automatic API description pages are off; the `soupsieve` library is at a version without known security issues.
 
 ## Out of scope (for now)
@@ -182,4 +183,4 @@ Acceptance criteria (initial):
 - ~~**Macro indicators (F6):**~~ settled 2026-11-08 (DECISIONS 2026-11-08; F6 above).
 - **Report delivery:** in the app only for now. Is email or PDF wanted later?
 - **Market data for beta users:** Yahoo Finance's data (via `yfinance`) is for personal use only, so showing it to other people very likely breaks its terms. Before inviting anyone, find a data source that allows it (likely paid) or another arrangement (owner 2026-11-12: stay owner-only online for now).
-- **Phone-friendly layout:** promised with hosting (Out of scope list) but has no acceptance criterion yet.
+- ~~**Phone-friendly layout:**~~ settled 2026-11-13: F7.10 (DECISIONS 2026-11-13, UI redesign).
