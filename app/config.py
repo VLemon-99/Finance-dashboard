@@ -450,6 +450,9 @@ class AccountsConfig(_Section):
     scrypt: ScryptCost = ScryptCost()
     # How many days you stay logged in on a device before being asked again.
     session_days: int = Field(default=30, ge=1, le=365)
+    # Password checks allowed at the same time (each uses about 32 MB of memory with the
+    # default cost); more wait their turn. Keeps a flood of logins from using up memory.
+    max_parallel_password_checks: int = Field(default=2, ge=1, le=16)
     # Shortest password allowed when one is set (sign-up, the owner command).
     min_password_length: int = Field(default=12, ge=8, le=128)
     # Ask for a login before showing any page (F7.4). Off on your own computer; on when
@@ -513,6 +516,11 @@ class HostingConfig(_Section):
                 )
             names.append(name)
         return list(dict.fromkeys(names))
+
+    def public_names(self) -> list[str]:
+        """Names that could be reached from the internet: any with a dot, except 127.0.0.1.
+        (localhost, [::1] and single-word computer names only work on your own network.)"""
+        return [n for n in self.allowed_hosts if "." in n and n != "127.0.0.1"]
 
 
 def load_hosting_config(path: Path) -> HostingConfig:

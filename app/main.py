@@ -47,7 +47,7 @@ from app.services.market_facts import MarketFacts
 from app.services.options import RiskFreeRate
 from app.services.portfolio import TradeNotFound
 from app.services.reports import ReportServices, execute_run, mark_interrupted_runs
-from app.services.users import ensure_owner
+from app.services.users import ensure_owner, set_max_parallel_password_checks
 from app.services.watchlists import WatchlistNotFound
 from app.sources.http import HttpFetcher
 from app.sources.registry import NEWS_USER_AGENT, build_sources
@@ -165,6 +165,8 @@ def create_app(
     fred = fred or FredClient(settings.fred_api_key, settings.source_timeout_seconds)
     fomc = fomc or load_fomc_config(settings.fomc_dates_file)
     accounts = accounts or load_accounts_config(settings.accounts_config_file)
+    set_max_parallel_password_checks(accounts.max_parallel_password_checks)
+    hosting_from_file = hosting is None
     hosting = hosting or load_hosting_config(settings.hosting_config_file)
     allowed_hosts = set(hosting.allowed_hosts)
     google = google or GoogleSignIn(
@@ -182,6 +184,16 @@ def create_app(
             config=macro_config,
             extra_closed_days=app_config.market_data.extra_closed_days,
             parallel=app_config.market_data.max_parallel_fetches,
+        )
+
+    # Security review H1 (F7.10): checked on the names read from config/hosting.yaml, which
+    # is where the real app always gets them (tests that pass `hosting=` test other things).
+    public = hosting.public_names() if hosting_from_file else []
+    if public and not accounts.login_required:
+        raise RuntimeError(
+            f"The app is set up to answer at {', '.join(public)} (config/hosting.yaml) but "
+            "login is switched off, so every visitor would be treated as you. Set "
+            "login_required: true in config/accounts.yaml, or remove that name."
         )
 
     @asynccontextmanager
@@ -205,7 +217,15 @@ def create_app(
             if app.state.scheduler is not None:
                 app.state.scheduler.shutdown(wait=False)
 
-    app = FastAPI(title="Finance Dashboard", lifespan=lifespan)
+    # No automatic API description pages (/docs, /redoc, /openapi.json): this app is web
+    # pages only, and they would publish a map of every address (security review L3).
+    app = FastAPI(
+        title="Finance Dashboard",
+        lifespan=lifespan,
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
 
     def look_up_account(token: str):
         with Session(engine) as session:

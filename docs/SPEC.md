@@ -1,7 +1,7 @@
 # Specification (product requirements)
 
 > This is the document the loops build from. Every acceptance criterion must be checkable by an automated test — if it can't be tested, rewrite it until it can. Vague criteria produce confident garbage.
-> `[x]` = works in the code today and has automated tests (checked 2026-11-10). IDs (e.g. F3.4) are referenced from `PLAN.md`, `ralph/tasks/` and tests.
+> `[x]` = works in the code today and has automated tests (checked 2026-11-10; F7 on 2026-11-13). IDs (e.g. F3.4) are referenced from `PLAN.md`, `ralph/tasks/` and tests.
 
 ## Goal
 A personal research dashboard that saves time on stock and options research and trade
@@ -141,14 +141,15 @@ Acceptance criteria:
 ### F7 — Accounts & hosting (later)
 Acceptance criteria (initial):
 - [x] F7.1 From the first version, every stored watchlist, trade and report belongs to a user, so accounts can be added without redesigning the data.
-- [ ] F7.2 I can log in with email and password; each user only sees their own data. (Login, logout and per-user pages built on the F7 branch; ticked when merged.)
+- [x] F7.2 I can log in with email and password; each user only sees their own data.
 - [ ] F7.3 The app can be deployed online and reached securely (HTTPS) from my phone. Plan: Google Cloud's always-free small server, with Cloudflare in front for the web address and HTTPS if needed (owner 2026-11-12). The app answers only to the host names in its settings, and knows it's reached over HTTPS when behind the configured proxy.
-- [ ] F7.4 Logging in is required only when the app runs online: a setting (`login_required`, off by default). When on, every page and action except the login and sign-up pages sends a visitor who isn't signed in to the login page, and back to where they were afterwards (only addresses inside the app).
-- [ ] F7.5 Accounts are invite-only: only emails on the invite list in `config/accounts.yaml` can create an account, with email + password on a sign-up page (passwords at least 12 characters) or with "Sign in with Google". There is no open sign-up. The owner's account is the existing default user; a command run on the server sets its email and password.
-- [ ] F7.6 "Sign in with Google": an invited user (or the owner) can log in with their Google account. Only Google-verified emails are accepted; the Google account is matched to the app account by email.
-- [ ] F7.7 After 10 wrong passwords for one email within 15 minutes, further password logins for that email are refused for 15 minutes, with a clear message (numbers in config). Google sign-in still works during the lock.
-- [ ] F7.8 Users other than the owner can generate at most 2 reports per US Eastern day ("Generate now"; number in config); the page says how many are left. The owner has no limit.
-- [ ] F7.9 The scheduled morning report runs only for the owner. Other users don't get one (how to offer it is decided later: manually by the owner, a subscription or otherwise).
+- [x] F7.4 Logging in is required only when the app runs online: a setting (`login_required`, off by default). When on, every page and action except the login and sign-up pages sends a visitor who isn't signed in to the login page, and back to where they were afterwards (only addresses inside the app).
+- [x] F7.5 Accounts are invite-only: only emails on the invite list in `config/accounts.yaml` can create an account, with email + password on a sign-up page (passwords at least 12 characters) or with "Sign in with Google". There is no open sign-up. The owner's account is the existing default user; a command run on the server sets its email and password.
+- [x] F7.6 "Sign in with Google": an invited user (or the owner) can log in with their Google account. Only Google-verified emails are accepted; the Google account is matched to the app account by email.
+- [x] F7.7 After 10 wrong passwords for one email within 15 minutes, further password logins for that email are refused for 15 minutes, with a clear message (numbers in config). Google sign-in still works during the lock.
+- [x] F7.8 Users other than the owner can generate at most 2 reports per US Eastern day ("Generate now"; number in config); the page says how many are left. The owner has no limit.
+- [x] F7.9 The scheduled morning report runs only for the owner. Other users don't get one (how to offer it is decided later: manually by the owner, a subscription or otherwise).
+- [ ] F7.10 The security review's findings (2026-11-13, DECISIONS) that must be fixed before going online are fixed: the app refuses to start when it's set up for a public address with login off; at most a few password checks run at the same time (number in config), so a flood of login attempts can't use up the server's memory; setting a new password with the account command signs out all of that account's devices; downloads refuse a redirect to a non-HTTPS address; FastAPI's automatic API description pages are off; the `soupsieve` library is at a version without known security issues.
 
 ## Out of scope (for now)
 - Linking to a brokerage account, importing statements, or placing / executing trades.

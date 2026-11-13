@@ -172,9 +172,9 @@
       "zone": "shared: app/main.py, app/config.py, a new config file",
       "priority": 7,
       "dependsOn": [],
-      "status": "blocked",
+      "status": "done",
       "attempts": 0,
-      "notes": "PROPOSAL: the owner must decide which host names the app may answer to (only localhost, 127.0.0.1 and [::1], or also this computer's network name/address for a phone at home), ideally together with F7.3 hosting. Changes shared files (app/main.py, app/config.py) and adds a config file. Could lock the owner out if they open the app by another name (e.g. a phone on the home network using the computer's address). REVIEW: needs owner. It could lock the owner out (PLAN 'Next up' suggests looking at the app on a phone), so it doesn't fit safe mode without the owner's OK."
+      "notes": "PROPOSAL: the owner must decide which host names the app may answer to (only localhost, 127.0.0.1 and [::1], or also this computer's network name/address for a phone at home), ideally together with F7.3 hosting. Changes shared files (app/main.py, app/config.py) and adds a config file. Could lock the owner out if they open the app by another name (e.g. a phone on the home network using the computer's address). REVIEW: needs owner. It could lock the owner out (PLAN 'Next up' suggests looking at the app on a phone), so it doesn't fit safe mode without the owner's OK. DONE ELSEWHERE (2026-11-13): built as F7-S13 (config/hosting.yaml), merged in PR #25."
     }
   ]
 }

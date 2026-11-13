@@ -116,3 +116,40 @@
 - Files touched: Dockerfile (new), .dockerignore (new), tests/test_container.py (13 tests), this task file and log.
 - Test result: baseline exit 0; verify 13 passed; full suite exit 0; ruff check + format clean. A real `docker build` could not run here (the Docker program is installed but its background service isn't running), so the image itself has not been built yet.
 - Next round should know: the first real build happens in the deploy session (F7-S15): check the base image tag still exists (pick the newest 3.12 patch), that the build works, and that `config/` edits on the server are kept (mount `config/` or rebuild after edits). With Cloudflare's tunnel on the same server, FORWARDED_ALLOW_IPS=127.0.0.1 is right; if the tunnel runs in another container, set it to that container's address.
+
+## Round — 2026-11-13 — F7-S16 — done
+- What I did: `HostingConfig.public_names()` in `app/config.py` (names with a dot, except 127.0.0.1; so localhost, [::1], "testserver" and single-word computer names aren't public, but a LAN address like 192.168.1.20 is). `create_app` in `app/main.py` raises a RuntimeError naming the address, `login_required` and `config/accounts.yaml` when the names read from `config/hosting.yaml` include a public one while login is off. Because `app = create_app()` runs when uvicorn loads the app, the app won't start at all.
+- Design note: the check runs on the names read from the file (where the real app always gets them), not on a `hosting=` passed in by tests. My first version checked both and broke the existing `test_f7_3_hosted_name_can_be_added_in_config` (it adds a public name with login off to test the host rule). Per the test-integrity rule I left that test unchanged and narrowed the check instead; the new tests go through the file-reading path (monkeypatching `app.main.load_hosting_config`).
+- Files touched: app/config.py, app/main.py, tests/test_web_online_failsafe.py (9 tests), this task file and log.
+- Test result: baseline exit 0; verify 9 passed; full suite exit 0; ruff check + format clean.
+- Next round should know: next is F7-S17 (limit parallel password checks).
+
+## Round — 2026-11-13 — F7-S17 — done
+- What I did: every scrypt call in `app/services/users.py` (so `hash_password` and `check_password`, used by login, sign-up, the dummy check and the account command) now takes one of a few "slots" (`threading.BoundedSemaphore`); extra checks wait their turn, none are refused. The slot count is `max_parallel_password_checks` (default 2, 1 to 16) in `AccountsConfig` / `config/accounts.yaml`, applied by `create_app` through `set_max_parallel_password_checks()`. The real scrypt call moved into `_derive()` so tests can swap in a slow counting fake.
+- Files touched: app/services/users.py, app/config.py, config/accounts.yaml, app/main.py, tests/test_accounts_password_limit.py (8 tests), this task file and log.
+- Test result: baseline exit 0; verify 8 passed; full suite exit 0; ruff check + format clean.
+- Next round should know: the limit is per running app (one process), which matches the single-server plan. Waiting requests still each hold a web worker thread; the Cloudflare rate-limit rule at deploy (F7-S15) is the other half of H2.
+
+## Round — 2026-11-13 — F7-S18 — done
+- What I did: new `end_all_sessions(session, user_id) -> count` in `app/services/users.py`. Both account commands (`owner`, `password`) call it after saving the new password, and their message ends with "N logged-in devices were signed out." Refused commands change nothing, so nobody is signed out.
+- Files touched: app/services/users.py, app/accounts_cli.py, tests/test_accounts_cli_signout.py (7 tests), this task file and log. `tests/test_accounts_cli.py` unchanged and passing.
+- Test result: baseline exit 0; verify 7 passed; full suite exit 0; ruff check + format clean.
+- Next round should know: next is F7-S19 (refuse redirects to non-HTTPS addresses in `app/sources/http.py`, reports zone).
+
+## Round — 2026-11-13 — F7-S19 — done
+- What I did: `HttpFetcher` in `app/sources/http.py` now has an httpx "request" event hook (`_refuse_non_https`), which httpx runs for every request it sends, redirects included: a redirect to a non-HTTPS address raises SourceError("Refused a redirect to a non-HTTPS address.") before it is requested. `max_redirects=5` (`MAX_REDIRECTS`); a longer chain becomes a SourceError through the existing httpx error handling.
+- Files touched: app/sources/http.py, tests/test_sources_http_redirects.py (5 tests), this task file and log. Existing source tests unchanged and passing.
+- Test result: baseline exit 0; verify 5 passed; full suite exit 0; ruff check + format clean.
+- Next round should know: only `HttpFetcher` (news, blogs, YouTube, SEC, Damodaran, ICI) follows redirects; FRED, X and Google use fixed HTTPS addresses with their own clients. Next is F7-S20 (no API description pages).
+
+## Round — 2026-11-13 — F7-S20 — done
+- What I did: `FastAPI(..., docs_url=None, redoc_url=None, openapi_url=None)` in `app/main.py`, so /docs, /redoc, /openapi.json (and the docs' OAuth helper page) answer 404.
+- Files touched: app/main.py, tests/test_web_no_api_docs.py (5 tests), this task file and log.
+- Test result: baseline exit 0; verify 5 passed (4 failed before the change, as expected); full suite exit 0; ruff check + format clean.
+- Next round should know: last ready story is F7-S21 (soupsieve upgrade; changes uv.lock, a shared file). If beautifulsoup4 or yfinance cap soupsieve below 4, block it.
+
+## Round — 2026-11-13 — F7-S21 — done
+- What I did: `uv lock --upgrade-package soupsieve` moved soupsieve 3.0.4 -> 4.1 (no other package changed; beautifulsoup4 and yfinance allow it). **Dependency upgrade, no new package; `pyproject.toml` unchanged.** New test checks the installed version is at least 4.0.0. `pip-audit` (run with `uvx pip-audit` on `uv export --no-dev`) now finds no known vulnerabilities.
+- Files touched: uv.lock, tests/test_dependency_versions.py (1 test), this task file and log.
+- Test result: baseline exit 0; verify 1 passed; full suite exit 0 (Yahoo parsing tests unchanged); ruff check + format clean.
+- Next round should know: all ready stories are done. Only F7-S15 (deploy, interactive only) is left, blocked by design.
