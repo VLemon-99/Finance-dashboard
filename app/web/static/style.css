@@ -547,3 +547,14 @@ a.chip:hover { border-color: var(--accent); color: var(--accent); }
 .insider-highlights li { padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); line-height: 1.4; }
 .insider-highlights .up, .insider-highlights .down { font-weight: 650; }
 .plain-note { margin: 6px 0; padding-left: 10px; border-left: 3px solid var(--border); color: var(--muted); }
+
+/* Report: the synthesis (bottom line, bull and bear cases) */
+.report .bottom-line { margin-top: 12px; padding: 14px 16px; border-radius: 12px; background: var(--accent-soft); }
+.bottom-line .thesis { margin: 0 0 8px; font-size: 1.08rem; line-height: 1.5; }
+.number-lines { margin: 0; padding-left: 18px; color: var(--text); font-size: 0.92rem; }
+.number-lines li { margin: 3px 0; }
+.number-lines a { color: var(--muted); }
+.cases { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.case { padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; border-top-width: 3px; }
+.case.bull { border-top-color: var(--up); } .case.bear { border-top-color: var(--down); }
+@media (max-width: 720px) { .cases { grid-template-columns: 1fr; } }

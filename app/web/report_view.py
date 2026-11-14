@@ -384,3 +384,102 @@ def fund_changes(funds: dict[str, Any] | None) -> dict[str, list[dict[str, Any]]
         "changed": [p for p in positions if p.get("status") in FUND_MOVES],
         "unchanged": [p for p in positions if p.get("status") not in FUND_MOVES],
     }
+
+
+# --- the key numbers in plain sentences (written here, never by the AI) ------------------
+
+BENCHMARK_WORDING = {
+    "history": "its own {span}average",
+    "industry": "its peers' median",
+    "sector": "its sector's median",
+    "damodaran": "its industry's average",
+}
+
+
+def _gap(fraction: float) -> str:
+    """'20% above', '5% below' or 'in line with', using the same rounding as the page."""
+    shown = _shown(fraction * 100, 0)
+    if shown == 0:
+        return "in line with"
+    return f"{abs(shown):,.0f}% {'above' if shown > 0 else 'below'}"
+
+
+def _valuation_line(valuation: dict[str, Any]) -> str | None:
+    row = next((r for r in valuation.get("rows") or [] if r.get("now") is not None), None)
+    if row is None:
+        return None
+    span = (valuation.get("history") or {}).get("span")
+    found = []
+    for key in ("history", "industry", "sector", "damodaran"):
+        cell = row.get(key)
+        if not cell or cell.get("vs") is None:
+            continue
+        benchmark = cell.get("average") if key == "history" else cell.get("value")
+        wording = BENCHMARK_WORDING[key].format(span=f"{span} " if span else "")
+        found.append(f"{_gap(cell['vs'])} {wording} ({multiple(benchmark)})")
+    # Own history and peers when the report has them; otherwise the first benchmark there is.
+    shown = (
+        found[:2] if len(found) >= 2 and row.get("history") and row.get("industry") else found[:1]
+    )
+    if not shown:
+        return None
+    return f"{row['label']} is {multiple(row['now'])}: {' and '.join(shown)}."
+
+
+def _target_line(targets: dict[str, Any]) -> str | None:
+    mean, gap = targets.get("mean"), targets.get("mean_vs")
+    if not mean or gap is None:
+        return None
+    gap_text = _gap(gap)
+    place = "in line with the price" if gap_text == "in line with" else f"{gap_text} the price"
+    extras = []
+    if targets.get("analysts"):
+        extras.append(_count(targets["analysts"], "analyst"))
+    if targets.get("low") and targets.get("high"):
+        extras.append(f"range ${money(targets['low'])} to ${money(targets['high'])}")
+    tail = f" ({', '.join(extras)})" if extras else ""
+    return f"Analysts' average target is ${money(mean)}, {place}{tail}."
+
+
+def _insider_line(insider: dict[str, Any]) -> str | None:
+    trades = insider.get("trades") or []
+    net = insider.get("net_value")
+    if not trades or not net:
+        return None
+    days = insider.get("lookback_days")
+    period = f" over the last {days} days" if days else ""
+    counts = (
+        f"{_count(insider.get('buys') or 0, 'buy')}, {_count(insider.get('sells') or 0, 'sale')}"
+    )
+    verb = "bought" if net > 0 else "sold"
+    line = f"Insiders {verb} a net ${compact(abs(net))}{period} ({counts})"
+    sales = [t for t in trades if t.get("kind") == "sell"]
+    if sales and all(t.get("plan_10b5_1") for t in sales):
+        line += "; every sale was under a pre-arranged plan"
+    return line + "."
+
+
+def _options_line(unusual: dict[str, Any]) -> str | None:
+    count = unusual.get("count")
+    if not count:
+        return None
+    contracts = "option contract" if count == 1 else "option contracts"
+    split = (
+        f"{_count(unusual.get('calls') or 0, 'call')}, {_count(unusual.get('puts') or 0, 'put')}"
+    )
+    return f"{count} {contracts} traded in unusual volume today ({split})."
+
+
+def number_highlights(body: dict[str, Any]) -> list[dict[str, str]]:
+    """The report's key numbers as plain sentences for the "Bottom line": valuation against
+    its benchmarks, the analysts' target, insiders' net trading and unusual options. Built
+    from the stored figures (calculated in `services/`); a part the report lacks is skipped.
+    Each sentence names the section it comes from."""
+    valuation = body.get("valuation") or {}
+    lines = [
+        ("valuation", _valuation_line(valuation)),
+        ("valuation", _target_line(valuation.get("targets") or {})),
+        ("insider", _insider_line(body.get("insider") or {})),
+        ("insider", _options_line(body.get("unusual_options") or {})),
+    ]
+    return [{"section": section, "text": text} for section, text in lines if text]

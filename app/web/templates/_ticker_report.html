@@ -22,6 +22,23 @@
   </div>
   {% endif %}
 
+  {% set numbers = number_highlights(body) %}
+  {% if body.bottom_line or numbers %}
+  <section id="r{{ rid }}-bottom" class="bottom-line">
+    <h3>Bottom line</h3>
+    {% if body.bottom_line %}
+    <p class="thesis">{% for c in body.bottom_line %}{% if c.unconfirmed %}<span class="badge">unconfirmed</span> {% endif %}{{ c.text }} {{ cite(c.refs) }} {% endfor %}</p>
+    {% else %}
+    <p class="muted">No AI-written summary for this report{% if report.missing %} (see "Missing from this report" above){% endif %}. The numbers below are calculated from market data.</p>
+    {% endif %}
+    {% if numbers %}
+    <ul class="number-lines">{% for n in numbers %}
+      <li>{{ n.text }} <a href="#r{{ rid }}-{{ n.section }}" class="small" aria-label="Details for: {{ n.text }}">details</a></li>{% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+  {% endif %}
+
   <nav class="glance" aria-label="{{ report.ticker }} at a glance">
     {% for t in report_glance(body, report.missing) %}
     <a class="glance-tile" href="#r{{ rid }}-{{ t.section }}">
@@ -42,6 +59,21 @@
     <p class="muted">Nothing new found in this period.</p>
     {% endif %}
   </section>
+
+  {% if body.bull_case or body.bear_case %}
+  <section id="r{{ rid }}-cases" class="cases">
+    {% for key, title in [("bull_case", "Bull case"), ("bear_case", "Bear case")] %}
+    <div class="case {{ 'bull' if key == 'bull_case' else 'bear' }}">
+      <h3>{{ title }}</h3>
+      {% if body[key] %}
+      <ul class="claims">{% for c in body[key] %}<li>{% if c.unconfirmed %}<span class="badge">unconfirmed</span> {% endif %}{{ c.text }} {{ cite(c.refs) }} {{ origin(c.refs) }}</li>{% endfor %}</ul>
+      {% else %}
+      <p class="muted">Nothing in this period's stories argues this side.</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
 
   <section id="r{{ rid }}-rumors">
     <h3>Rumors &amp; speculation</h3>

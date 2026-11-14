@@ -118,7 +118,13 @@ def build_report_services(
     x_config = load_x_config(settings.x_config_file)
     sources = build_sources(settings, sources_config, x_config, engine)
     try:
-        llm = GeminiLLM(settings.gemini_api_key, app_config.ai.model, app_config.ai.timeout_seconds)
+        llm = GeminiLLM(
+            settings.gemini_api_key,
+            app_config.ai.model,
+            app_config.ai.timeout_seconds,
+            max_bottom_line=app_config.ai.max_bottom_line,
+            max_case_points=app_config.ai.max_case_points,
+        )
         problem = None
     except AIError as exc:  # no key yet: reports still work, without AI text
         llm, problem = None, str(exc)

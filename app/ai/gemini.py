@@ -71,14 +71,30 @@ VIDEO_INSTRUCTIONS = (
 REPORT_INSTRUCTIONS = (
     _SHARED_RULES
     + """\
-From the stories about {subject} below, write two lists of short statements (one sentence
-each), most important first:
-- developments: up to {max_developments} confirmed developments, from stories with
-  unconfirmed="false".
-- rumors: up to {max_rumors} rumors or speculation, only from stories with unconfirmed="true".
+From the stories about {subject} below, write a short research note in five parts.
+Write the way a seasoned analyst briefs a long-term owner of the business: candid, concrete
+and plain. Say what happened and why it matters for the business or its shareholders. No
+hype, no filler and no hedging phrases. If the evidence is thin, one-sided or contradictory,
+say so plainly.
+- bottom_line: up to {max_bottom_line} sentences giving the overall picture of this period: what
+  matters most and how the good and the bad weigh up. Don't repeat the lists below word
+  for word.
+- developments: up to {max_developments} confirmed developments (one sentence each), most
+  important first, from stories with unconfirmed="false".
+- rumors: up to {max_rumors} rumors or speculation (one sentence each), only from stories with
+  unconfirmed="true".
+- bull_case: up to {max_case_points} points (one sentence each): what in these stories favours
+  shareholders.
+- bear_case: up to {max_case_points} points (one sentence each): what in these stories counts
+  against shareholders, or is a risk.
+Stories with kind="blog", "video" or "post" (a post on X) are opinions. Use them, but
+attribute them ("A YouTube host argues...", "An X account claims...") and never state them
+as fact. Where they disagree with the news or the filings, say so.
+A point that rests only on stories with unconfirmed="true" must say it is unconfirmed.
 Every statement must list in "refs" the ref numbers of the stories it is based on.
 Combine stories about the same event into one statement citing all of them.
-Leave a list empty if nothing fits.
+Leave a part empty if nothing fits: don't invent a bull or bear case the stories don't
+support.
 """
 )
 
@@ -105,8 +121,11 @@ class _ClaimOut(BaseModel):
 
 
 class _ReportOut(BaseModel):
-    developments: list[_ClaimOut]
-    rumors: list[_ClaimOut]
+    developments: list[_ClaimOut] = []
+    rumors: list[_ClaimOut] = []
+    bottom_line: list[_ClaimOut] = []
+    bull_case: list[_ClaimOut] = []
+    bear_case: list[_ClaimOut] = []
 
 
 class _PointOut(BaseModel):
@@ -129,10 +148,14 @@ class GeminiLLM:
         model_name: str,
         timeout_seconds: float = 120.0,
         client: Any = None,  # tests pass a fake
+        max_bottom_line: int = 3,  # sentences in the report's bottom line
+        max_case_points: int = 3,  # points in each of the bull and bear cases
     ) -> None:
         if client is None and (not api_key.strip() or api_key.strip() == _PLACEHOLDER_KEY):
             raise AIError("AI summaries are off: set GEMINI_API_KEY in the .env file.")
         self.model_name = model_name
+        self._max_bottom_line = max_bottom_line
+        self._max_case_points = max_case_points
         self._client = client or genai.Client(
             api_key=api_key,
             http_options=types.HttpOptions(timeout=int(timeout_seconds * 1000)),
@@ -178,12 +201,17 @@ class GeminiLLM:
             subject=_subject(ticker, company),
             max_developments=max_developments,
             max_rumors=max_rumors,
+            max_bottom_line=self._max_bottom_line,
+            max_case_points=self._max_case_points,
         )
         prompt = "\n\n".join(_story_block(s) for s in stories)
         answer = self._ask(instructions, prompt, _ReportOut)
         return ReportDraft(
             developments=tuple(_claim(c) for c in answer.developments[:max_developments]),
             rumors=tuple(_claim(c) for c in answer.rumors[:max_rumors]),
+            bottom_line=tuple(_claim(c) for c in answer.bottom_line[: self._max_bottom_line]),
+            bull_case=tuple(_claim(c) for c in answer.bull_case[: self._max_case_points]),
+            bear_case=tuple(_claim(c) for c in answer.bear_case[: self._max_case_points]),
         )
 
     def watch_video(self, video: PublicVideo) -> tuple[VideoPoint, ...]:

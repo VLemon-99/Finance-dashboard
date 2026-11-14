@@ -23,6 +23,7 @@ from app.web.report_view import (
     glance,
     history_bars,
     insider_highlights,
+    number_highlights,
     sentiment_bar,
     source_kinds,
     target_bar,
@@ -260,6 +261,7 @@ def iso_eastern(value: str | None) -> datetime | None:
 templates.env.globals["citation_numbers"] = citation_numbers
 templates.env.globals["report_glance"] = glance
 templates.env.globals["target_bar"] = target_bar
+templates.env.globals["number_highlights"] = number_highlights
 templates.env.globals["insider_highlights"] = insider_highlights
 templates.env.globals["fund_changes"] = fund_changes
 templates.env.globals["claim_tone"] = claim_tone

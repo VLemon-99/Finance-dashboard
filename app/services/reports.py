@@ -345,10 +345,10 @@ def finish_ticker_report(
         missing += summarize_pending(session, services.llm, ticker, company, start, cfg.ai)
 
     stories = load_stories(session, ticker, start, end)
-    developments, rumors = [], []
+    written = empty_statements()
     if services.llm is not None:
         try:
-            developments, rumors = write_statements(services.llm, ticker, company, stories, cfg)
+            written = write_statements(services.llm, ticker, company, stories, cfg)
         except AIError as exc:
             missing.append(f"AI report writing: {exc}")
 
@@ -359,8 +359,12 @@ def finish_ticker_report(
     body = {
         "ticker": ticker,
         "company": company,
-        "developments": developments,
-        "rumors": rumors,
+        # The synthesis (owner 2026-11-14); reports made before it don't have these three.
+        "bottom_line": written["bottom_line"],
+        "developments": written["developments"],
+        "bull_case": written["bull_case"],
+        "bear_case": written["bear_case"],
+        "rumors": written["rumors"],
         "insider": {
             **insider_section(session, ticker, now, lookback),
             # False when SEC filings weren't collected this time (not set up, down, or
@@ -487,17 +491,25 @@ def _source_link(row: SourceItemRow) -> dict[str, Any]:
     }
 
 
+STATEMENT_PARTS = ("bottom_line", "developments", "bull_case", "bear_case", "rumors")
+
+
+def empty_statements() -> dict[str, list[dict]]:
+    return {part: [] for part in STATEMENT_PARTS}
+
+
 def write_statements(
     llm: LLM,
     ticker: str,
     company: str | None,
     stories: list[dict[str, Any]],
     cfg: AppConfig,
-) -> tuple[list[dict], list[dict]]:
-    """Ask the AI for the two written sections, keeping only properly cited statements."""
+) -> dict[str, list[dict]]:
+    """Ask the AI for the written parts (see STATEMENT_PARTS), keeping only properly cited
+    statements and no more of each than the settings allow."""
     summarized = [s for s in stories if s["summary"]]
     if not summarized:
-        return [], []
+        return empty_statements()
     public = [
         PublicStory(
             ref=s["ref"],
@@ -513,9 +525,24 @@ def write_statements(
     draft = llm.write_report(ticker, company, public, cfg.ai.max_developments, cfg.ai.max_rumors)
     rumor_refs = {s["ref"] for s in summarized if s["is_rumor"]}
     fact_refs = {s["ref"] for s in summarized if not s["is_rumor"]}
-    developments = cited(draft.developments, fact_refs, rumor_refs | fact_refs)
-    rumors = cited(draft.rumors, rumor_refs, rumor_refs | fact_refs)
-    return developments, rumors
+    every_ref = rumor_refs | fact_refs
+
+    def synthesis(claims: Sequence[Claim], limit: int) -> list[dict]:
+        """Cited statements that may rest on any story; one resting only on unconfirmed
+        stories is marked so the page labels it."""
+        kept = cited(claims, every_ref, every_ref)[:limit]
+        for claim in kept:
+            if set(claim["refs"]) <= rumor_refs:
+                claim["unconfirmed"] = True
+        return kept
+
+    return {
+        "bottom_line": synthesis(draft.bottom_line, cfg.ai.max_bottom_line),
+        "developments": cited(draft.developments, fact_refs, every_ref),
+        "bull_case": synthesis(draft.bull_case, cfg.ai.max_case_points),
+        "bear_case": synthesis(draft.bear_case, cfg.ai.max_case_points),
+        "rumors": cited(draft.rumors, rumor_refs, every_ref),
+    }
 
 
 def cited(claims: Sequence[Claim], must_include: set[int], allowed: set[int]) -> list[dict]:
