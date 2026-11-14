@@ -3,8 +3,10 @@ templates. Nothing here fetches, stores or recalculates a finance figure: every 
 read from the stored report body (built in `services/reports.py`) and only formatted.
 """
 
+from datetime import datetime
 from typing import Any
 
+from app.timeutils import EASTERN, as_utc
 from app.web.formatting import DASH, _shown, compact, money, multiple, vs
 
 NA = "n/a"
@@ -271,3 +273,81 @@ def briefing(reports: list[Any]) -> list[dict[str, Any]]:
         row["missing"] = len(report.missing or [])
         rows.append(row)
     return rows
+
+
+# --- statements and their sources --------------------------------------------------------
+
+MAX_OUTLETS_NAMED = 2  # per statement line; the rest show as "+N more"
+# Story kinds in the order they're counted above the Sources list: (kind, one, many).
+KIND_LABELS = (
+    ("news", "news", "news"),
+    ("filing", "filing", "filings"),
+    ("blog", "blog post", "blog posts"),
+    ("video", "video", "videos"),
+    ("post", "X post", "X posts"),
+)
+
+
+def _cited(refs: list[int], stories: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The stories a statement cites, in the order cited."""
+    by_ref = {story.get("ref"): story for story in stories or []}
+    return [by_ref[ref] for ref in refs or [] if ref in by_ref]
+
+
+def claim_tone(refs: list[int], stories: list[dict[str, Any]]) -> str | None:
+    """The tone of the stories a statement cites, from their stored ratings: 'bullish' when
+    all rated ones are bullish, 'bearish' when all are bearish, 'mixed' when both appear,
+    otherwise 'neutral'. None when none of them was rated. It describes the cited stories,
+    not the statement itself."""
+    ratings = {story.get("sentiment") for story in _cited(refs, stories)} - {None, ""}
+    if not ratings:
+        return None
+    if ratings == {"bullish"} or ratings == {"bearish"}:
+        return ratings.pop()
+    if {"bullish", "bearish"} <= ratings:
+        return "mixed"
+    return "neutral"
+
+
+def claim_origin(refs: list[int], stories: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Who reported what a statement cites: up to two outlet names (each once, in order), how
+    many more there are, and the US Eastern day of the first cited story ('Oct 30')."""
+    cited = _cited(refs, stories)
+    if not cited:
+        return None
+    outlets: list[str] = []
+    for story in cited:
+        for item in story.get("items") or []:
+            outlet = item.get("outlet")
+            if outlet and outlet not in outlets:
+                outlets.append(outlet)
+    day = ""
+    published = cited[0].get("published_at")
+    if published:
+        when = as_utc(datetime.fromisoformat(published)).astimezone(EASTERN)
+        day = f"{when:%b} {when.day}"
+    if not outlets and not day:
+        return None
+    return {
+        "outlets": outlets[:MAX_OUTLETS_NAMED],
+        "more": max(0, len(outlets) - MAX_OUTLETS_NAMED),
+        "day": day,
+    }
+
+
+def source_kinds(stories: list[dict[str, Any]]) -> list[tuple[str, int]]:
+    """How many stories of each kind the Sources list holds, e.g. [('news', 5), ('filings',
+    3)]; kinds with none are left out."""
+    counts: dict[str, int] = {}
+    for story in stories or []:
+        kind = story.get("kind") or "news"
+        counts[kind] = counts.get(kind, 0) + 1
+    known = {kind for kind, _, _ in KIND_LABELS}
+    other = sum(count for kind, count in counts.items() if kind not in known)
+    if other:
+        counts["news"] = counts.get("news", 0) + other
+    return [
+        (one if counts[kind] == 1 else many, counts[kind])
+        for kind, one, many in KIND_LABELS
+        if counts.get(kind)
+    ]

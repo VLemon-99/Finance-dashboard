@@ -528,3 +528,16 @@ a.chip:hover { border-color: var(--accent); color: var(--accent); }
   .report:has(.back-link) .report-title { padding-right: 0; }
   .back-link a { display: inline-flex; align-items: center; min-height: 44px; }
 }
+
+/* Report: statements show the tone and origin of what they cite; sources are tidier */
+.claim-origin { display: inline-block; margin-left: 4px; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+.tone { display: inline-block; padding: 0 7px; border-radius: 99px; font-size: 0.72rem; font-weight: 650; text-transform: capitalize; border: 1px solid var(--border); color: var(--muted); }
+.tone.bullish { color: var(--up); background: var(--up-bg); border-color: transparent; }
+.tone.bearish { color: var(--down); background: var(--down-bg); border-color: transparent; }
+.tone.mixed { color: var(--warn); background: var(--warn-bg); border-color: transparent; }
+.source-kinds { margin: 0 0 6px; }
+.source-title .rating { display: inline-block; margin-left: 4px; padding: 0 8px; border-radius: 99px; font-size: 0.75rem; vertical-align: middle; border: 1px solid var(--border); }
+.source-title .rating.bullish { background: var(--up-bg); border-color: transparent; }
+.source-title .rating.bearish { background: var(--down-bg); border-color: transparent; }
+.sources .rating-reason { color: var(--muted); }
+@media (max-width: 720px) { .claim-origin { display: block; margin: 2px 0 0; white-space: normal; } }

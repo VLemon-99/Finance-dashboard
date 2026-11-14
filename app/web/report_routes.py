@@ -17,9 +17,12 @@ from app.tickers import InvalidTicker, normalize_ticker
 from app.timeutils import EASTERN, as_utc, today_eastern, utc_now
 from app.web.report_view import (
     briefing,
+    claim_origin,
+    claim_tone,
     glance,
     history_bars,
     sentiment_bar,
+    source_kinds,
     target_bar,
     vs_class,
 )
@@ -255,6 +258,9 @@ def iso_eastern(value: str | None) -> datetime | None:
 templates.env.globals["citation_numbers"] = citation_numbers
 templates.env.globals["report_glance"] = glance
 templates.env.globals["target_bar"] = target_bar
+templates.env.globals["claim_tone"] = claim_tone
+templates.env.globals["claim_origin"] = claim_origin
+templates.env.globals["source_kinds"] = source_kinds
 templates.env.globals["history_bars"] = history_bars
 templates.env.globals["sentiment_bar"] = sentiment_bar
 templates.env.filters["vs_class"] = vs_class

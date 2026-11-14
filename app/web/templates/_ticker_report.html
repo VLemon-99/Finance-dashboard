@@ -5,6 +5,11 @@
 {% macro cite(refs) -%}
   {%- for ref in refs if ref in nums %}<a class="cite" href="#r{{ rid }}-s{{ nums[ref] }}" title="Source {{ nums[ref] }}">[{{ nums[ref] }}]</a>{% endfor -%}
 {%- endmacro %}
+{% macro origin(refs) -%}
+  {%- set tone = claim_tone(refs, body.stories) -%}
+  {%- set from = claim_origin(refs, body.stories) -%}
+  {%- if tone or from %}<span class="claim-origin">{% if tone %}<span class="tone {{ tone }}" title="Tone of the cited stories">{{ tone }}</span>{% endif %}{% if from %} {{ from.outlets | join(", ") }}{% if from.more %} +{{ from.more }} more{% endif %}{% if from.day %} · {{ from.day }}{% endif %}{% endif %}</span>{% endif -%}
+{%- endmacro %}
 <article class="report" id="report-{{ rid }}" data-ticker="{{ report.ticker }}">
   <h2 class="report-title">{{ report.ticker }}{% if body.company %} <span class="muted">· {{ body.company }}</span>{% endif %}</h2>
   {% if back_to_summary %}<p class="back-link small"><a href="#summary">↑ Back to summary</a></p>{% endif %}
@@ -30,7 +35,7 @@
   <section id="r{{ rid }}-developments">
     <h3>Major developments</h3>
     {% if body.developments %}
-    <ul class="claims">{% for c in body.developments %}<li>{{ c.text }} {{ cite(c.refs) }}</li>{% endfor %}</ul>
+    <ul class="claims">{% for c in body.developments %}<li>{{ c.text }} {{ cite(c.refs) }} {{ origin(c.refs) }}</li>{% endfor %}</ul>
     {% elif body.stories %}
     <p class="muted">No AI-written summary for this period. The items found are listed under Sources.</p>
     {% else %}
@@ -41,7 +46,7 @@
   <section id="r{{ rid }}-rumors">
     <h3>Rumors &amp; speculation</h3>
     {% if body.rumors %}
-    <ul class="claims">{% for c in body.rumors %}<li><span class="badge">unconfirmed</span> {{ c.text }} {{ cite(c.refs) }}</li>{% endfor %}</ul>
+    <ul class="claims">{% for c in body.rumors %}<li><span class="badge">unconfirmed</span> {{ c.text }} {{ cite(c.refs) }} {{ origin(c.refs) }}</li>{% endfor %}</ul>
     {% else %}
     <p class="muted">None found.</p>
     {% endif %}
@@ -230,11 +235,13 @@
   <section id="r{{ rid }}-sources">
     <h3>Sources</h3>
     {% if body.stories %}
+    <p class="source-kinds muted small">{{ body.stories | length }} source{{ "" if body.stories | length == 1 else "s" }}: {% for label, count in source_kinds(body.stories) %}{{ count }} {{ label }}{{ " · " if not loop.last }}{% endfor %}</p>
     <ol class="sources">{% for st in body.stories %}
       <li id="r{{ rid }}-s{{ loop.index }}">
         <p class="source-title"><a href="{{ st["items"][0].url }}" rel="noopener noreferrer" target="_blank">{{ st.title }}</a>
           {% if st.kind in ("filing", "video", "blog", "post") %}<span class="badge plain">{{ {"video": "YouTube", "post": "X"}.get(st.kind, st.kind) }}</span>{% endif %}
-          {% if st.is_rumor %}<span class="badge">unconfirmed</span>{% endif %}</p>
+          {% if st.is_rumor %}<span class="badge">unconfirmed</span>{% endif %}
+          {% if st.sentiment %}<span class="rating {{ st.sentiment }}">{{ st.sentiment }}</span>{% endif %}</p>
         {% if st.summary %}<p>{{ st.summary }}</p>{% endif %}
         {% if st.kind == "video" %}
           {% if st.points %}
@@ -248,10 +255,14 @@
         <p class="muted small">Not watched by the AI yet; it will be summarized in a later report.</p>
           {% endif %}
         {% endif %}
-        {% if st.sentiment %}<p class="small"><span class="rating {{ st.sentiment }}">{{ st.sentiment }}</span> {{ st.reason }}</p>{% endif %}
+        {% if st.sentiment and st.reason %}<p class="small rating-reason">{{ st.reason }}</p>{% endif %}
+        {% if st["items"] | length == 1 %}{% set it = st["items"][0] %}
+        <p class="small muted source-origin">{{ it.outlet }}, {{ it.published_at | from_iso | eastern }}</p>
+        {% else %}
         <ul class="small">{% for it in st["items"] %}
           <li><a href="{{ it.url }}" rel="noopener noreferrer" target="_blank">{{ it.title }}</a> <span class="muted">{{ it.outlet }}, {{ it.published_at | from_iso | eastern }}</span></li>{% endfor %}
         </ul>
+        {% endif %}
       </li>{% endfor %}
     </ol>
     {% else %}
