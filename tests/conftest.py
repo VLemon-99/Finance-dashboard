@@ -505,6 +505,8 @@ class FakeLLM:
         self.fail: str | None = None  # set to a message to make every call raise AIError
         self.skip_refs: set[int] = set()  # items it pretends aren't about the ticker
         self.extra_claims: list[Claim] = []  # added to developments (e.g. uncited ones)
+        # Added to the bottom line and to the bull and bear cases (owner 2026-11-14).
+        self.extra_synthesis: list[Claim] = []
         self.item_calls: list[tuple[str, str | None, list[PublicItem]]] = []
         self.report_calls: list[tuple[str, str | None, list[PublicStory]]] = []
         # Videos (SPEC F4.5)
@@ -570,9 +572,24 @@ class FakeLLM:
             Claim(f"Development: {s.title}.", (s.ref,)) for s in stories if not s.is_rumor
         ]
         rumors = [Claim(f"Rumor: {s.title}.", (s.ref,)) for s in stories if s.is_rumor]
+
+        def titled(prefix, words):
+            return [
+                Claim(f"{prefix}: {s.title}.", (s.ref,))
+                for s in stories
+                if any(w in s.title.lower() for w in words)
+            ]
+
+        confirmed = [s for s in stories if not s.is_rumor]
+        extra = list(self.extra_synthesis)
         return ReportDraft(
             developments=tuple(developments[:max_developments] + self.extra_claims),
             rumors=tuple(rumors[:max_rumors]),
+            bottom_line=tuple(
+                extra + [Claim(f"Bottom line: {s.title}.", (s.ref,)) for s in confirmed[:2]]
+            ),
+            bull_case=tuple(extra + titled("Bull", ("record", "beat", "buy"))),
+            bear_case=tuple(extra + titled("Bear", ("slip", "worr", "sell", "recall"))),
         )
 
 

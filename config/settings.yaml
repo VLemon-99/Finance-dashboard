@@ -63,6 +63,9 @@ reports:
     youtube: 0.7
     x: 0.5
     reddit: 0.3
+  # Insider trades: a report shows this many (the largest by dollar value); the full list is
+  # one click away. 0 shows only the totals.
+  insider_highlights: 3
 
 ai:
   # Gemini model. "gemini-flash-latest" always points at Google's current Flash model.
@@ -76,6 +79,10 @@ ai:
   # Most statements in the "Major developments" and "Rumors & speculation" sections.
   max_developments: 6
   max_rumors: 4
+  # The "Bottom line" on top of each report (sentences), and the most points in each of the
+  # "Bull case" and "Bear case".
+  max_bottom_line: 3
+  max_case_points: 3
   # YouTube videos (SPEC F4.5). The AI watches each new video once and keeps its summary,
   # so a video is never watched twice (not even for another ticker).
   # The most new videos watched in one run; the rest wait for the next run.

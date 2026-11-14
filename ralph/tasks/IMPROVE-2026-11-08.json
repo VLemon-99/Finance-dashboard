@@ -1,6 +1,6 @@
 {
   "feature": "IMPROVE",
-  "name": "Improvement loop (run 1, 2026-11-11: safe mode, focus all; run 2, 2026-11-13: bold mode, focus UI, max 10, report pages excluded)",
+  "name": "Improvement loop (run 1, 2026-11-11: safe mode, focus all; run 2, 2026-11-13: bold mode, focus UI, max 10, report pages excluded; run 3, 2026-11-13: bold mode, focus UI of the report pages only, max 10)",
   "branch": "ralph/improve-2026-11-08",
   "zone": "mixed (each item names its zone)",
   "dependsOnFeatures": [],
@@ -459,6 +459,156 @@
       "status": "done",
       "attempts": 0,
       "notes": "Run 2 (bold, UI), second survey. The report pages are not touched. REVIEW: approve with changes (applied): all columns stay visible on the card; data-trade and the Delete confirmation kept. DONE 2026-11-13: the Trades and Closed positions tables are `responsive` with data-label on every cell (instrument as the card title, price / realized P&L as the headline with its caption, date or realized % under it); phone-only CSS appended. 3 tests appended to tests/test_web_ui_portfolio.py (all failed on the old page). 390px: no sideways scrolling in either box. Second review: PASS; its caption suggestion applied. Its note for the owner: the instrument name in these tables is now bold on laptops too."
+    },
+    {
+      "id": "IMP-17",
+      "title": "Report: an 'At a glance' strip of key figures on top of each ticker's report",
+      "description": "Today a report is a long page and the reader has to scroll through six sections to learn the basics. Add a row of small tiles right under the report's title that shows, from figures already stored in the report: the sentiment score with its bullish/neutral/bearish counts; the P/E now and how far it is above or below the stock's own history (or peers when there is no history); the analysts' average target and its gap to the price; insider trades net bought or sold in dollars; the number of unusual option contracts (calls vs puts); and how many sources were used / are missing. Each tile is a link that jumps to its section. A tile whose data isn't in the report says 'n/a' instead of disappearing or breaking. The tiles are built by a small Python function from the stored report (no AI, no new fetching, nothing recalculated differently: the same numbers the sections show).",
+      "category": "ui",
+      "value": "high",
+      "risk": "low",
+      "specRefs": [
+        "F4.1",
+        "F4.6",
+        "F4.7",
+        "F4.8",
+        "F4.11",
+        "F7.10"
+      ],
+      "acceptance": [
+        "Each ticker report shows a glance strip (class 'glance') before the 'Major developments' section, with exactly six tiles (class 'glance-tile'): Sentiment, Valuation, Analyst target, Insiders, Options flow, Sources",
+        "Tile values equal the figures in the sections below for the sample AAPL report: sentiment +25 with 2/6/0, P/E 30.0 and +20% vs own history, average target $230.00 (+15%), insiders net sold $3.53M, 8 sources",
+        "Every tile links to an id that exists on the same report's matching section (ids carry the report id, so a watchlist page with several reports has no duplicate ids)",
+        "A report without valuation, without AI ratings or with SEC missing shows 'n/a' (or the missing count) in the matching tiles and the page still renders (status 200); old stored reports without those keys render too",
+        "The tile data comes from a Python function with unit tests of its own (known inputs → known outputs, including None and missing keys); the template does no arithmetic",
+        "At 390px wide the strip wraps (2 tiles per row) with no sideways page scrolling; all existing report tests pass unchanged",
+        "The strip never contains the text 'Unusual options activity' (a test for old reports checks that text is absent); section ids are on the <section> elements, not the headings"
+      ],
+      "verify": "uv run pytest tests/test_web_ui_report_glance.py tests/test_web_reports.py",
+      "zone": "reports (app/web/templates/_ticker_report.html, new app/web/report_view.py, report-only CSS in style.css, new test file)",
+      "priority": 17,
+      "dependsOn": [],
+      "status": "done",
+      "attempts": 0,
+      "notes": "Run 3 item (report pages only). Presentation only: the stored report, what is sent to the AI and every number's formula stay as they are. No JavaScript needed, no new dependency. REVIEW: approve. Feasible from the stored report; low risk is honest. Corrections applied: call the tiles 'key figures', not 'signals' (trade signals are out of scope); the Options flow tile must not contain the text 'Unusual options activity' (test_reports_made_before_phase_7_still_show); a testable criterion for the strip (class 'glance', six tiles) was added. Applies to all run-3 items: existing tests cut the page at the exact strings '<h3>Name</h3>' and '<h2>Summary</h2>', so ids go on the <section> (or a wrapper), never on the headings. DONE 2026-11-13: new app/web/report_view.py (glance(): six tiles read from the stored report and only formatted; nothing recalculated), registered as a template helper; strip added to _ticker_report.html with ids on the six <section>s; report-only CSS (6 tiles per row on laptops, 3 on tablets, 2 on phones). 20 tests in tests/test_web_ui_report_glance.py. Tests and code were written together this round (the tests couldn't run before the new module existed). Second review: PASS; its wording suggestions were applied (AI off → 'AI ratings off', no listed options, SEC partly missing → '(may be incomplete)', a page test for SEC missing). Not done from its list: guarding against wrong-shaped stored bodies that the report builder never produces."
+    },
+    {
+      "id": "IMP-18",
+      "title": "Report: valuation and sentiment shown as pictures, not only numbers",
+      "description": "The valuation table lists multiples and small grey ±% figures; the sentiment section is one number and a line of counts. Make them readable at a glance: (1) the ±% next to each comparison becomes a small chip in a neutral colour (not green/red: cheaper isn't 'good'), 'premium' when the stock is more expensive than the benchmark and 'discount' when cheaper, with the wording explained once under the table; (2) a range bar for the analysts' targets: low to high, with markers for the average target and today's price; (3) a range bar per multiple showing where today's value sits between the lowest and highest of the stock's own past years; (4) the sentiment section gets a bar split into bullish / neutral / bearish shares and a −100…+100 scale with a marker at the score. Bars are plain HTML/CSS (no chart library, works without JavaScript). Positions on the bars are calculated in Python with tests; every number stays visible as text, so nothing depends on colour alone.",
+      "category": "ui",
+      "value": "high",
+      "risk": "medium",
+      "specRefs": [
+        "F4.6",
+        "F4.7",
+        "F7.10"
+      ],
+      "acceptance": [
+        "In the valuation table only, each comparison's ±% carries class 'premium' (above the benchmark), 'discount' (below) or neither (when it shows as 0% with the existing rounding); chips use neutral colours, not the up/down green and red; the note under the table explains premium/discount in words. The analyst-target spans stay exactly <span class=\"vs\">",
+        "Analyst targets show a range bar whose markers for the average target and today's price sit at positions calculated in Python (unit-tested: low 180, high 260, average 230, price 200 → average at 62.5%, price at 25%); a price outside the range is clamped to 0–100% and still labelled; no bar when low or high is missing",
+        "Each multiple with own-history figures shows where 'now' sits between the history low and high (unit-tested positions, clamped), with the low and high written as text",
+        "Sentiment shows a three-part bar whose widths are the bullish/neutral/bearish shares (unit-tested; all-zero counts → no bar) and a scale marker at (score+100)/2 %; the existing score text, counts and weights lines stay",
+        "Bars have text alternatives (aria-label or visible numbers); existing report tests pass unchanged; no sideways page scrolling at 390px"
+      ],
+      "verify": "uv run pytest tests/test_web_ui_report_visuals.py tests/test_web_reports.py tests/test_reports_market_facts.py",
+      "zone": "reports (app/web/templates/_ticker_report.html, app/web/report_view.py, report-only CSS, new test file)",
+      "priority": 18,
+      "dependsOn": [
+        "IMP-17"
+      ],
+      "status": "done",
+      "attempts": 0,
+      "notes": "Run 3 item (report pages only). Presentation only: the stored report, what is sent to the AI and every number's formula stay as they are. No JavaScript needed, no new dependency. REVIEW: approve, with corrections (applied). Premium/discount classes on the valuation table only: the analyst-target spans must stay exactly <span class=\"vs\"> (pinned by test_f4_7). 'Neither' follows the existing vs rounding (shown as 0%). Neutral chip colours, not green/red: 'cheap = good' edges toward a recommendation. Risk raised to medium: four widgets in one story. Applies to all run-3 items: existing tests cut the page at the exact strings '<h3>Name</h3>' and '<h2>Summary</h2>', so ids go on the <section> (or a wrapper), never on the headings. DONE 2026-11-14: helpers position(), vs_class(), target_bar(), history_bars(), sentiment_bar() in app/web/report_view.py with known-answer tests; premium/discount chips in the valuation table (neutral grey: filled = premium, outlined = discount) with the wording explained under the table; 'Today within its own range' bars per multiple; analyst-target range bar with markers for the price and the average target; sentiment scale (−100…+100) and a bullish/neutral/bearish bar. Every bar has role=img with an aria-label and its numbers as text. For the owner to know: the stored report keeps the average target and its gap to the price but not the price itself, so the bar reads the price back as target ÷ (1 + gap), the exact inverse of the stored formula (tested: 230 and +15% → $200.00). 30 tests in tests/test_web_ui_report_visuals.py, written first and seen failing (import error) before the code. Second review: PASS; its test gaps for text alternatives were closed. Left as is: history low/high labels would overflow for multiples of 1,000 or more (cosmetic)."
+    },
+    {
+      "id": "IMP-19",
+      "title": "Watchlist report: a briefing table with each ticker's key figures that makes the long page easy to move around",
+      "description": "A whole-watchlist report is one very long page (about 7 phone screens per ticker) and its summary table is cut off on phones. Rework the top of the page as a briefing: one card (phone) or row (laptop) per ticker with the sentiment score and a small bullish/neutral/bearish bar, the P/E gap to its own history, the analysts' average-target gap, insiders' net buying or selling, unusual options count, the top development, and the missing-sources count. Tickers stay in the watchlist's order, as today. Each ticker name jumps to its report and every report gets a 'Back to summary' link. On phones the table becomes labelled cards like the rest of the app. The extra figures are read from the stored reports when the page is drawn (nothing new is stored or sent anywhere).",
+      "category": "ui",
+      "value": "high",
+      "risk": "medium",
+      "specRefs": [
+        "F4.9",
+        "F4.11",
+        "F7.10"
+      ],
+      "acceptance": [
+        "The run page of a watchlist with 2+ reports shows the briefing with, per ticker: score, counts, P/E vs own history, average-target gap, insider net, unusual options count, top development with its [sources] link, missing count",
+        "Rows keep today's order (the watchlist's order); the figures come from the same Python function as IMP-17's tiles, so they match the tiles (tested)",
+        "Each ticker links to #report-<id>; each report on a multi-ticker run page has a link back to the summary (#summary)",
+        "The table uses the app's phone card pattern (table.responsive + data-label on every cell); no sideways page scrolling at 390px",
+        "A ticker whose report lacks valuation / insider / options data shows '—' in those cells; a failed ticker is still named in the 'No report could be made for' note; single-ticker runs show no briefing (as today)",
+        "Existing tests pass unchanged (they pin the summary's text such as 'Top development' and the [sources] link)",
+        "'<h2>Summary</h2>' stays exactly as it is and briefing rows carry no data-ticker attribute (existing tests count data-ticker to count reports)"
+      ],
+      "verify": "uv run pytest tests/test_web_ui_report_briefing.py tests/test_web_reports.py",
+      "zone": "reports (app/web/templates/report_run.html, app/web/report_routes.py, app/web/report_view.py, report-only CSS, new test file)",
+      "priority": 19,
+      "dependsOn": [
+        "IMP-17"
+      ],
+      "status": "done",
+      "attempts": 0,
+      "notes": "Run 3 item (report pages only). Presentation only: the stored report, what is sent to the AI and every number's formula stay as they are. No JavaScript needed, no new dependency. REVIEW: approve, with corrections (applied). Re-ranking by absolute sentiment dropped: on a handful of stories it edges toward trade signals and silently changes today's order; a possible later item for the owner. Keep '<h2>Summary</h2>' exact and no data-ticker on briefing rows (test_generate_for_a_whole_watchlist). Reuse IMP-17's function so figures match the tiles. Applies to all run-3 items: existing tests cut the page at the exact strings '<h3>Name</h3>' and '<h2>Summary</h2>', so ids go on the <section> (or a wrapper), never on the headings. DONE 2026-11-14: briefing() in app/web/report_view.py builds one row per stored report from the same glance() tiles (a part the report lacks shows a dash); report_run.html draws it as table.responsive.briefing inside <div id=\"summary\"> with '<h2>Summary</h2>' unchanged; each report on a watchlist page has '↑ Back to summary'. The rows now come from the run's stored reports instead of run.summary (same tickers, same order; the reviewer checked). Small visible differences: a score of zero shows '0' (was '+0') and negatives use a proper minus sign. The table no longer carries the CSS class 'summary', which was the portfolio page's summary grid and distorted this table on phones. 10 tests in tests/test_web_ui_report_briefing.py, written first and seen failing. Second review: PASS; its test gaps (failed ticker named on the page, missing count and dashes on the page) were closed and room was reserved so a long company name can't run under the back link. Known and left: with 8 columns the table may scroll inside its own frame on narrow laptop windows (the page itself doesn't)."
+    },
+    {
+      "id": "IMP-20",
+      "title": "Report: developments and sources that are quicker to scan",
+      "description": "In 'Major developments' every line looks the same and the reader must jump to the bottom to learn whether a story was good or bad news or who reported it. In 'Sources' each story shows its title twice (as heading and again as the only link under it). Changes: (1) each development and rumor line gets a small coloured marker for the rating of the stories it cites (bullish / bearish / mixed / neutral, worked out in Python from the cited stories' stored ratings) plus the outlet name(s) and date of what it cites, so the claim, its tone and its origin are read in one line; (2) in Sources, a story carried by one outlet shows one line 'outlet, date' instead of repeating the title, and a story with several outlets keeps the full list; the rating becomes a pill next to the title; (3) a line above the list counts the sources by kind (news, filings, blogs, videos, X). Every statement keeps its numbered link to its sources (F4.2) and every source keeps title, outlet, date and link.",
+      "category": "ui",
+      "value": "medium",
+      "risk": "medium",
+      "specRefs": [
+        "F4.1",
+        "F4.2",
+        "F4.5",
+        "F4.6",
+        "F4.12"
+      ],
+      "acceptance": [
+        "Each development/rumor line shows a marker for the tone of the stories it cites (labelled as such, e.g. title 'Tone of the cited stories', not as a rating of the statement): all bullish → bullish, all bearish → bearish, both → mixed, otherwise neutral; unrated → no marker (unit-tested function). On a rumor line '<span class=\"badge\">unconfirmed</span> ' is still immediately followed by the text (pinned): the marker goes before the badge or after the text",
+        "Each development/rumor line names the outlet(s) of what it cites (at most 2, then '+N more') and the date of its first cited story, and keeps its [n] citation links",
+        "A single-outlet story in Sources shows its title once (as the link) with outlet and date; a multi-outlet story still lists every outlet's title, outlet, date and link (F4.12)",
+        "A count by kind is shown above the sources list and matches the list",
+        "All existing report tests pass unchanged"
+      ],
+      "verify": "uv run pytest tests/test_web_ui_report_sources.py tests/test_web_reports.py tests/test_reports_videos.py tests/test_reports_x.py",
+      "zone": "reports (app/web/templates/_ticker_report.html, app/web/report_view.py, report-only CSS, new test file)",
+      "priority": 20,
+      "dependsOn": [],
+      "status": "done",
+      "attempts": 0,
+      "notes": "Run 3 item (report pages only). Presentation only: the stored report, what is sent to the AI and every number's formula stay as they are. No JavaScript needed, no new dependency. REVIEW: approve, with corrections (applied). The rumor line keeps the badge immediately followed by the text; the marker is labelled as the tone of the cited stories; outlets capped at 2 then '+N more'; no test pins the repeated single-outlet title, so the escape clause was removed. Medium risk is honest. Applies to all run-3 items: existing tests cut the page at the exact strings '<h3>Name</h3>' and '<h2>Summary</h2>', so ids go on the <section> (or a wrapper), never on the headings. DONE 2026-11-14: claim_tone(), claim_origin() and source_kinds() in app/web/report_view.py with unit tests. Each development and rumor line shows the tone of the stories it cites (from their stored ratings; labelled 'Tone of the cited stories'), up to two outlet names ('+N more' beyond that) and the US Eastern day of the first cited story, after its [n] links; the rumor badge still sits right before the text. In Sources a story with one outlet shows 'outlet, date' once instead of repeating its title (stories with several outlets keep the full list), the rating is a pill next to the title with the reason below, and a line above the list counts the sources by kind. 21 tests in tests/test_web_ui_report_sources.py, written first and seen failing. Second review: PASS; its one code remark (an empty origin when a story names no outlet or date) was fixed with a test. Left as is: the day on a statement line has no year ('Oct 30'); '+N more' and 'mixed' are covered by unit tests only, because the sample report has no such line."
+    },
+    {
+      "id": "IMP-21",
+      "title": "Report: section jump bar and phone-friendly tables",
+      "description": "Polish of the report's frame. (1) A row of jump links under the title (Developments · Rumors · Insiders · Valuation · Sentiment · Sources) so any section is one tap away, and section headings get a consistent look with a divider; (2) on phones the insider trades, holders, unusual options and peers tables become labelled cards (the app's existing pattern) instead of being cut off at the right edge; the top-holders, contracts and peers tables stay inside their fold-outs; the valuation table keeps its grid but scrolls inside its own box with the first column pinned; (3) the Reports start page gets the same card look for its 'Generate now' and 'Past reports' blocks. The header line with the generated time and covered period stays as it is.",
+      "category": "ui",
+      "value": "medium",
+      "risk": "medium",
+      "specRefs": [
+        "F4.1",
+        "F4.14",
+        "F7.10"
+      ],
+      "acceptance": [
+        "Each report has a nav (class 'report-nav') whose six links point at ids present on that report's six sections, in the F4.1 order; ids carry the report id",
+        "The six section headings keep their exact text and order (F4.1 tests unchanged)",
+        "The full 'Generated … · covers … to …' line stays visible as today (F4.14)",
+        "Insider trades, top holders, unusual options and peers tables have class 'responsive' with data-label on every cell; holders, contracts and peers stay inside their <details>; the valuation table is not 'responsive' and its first column is sticky (CSS rule test); no sideways page scrolling at 390px for the sample single-ticker and watchlist reports",
+        "The Reports page keeps both generate forms, the schedule line and the history lists (existing tests unchanged)"
+      ],
+      "verify": "uv run pytest tests/test_web_ui_report_layout.py tests/test_web_reports.py tests/test_web_reports_history.py tests/test_web_report_limit.py",
+      "zone": "reports (app/web/templates/_ticker_report.html, report.html, reports.html, report-only CSS, new test file)",
+      "priority": 21,
+      "dependsOn": [
+        "IMP-17"
+      ],
+      "status": "todo",
+      "attempts": 0,
+      "notes": "Run 3 item (report pages only). Presentation only: the stored report, what is sent to the AI and every number's formula stay as they are. No JavaScript needed, no new dependency. REVIEW: approve, trimmed (applied). Dropped: compact insider totals (tests pin '$3,757,500.00' and '-$3,527,500.00' in the sentence, and the totals aren't in the table) and the header shortening (a tooltip doesn't exist on phones; F4.14 needs the text visible). Depends on IMP-17 for the section ids. Holders, contracts and peers tables stay inside their <details> (DECISIONS 2026-11-04). Added: valuation table not 'responsive', first column sticky. Applies to all run-3 items: existing tests cut the page at the exact strings '<h3>Name</h3>' and '<h2>Summary</h2>', so ids go on the <section> (or a wrapper), never on the headings."
     }
   ]
 }

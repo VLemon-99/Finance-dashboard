@@ -15,6 +15,21 @@ from app.services import watchlists as wl
 from app.services.reports import running_run, start_run
 from app.tickers import InvalidTicker, normalize_ticker
 from app.timeutils import EASTERN, as_utc, today_eastern, utc_now
+from app.web.report_view import (
+    briefing,
+    claim_origin,
+    claim_tone,
+    fund_changes,
+    glance,
+    history_bars,
+    insider_highlights,
+    number_highlights,
+    sentiment_bar,
+    source_kinds,
+    target_bar,
+    voices,
+    vs_class,
+)
 from app.web.routes import SessionDep, UserDep, _redirect, templates
 
 router = APIRouter()
@@ -206,7 +221,11 @@ def run_page(request: Request, run_id: int, session: SessionDep, user_id: UserDe
     reports = session.exec(
         select(Report).where(Report.run_id == run.id).order_by(col(Report.id))
     ).all()
-    return templates.TemplateResponse(request, "report_run.html", {"run": run, "reports": reports})
+    return templates.TemplateResponse(
+        request,
+        "report_run.html",
+        {"run": run, "reports": reports, "briefing": briefing(list(reports))},
+    )
 
 
 @router.get("/reports/runs/{run_id}/progress", response_class=HTMLResponse)
@@ -241,6 +260,18 @@ def iso_eastern(value: str | None) -> datetime | None:
 
 
 templates.env.globals["citation_numbers"] = citation_numbers
+templates.env.globals["report_glance"] = glance
+templates.env.globals["target_bar"] = target_bar
+templates.env.globals["voices"] = voices
+templates.env.globals["number_highlights"] = number_highlights
+templates.env.globals["insider_highlights"] = insider_highlights
+templates.env.globals["fund_changes"] = fund_changes
+templates.env.globals["claim_tone"] = claim_tone
+templates.env.globals["claim_origin"] = claim_origin
+templates.env.globals["source_kinds"] = source_kinds
+templates.env.globals["history_bars"] = history_bars
+templates.env.globals["sentiment_bar"] = sentiment_bar
+templates.env.filters["vs_class"] = vs_class
 templates.env.filters["from_iso"] = iso_eastern
 # How a followed fund's change in a stock is described (SPEC F4.8).
 templates.env.globals["fund_status"] = {

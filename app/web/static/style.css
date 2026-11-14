@@ -459,3 +459,111 @@ a.chip:hover { border-color: var(--accent); color: var(--accent); }
   /* Keep the captions on these headline numbers: a trade's price isn't a total. */
   table.responsive.trades td[data-col=last]::before, table.responsive.closed-positions td[data-col=last]::before { content: attr(data-label); }
 }
+
+/* Report: the "At a glance" strip of key figures on top of each ticker's report */
+.glance { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin: 14px 0 4px; }
+.glance-tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text); text-decoration: none; }
+.glance-tile:hover { border-color: var(--muted); }
+.glance-label { font-size: 0.7rem; font-weight: 650; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.glance-value { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.glance-value.flat, .glance-value.warn { color: var(--text); } .glance-value.up { color: var(--up); } .glance-value.down { color: var(--down); }
+.glance-detail { font-size: 0.78rem; color: var(--muted); line-height: 1.3; }
+.glance-value.warn + .glance-detail { color: var(--warn); }
+@media (max-width: 1000px) { .glance { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 720px) {
+  .glance { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .glance-tile { min-height: 44px; }
+}
+
+/* Report: valuation and sentiment as pictures (bars are drawn from figures calculated in Python) */
+.vs.premium, .vs.discount { display: inline-block; padding: 0 6px; border-radius: 99px; font-weight: 600; color: var(--text); border: 1px solid var(--border); }
+.vs.premium { background: var(--border); }
+.vs.discount { background: transparent; }
+.range { position: relative; display: block; height: 8px; border-radius: 99px; background: var(--border); }
+.range-mark { position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--text); border: 2px solid var(--card); }
+.range-mark.mean { background: var(--card); border-color: var(--text); }
+.target-range { max-width: 520px; margin: 10px 6px 4px; }
+.range-legend { color: var(--muted); font-size: 0.8rem; display: flex; justify-content: space-between; gap: 8px; max-width: 532px; margin: 0 0 10px; }
+.range-legend .key { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-left: 8px; background: var(--text); border: 2px solid var(--text); vertical-align: baseline; }
+.range-legend .key.mean { background: var(--card); }
+.range-title { margin: 10px 0 4px; font-size: 0.875rem; font-weight: 600; }
+.history-ranges { display: grid; gap: 6px; margin: 0 0 12px; max-width: 532px; }
+.history-row { display: grid; grid-template-columns: 6.5em 1fr; align-items: center; gap: 8px; }
+.history-row dt { font-size: 0.875rem; font-weight: 600; }
+.history-row dd { margin: 0; display: grid; grid-template-columns: 2.6em minmax(60px, 1fr) 2.6em 13.5em; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.history-row .range-end:first-child { text-align: right; }
+.range-now { color: var(--text); white-space: nowrap; }
+.scale { position: relative; height: 8px; max-width: 520px; margin: 10px 6px 2px; border-radius: 99px; background: linear-gradient(to right, var(--down-bg), var(--border) 50%, var(--up-bg)); border: 1px solid var(--border); }
+.scale::before { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--muted); }
+.scale-mark { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--text); border: 2px solid var(--card); }
+.scale-ends { display: flex; justify-content: space-between; max-width: 532px; margin: 0 0 10px; }
+.mix { display: flex; gap: 2px; height: 10px; max-width: 532px; margin: 8px 0 6px; border-radius: 99px; overflow: hidden; }
+.mix-part { display: block; min-width: 4px; }
+.mix-part.bullish { background: var(--up); } .mix-part.neutral { background: var(--muted); opacity: 0.45; } .mix-part.bearish { background: var(--down); }
+@media (max-width: 720px) {
+  .history-row { grid-template-columns: 1fr; gap: 2px; }
+  .history-row dd { grid-template-columns: 2.6em minmax(40px, 1fr) 2.6em 12.5em; }
+  .range-legend > span:not(.range-end) { text-align: center; }
+}
+
+/* Report: the briefing table on top of a whole-watchlist report */
+.briefing td { vertical-align: top; }
+.briefing .tk a { color: var(--text); font-size: 1.05rem; }
+.brief-value { display: block; font-weight: 600; font-variant-numeric: tabular-nums; }
+.brief-value.flat { color: var(--text); }
+.brief-detail { display: block; color: var(--muted); font-size: 0.78rem; }
+.mix.mini { display: flex; width: 72px; height: 6px; margin: 4px 0 3px; }
+.stocks.briefing td.wrap { min-width: 220px; }
+.report { position: relative; }
+.back-link { position: absolute; top: 14px; right: 20px; margin: 0; }
+.report:has(.back-link) .report-title { padding-right: 10em; }
+.back-link a { color: var(--muted); text-decoration: none; }
+.back-link a:hover { color: var(--text); text-decoration: underline; }
+@media (max-width: 720px) {
+  table.responsive.briefing td.tk { grid-column: 1 / -1; }
+  table.responsive.briefing td.tk::before { content: none; }
+  table.responsive.briefing td.tk a { font-size: 1.25rem; display: inline-flex; align-items: center; min-height: 44px; }
+  .stocks.briefing td.wrap { min-width: 0; }
+  .back-link { position: static; }
+  .report:has(.back-link) .report-title { padding-right: 0; }
+  .back-link a { display: inline-flex; align-items: center; min-height: 44px; }
+}
+
+/* Report: statements show the tone and origin of what they cite; sources are tidier */
+.claim-origin { display: inline-block; margin-left: 4px; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+.tone { display: inline-block; padding: 0 7px; border-radius: 99px; font-size: 0.72rem; font-weight: 650; text-transform: capitalize; border: 1px solid var(--border); color: var(--muted); }
+.tone.bullish { color: var(--up); background: var(--up-bg); border-color: transparent; }
+.tone.bearish { color: var(--down); background: var(--down-bg); border-color: transparent; }
+.tone.mixed { color: var(--warn); background: var(--warn-bg); border-color: transparent; }
+.source-kinds { margin: 0 0 6px; }
+.source-title .rating { display: inline-block; margin-left: 4px; padding: 0 8px; border-radius: 99px; font-size: 0.75rem; vertical-align: middle; border: 1px solid var(--border); }
+.source-title .rating.bullish { background: var(--up-bg); border-color: transparent; }
+.source-title .rating.bearish { background: var(--down-bg); border-color: transparent; }
+.sources .rating-reason { color: var(--muted); }
+@media (max-width: 720px) { .claim-origin { display: block; margin: 2px 0 0; white-space: normal; } }
+
+/* Report: ownership, condensed (largest insider trades; the rest folded away) */
+.insider-highlights { list-style: none; margin: 6px 0 8px; padding: 0; display: grid; gap: 6px; }
+.insider-highlights li { padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); line-height: 1.4; }
+.insider-highlights .up, .insider-highlights .down { font-weight: 650; }
+.plain-note { margin: 6px 0; padding-left: 10px; border-left: 3px solid var(--border); color: var(--muted); }
+
+/* Report: the synthesis (bottom line, bull and bear cases) */
+.report .bottom-line { margin-top: 12px; padding: 14px 16px; border-radius: 12px; background: var(--accent-soft); }
+.bottom-line .thesis { margin: 0 0 8px; font-size: 1.08rem; line-height: 1.5; }
+.number-lines { margin: 0; padding-left: 18px; color: var(--text); font-size: 0.92rem; }
+.number-lines li { margin: 3px 0; }
+.number-lines a { color: var(--muted); }
+.cases { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.case { padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; border-top-width: 3px; }
+.case.bull { border-top-color: var(--up); } .case.bear { border-top-color: var(--down); }
+@media (max-width: 720px) { .cases { grid-template-columns: 1fr; } }
+
+/* Report: voices (X and YouTube takes, kept apart from news and filings) */
+.voices { list-style: none; margin: 6px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
+.voice { padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; }
+.voice p { margin: 2px 0; }
+.voice-tally { margin: 0 0 4px; }
+.voice-who .rating { display: inline-block; padding: 0 8px; border-radius: 99px; font-size: 0.75rem; border: 1px solid var(--border); }
+.voice-who .rating.bullish { background: var(--up-bg); border-color: transparent; }
+.voice-who .rating.bearish { background: var(--down-bg); border-color: transparent; }

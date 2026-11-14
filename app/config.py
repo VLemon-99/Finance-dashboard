@@ -145,6 +145,9 @@ class ReportsConfig(_Section):
         "x": 0.5,
         "reddit": 0.3,
     }
+    # How many insider trades (the largest by dollar value) a report shows before the full
+    # list is folded away (owner 2026-11-14).
+    insider_highlights: int = Field(default=3, ge=0, le=20)
 
 
 class AIConfig(_Section):
@@ -157,6 +160,10 @@ class AIConfig(_Section):
     # Most statements per report section.
     max_developments: int = Field(default=6, ge=1, le=20)
     max_rumors: int = Field(default=4, ge=0, le=20)
+    # The synthesis (owner 2026-11-14): sentences in the "Bottom line", and points in each of
+    # the bull and bear cases.
+    max_bottom_line: int = Field(default=3, ge=1, le=6)
+    max_case_points: int = Field(default=3, ge=0, le=10)
     # YouTube (SPEC F4.5): the most new videos the AI watches in one run (each video is
     # watched once, ever), how much of each video it watches (minutes, from the start), and
     # how many videos it watches at the same time.

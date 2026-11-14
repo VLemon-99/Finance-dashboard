@@ -75,6 +75,10 @@ class Claim:
 class ReportDraft:
     developments: tuple[Claim, ...]
     rumors: tuple[Claim, ...]
+    # The synthesis (owner 2026-11-14): the overall picture, then the points for and against.
+    bottom_line: tuple[Claim, ...] = ()
+    bull_case: tuple[Claim, ...] = ()
+    bear_case: tuple[Claim, ...] = ()
 
 
 class AIError(Exception):
@@ -110,5 +114,6 @@ class LLM(Protocol):
         max_developments: int,
         max_rumors: int,
     ) -> ReportDraft:
-        """The 'Major developments' and 'Rumors & speculation' statements, each citing stories."""
+        """The report's written parts, each statement citing stories: the bottom line, the
+        major developments, rumors & speculation, and the bull and bear cases."""
         ...
