@@ -505,3 +505,26 @@ a.chip:hover { border-color: var(--accent); color: var(--accent); }
   .history-row dd { grid-template-columns: 2.6em minmax(40px, 1fr) 2.6em 12.5em; }
   .range-legend > span:not(.range-end) { text-align: center; }
 }
+
+/* Report: the briefing table on top of a whole-watchlist report */
+.briefing td { vertical-align: top; }
+.briefing .tk a { color: var(--text); font-size: 1.05rem; }
+.brief-value { display: block; font-weight: 600; font-variant-numeric: tabular-nums; }
+.brief-value.flat { color: var(--text); }
+.brief-detail { display: block; color: var(--muted); font-size: 0.78rem; }
+.mix.mini { display: flex; width: 72px; height: 6px; margin: 4px 0 3px; }
+.stocks.briefing td.wrap { min-width: 220px; }
+.report { position: relative; }
+.back-link { position: absolute; top: 14px; right: 20px; margin: 0; }
+.report:has(.back-link) .report-title { padding-right: 10em; }
+.back-link a { color: var(--muted); text-decoration: none; }
+.back-link a:hover { color: var(--text); text-decoration: underline; }
+@media (max-width: 720px) {
+  table.responsive.briefing td.tk { grid-column: 1 / -1; }
+  table.responsive.briefing td.tk::before { content: none; }
+  table.responsive.briefing td.tk a { font-size: 1.25rem; display: inline-flex; align-items: center; min-height: 44px; }
+  .stocks.briefing td.wrap { min-width: 0; }
+  .back-link { position: static; }
+  .report:has(.back-link) .report-title { padding-right: 0; }
+  .back-link a { display: inline-flex; align-items: center; min-height: 44px; }
+}

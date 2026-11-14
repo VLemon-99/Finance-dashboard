@@ -7,6 +7,7 @@
 {%- endmacro %}
 <article class="report" id="report-{{ rid }}" data-ticker="{{ report.ticker }}">
   <h2 class="report-title">{{ report.ticker }}{% if body.company %} <span class="muted">· {{ body.company }}</span>{% endif %}</h2>
+  {% if back_to_summary %}<p class="back-link small"><a href="#summary">↑ Back to summary</a></p>{% endif %}
   <p class="muted small">Generated {{ report.generated_at | eastern }} · covers {{ report.period_start | eastern }} to {{ report.period_end | eastern }}{% if body.ai_model %} · summaries by {{ body.ai_model }}{% endif %}</p>
 
   {% if report.missing %}

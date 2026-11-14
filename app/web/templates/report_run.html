@@ -15,23 +15,34 @@
 <p class="note error" role="alert">No report could be made for: {{ run.summary.failed | join(", ") }} (details in the app log).</p>
 {% endif %}
 
-{% if run.status == "done" and run.summary.tickers and run.total > 1 %}
+{% set show_briefing = run.status == "done" and run.summary.tickers and run.total > 1 %}
+{% if show_briefing %}
+<div id="summary" class="briefing-block">
 <h2>Summary</h2>
-<div class="table-wrap"><table class="stocks summary">
-  <thead><tr><th>Ticker</th><th class="num">Sentiment</th><th>Ratings</th><th>Top development</th><th>Missing</th></tr></thead>
-  <tbody>{% for t in run.summary.tickers %}
+<div class="table-wrap"><table class="stocks responsive briefing">
+  <thead><tr><th>Ticker</th><th>Sentiment</th><th>Valuation</th><th>Analyst target</th><th>Insiders</th><th>Options flow</th><th>Top development</th><th>Missing</th></tr></thead>
+  <tbody>{% for t in briefing %}
     <tr>
-      <td><a href="#report-{{ t.report_id }}"><strong>{{ t.ticker }}</strong></a></td>
-      <td class="num">{% if t.score is not none %}<span class="{{ 'up' if t.score > 0 else ('down' if t.score < 0 else 'flat') }}">{{ "{:+d}".format(t.score) }}</span>{% else %}—{% endif %}</td>
-      <td class="small">{{ t.counts.bullish }} / {{ t.counts.neutral }} / {{ t.counts.bearish }}</td>
-      <td class="wrap">{% if t.top %}{{ t.top.text }} <a class="cite" href="/reports/{{ t.report_id }}">[sources]</a>{% else %}<span class="muted">—</span>{% endif %}</td>
-      <td>{% if t.missing %}<span class="badge">{{ t.missing }}</span>{% else %}—{% endif %}</td>
+      <td class="tk" data-label="Ticker"><a href="#report-{{ t.report_id }}"><strong>{{ t.ticker }}</strong></a></td>
+      <td data-label="Sentiment"><strong class="brief-value {{ t.sentiment.tone }}">{{ t.sentiment.value }}</strong>
+        {% if t.mix %}<span class="mix mini" role="img" aria-label="{{ t.mix.counts.bullish }} bullish, {{ t.mix.counts.neutral }} neutral, {{ t.mix.counts.bearish }} bearish">
+          {%- for k in ("bullish", "neutral", "bearish") if t.mix[k] > 0 %}<span class="mix-part {{ k }}" style="width: {{ "%.1f" | format(t.mix[k]) }}%"></span>{% endfor -%}
+        </span>{% endif %}
+        <span class="brief-detail">{{ t.counts.bullish or 0 }} / {{ t.counts.neutral or 0 }} / {{ t.counts.bearish or 0 }}</span></td>
+      {% for key, label in [("valuation", "Valuation"), ("target", "Analyst target"), ("insider", "Insiders"), ("options", "Options flow")] %}
+      <td data-label="{{ label }}"><span class="brief-value {{ t[key].tone }}">{{ t[key].value }}</span>{% if t[key].detail %}
+        <span class="brief-detail">{{ t[key].detail }}</span>{% endif %}</td>
+      {% endfor %}
+      <td class="wrap span-all" data-label="Top development">{% if t.top %}{{ t.top.text }} <a class="cite" href="/reports/{{ t.report_id }}">[sources]</a>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td data-label="Missing">{% if t.missing %}<span class="badge">{{ t.missing }}</span>{% else %}—{% endif %}</td>
     </tr>{% endfor %}
   </tbody>
 </table></div>
-<p class="muted small">Ratings are bullish / neutral / bearish story counts.</p>
+<p class="muted small">Ratings are bullish / neutral / bearish story counts. The figures are the same as each report's "At a glance" tiles; tap a ticker to jump to its report.</p>
+</div>
 {% endif %}
 
+{% set back_to_summary = show_briefing %}
 {% for report in reports %}
   {% include "_ticker_report.html" %}
 {% endfor %}

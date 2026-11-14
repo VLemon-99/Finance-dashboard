@@ -15,7 +15,14 @@ from app.services import watchlists as wl
 from app.services.reports import running_run, start_run
 from app.tickers import InvalidTicker, normalize_ticker
 from app.timeutils import EASTERN, as_utc, today_eastern, utc_now
-from app.web.report_view import glance, history_bars, sentiment_bar, target_bar, vs_class
+from app.web.report_view import (
+    briefing,
+    glance,
+    history_bars,
+    sentiment_bar,
+    target_bar,
+    vs_class,
+)
 from app.web.routes import SessionDep, UserDep, _redirect, templates
 
 router = APIRouter()
@@ -207,7 +214,11 @@ def run_page(request: Request, run_id: int, session: SessionDep, user_id: UserDe
     reports = session.exec(
         select(Report).where(Report.run_id == run.id).order_by(col(Report.id))
     ).all()
-    return templates.TemplateResponse(request, "report_run.html", {"run": run, "reports": reports})
+    return templates.TemplateResponse(
+        request,
+        "report_run.html",
+        {"run": run, "reports": reports, "briefing": briefing(list(reports))},
+    )
 
 
 @router.get("/reports/runs/{run_id}/progress", response_class=HTMLResponse)

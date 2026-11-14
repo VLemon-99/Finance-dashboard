@@ -5,7 +5,7 @@ read from the stored report body (built in `services/reports.py`) and only forma
 
 from typing import Any
 
-from app.web.formatting import _shown, compact, money, multiple, vs
+from app.web.formatting import DASH, _shown, compact, money, multiple, vs
 
 NA = "n/a"
 # Valuation benchmarks in the order the tile prefers them: (key in a valuation row, wording).
@@ -242,3 +242,32 @@ def sentiment_bar(sentiment: dict[str, Any] | None) -> dict[str, Any] | None:
         "counts": shares,
         "marker": position(score, -100, 100),
     }
+
+
+# --- the briefing table on top of a whole-watchlist report -------------------------------
+
+BRIEFING_KEYS = ("sentiment", "valuation", "target", "insider", "options")
+
+
+def briefing(reports: list[Any]) -> list[dict[str, Any]]:
+    """One row per ticker's report, in the order given: the same key figures as its "At a
+    glance" tiles (a part the report lacks shows a dash), its first development, the
+    bullish / neutral / bearish bar and how many sources were missing."""
+    rows = []
+    for report in reports:
+        body = report.body or {}
+        tiles = {t["key"]: t for t in glance(body, report.missing)}
+        row: dict[str, Any] = {"ticker": report.ticker, "report_id": report.id}
+        for key in BRIEFING_KEYS:
+            tile = tiles[key]
+            if tile["value"] == NA:
+                tile = {**tile, "value": DASH, "detail": "", "tone": "flat"}
+            row[key] = tile
+        sentiment = body.get("sentiment") or {}
+        row["counts"] = sentiment.get("counts") or {}
+        row["mix"] = sentiment_bar(sentiment)
+        developments = body.get("developments") or []
+        row["top"] = developments[0] if developments else None
+        row["missing"] = len(report.missing or [])
+        rows.append(row)
+    return rows
