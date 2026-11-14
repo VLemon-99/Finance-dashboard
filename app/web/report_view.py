@@ -5,7 +5,7 @@ read from the stored report body (built in `services/reports.py`) and only forma
 
 from typing import Any
 
-from app.web.formatting import compact, money, multiple, vs
+from app.web.formatting import _shown, compact, money, multiple, vs
 
 NA = "n/a"
 # Valuation benchmarks in the order the tile prefers them: (key in a valuation row, wording).
@@ -151,3 +151,94 @@ def glance(body: dict[str, Any], missing: list[str] | None = None) -> list[dict[
         _options_tile(body),
         _sources_tile(body, missing or []),
     ]
+
+
+# --- bars: where a figure sits on a range (display only) ---------------------------------
+
+
+def position(value: float | None, low: float | None, high: float | None) -> float | None:
+    """Where `value` sits between `low` (0) and `high` (100), in percent, kept inside 0-100.
+    None when a figure is missing or the range has no width."""
+    if value is None or low is None or high is None or high <= low:
+        return None
+    return min(100.0, max(0.0, (value - low) / (high - low) * 100))
+
+
+def _outside(value: float, low: float, high: float) -> str | None:
+    return "below" if value < low else ("above" if value > high else None)
+
+
+def vs_class(fraction: float | None) -> str:
+    """'premium' when the stock's multiple is above the benchmark, 'discount' when below, ''
+    when the gap shows as 0% (same rounding as the `vs` filter) or there's nothing to compare."""
+    if fraction is None:
+        return ""
+    shown = _shown(fraction * 100, 0)
+    return "premium" if shown > 0 else ("discount" if shown < 0 else "")
+
+
+def target_bar(targets: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The analysts' low-to-high target range with the average target and the share price
+    placed on it. None unless both ends are known.
+
+    The stored report keeps the average target and its gap to the price (gap = target / price
+    - 1, see `services/valuation.py`), so the price is read back as target / (1 + gap).
+    """
+    if not targets:
+        return None
+    low, high, mean = targets.get("low"), targets.get("high"), targets.get("mean")
+    if low is None or high is None or high <= low:
+        return None
+    gap = targets.get("mean_vs")
+    price = mean / (1 + gap) if mean and gap is not None and gap > -1 else None
+    return {
+        "low": low,
+        "high": high,
+        "mean": mean,
+        "mean_position": position(mean, low, high),
+        "price": price,
+        "price_position": position(price, low, high),
+        "price_outside": _outside(price, low, high) if price is not None else None,
+    }
+
+
+def history_bars(valuation: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Per multiple with own-history figures: where today's value sits between the lowest and
+    highest of the stock's past fiscal years."""
+    bars = []
+    for row in (valuation or {}).get("rows") or []:
+        history, now = row.get("history"), row.get("now")
+        if not history or now is None:
+            continue
+        low, high = history.get("low"), history.get("high")
+        place = position(now, low, high)
+        if place is None:
+            continue
+        bars.append(
+            {
+                "label": row["label"],
+                "now": now,
+                "low": low,
+                "high": high,
+                "position": place,
+                "outside": _outside(now, low, high),
+            }
+        )
+    return bars
+
+
+def sentiment_bar(sentiment: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The bullish / neutral / bearish shares of the rated stories (percent, for a three-part
+    bar) and where the score sits on the -100..+100 scale (percent; None without a score).
+    None when no story was rated."""
+    counts = (sentiment or {}).get("counts") or {}
+    shares = {k: counts.get(k) or 0 for k in ("bullish", "neutral", "bearish")}
+    total = sum(shares.values())
+    if not total:
+        return None
+    score = (sentiment or {}).get("score")
+    return {
+        **{k: v / total * 100 for k, v in shares.items()},
+        "counts": shares,
+        "marker": position(score, -100, 100),
+    }

@@ -139,7 +139,7 @@
       <tbody>{% for r in v.rows %}
         <tr><th scope="row">{{ r.label }}</th><td class="num"><strong>{{ r.now | multiple }}</strong></td>
           {% for key, label in ns.cols %}{% set cell = r[key] %}
-          <td class="num"{% if key == "history" and cell %} title="{{ v.history.span }}: {{ cell.low | multiple }} to {{ cell.high | multiple }}"{% endif %}>{% if cell %}{{ (cell.average if key == "history" else cell.value) | multiple }}<span class="vs">{{ cell.vs | vs }}</span>{% else %}—{% endif %}</td>{% endfor %}
+          <td class="num"{% if key == "history" and cell %} title="{{ v.history.span }}: {{ cell.low | multiple }} to {{ cell.high | multiple }}"{% endif %}>{% if cell %}{{ (cell.average if key == "history" else cell.value) | multiple }}<span class="vs{% if cell.vs | vs_class %} {{ cell.vs | vs_class }}{% endif %}">{{ cell.vs | vs }}</span>{% else %}—{% endif %}</td>{% endfor %}
         </tr>{% endfor %}
       </tbody>
     </table></div>
@@ -149,10 +149,31 @@
       {%- if v.industry_peers %}{% set parts = parts + ["Peers: " ~ ("your list" if v.industry_peers.custom else v.industry_peers.name ~ "'s " ~ (v.industry_peers.peers | length) ~ " largest")] %}{% endif -%}
       {%- if v.sector_group %}{% set parts = parts + ["Sector: " ~ v.sector_group.name ~ "'s " ~ v.sector_group.count ~ " largest" ~ (" (your setting)" if v.sector_group.override else "")] %}{% endif -%}
       {%- if v.damodaran %}{% set parts = parts + ["Industry avg: Damodaran, " ~ v.damodaran.industry ~ ((", " ~ v.damodaran.updated) if v.damodaran.updated else "")] %}{% endif -%}
-      {{ parts | join(" · ") }}. Groups use the median; ±% = this stock above or below each.</p>
+      {{ parts | join(" · ") }}. Groups use the median; ±% = this stock above or below each. Premium = a higher multiple than the benchmark (more expensive on that measure); discount = a lower one.</p>
+    {% set hb = history_bars(v) %}
+    {% if hb %}
+    <p class="range-title">Today within its own range{% if v.history %} ({{ v.history.span }}, lowest to highest year){% endif %}</p>
+    <dl class="history-ranges">{% for b in hb %}
+      <div class="history-row"><dt>{{ b.label }}</dt>
+        <dd><span class="range-end">{{ b.low | multiple }}</span><span class="range history-range" role="img" aria-label="{{ b.label }} now {{ b.now | multiple }}; past years {{ b.low | multiple }} to {{ b.high | multiple }}"><span class="range-mark now" style="left: {{ "%.1f" | format(b.position) }}%"></span></span><span class="range-end">{{ b.high | multiple }}</span>
+          <span class="range-now">now <strong>{{ b.now | multiple }}</strong>{% if b.outside %} ({{ b.outside }} the range){% endif %}</span></dd>
+      </div>{% endfor %}
+    </dl>
+    {% endif %}
     {% if v.targets %}{% set t = v.targets %}
     <p>Analyst targets{% if t.analysts %} ({{ t.analysts }}){% endif %}:
       {% for k, label in [("low", "low"), ("mean", "average"), ("high", "high")] %}{% if t[k] %}{{ label }} ${{ t[k] | money }} <span class="vs">{{ t[k ~ "_vs"] | vs }}</span>{{ " · " if not loop.last }}{% endif %}{% endfor %}</p>
+    {% set tb = target_bar(t) %}
+    {% if tb %}
+    <div class="range target-range" role="img" aria-label="Analyst targets from ${{ tb.low | money }} to ${{ tb.high | money }}{% if tb.mean_position is not none %}; average ${{ tb.mean | money }}{% endif %}{% if tb.price is not none %}; price ${{ tb.price | money }}{% if tb.price_outside %} ({{ tb.price_outside }} the range){% endif %}{% endif %}">
+      {% if tb.mean_position is not none %}<span class="range-mark mean" style="left: {{ "%.1f" | format(tb.mean_position) }}%"></span>{% endif %}
+      {% if tb.price_position is not none %}<span class="range-mark price" style="left: {{ "%.1f" | format(tb.price_position) }}%"></span>{% endif %}
+    </div>
+    <p class="range-legend"><span class="range-end">${{ tb.low | money }}</span>
+      <span>{% if tb.price is not none %}<span class="key price"></span> price ${{ tb.price | money }}{% if tb.price_outside %} ({{ tb.price_outside }} the range){% endif %}{% endif %}
+        {% if tb.mean_position is not none %}<span class="key mean"></span> average target ${{ tb.mean | money }}{% endif %}</span>
+      <span class="range-end">${{ tb.high | money }}</span></p>
+    {% endif %}
     {% endif %}
     {% if v.industry_peers or v.history %}
     <details class="more"><summary>Peers and yearly figures</summary>
@@ -189,6 +210,16 @@
     <p class="sentiment-score"><strong class="{{ 'up' if s.score > 0 else ('down' if s.score < 0 else 'flat') }}">{{ "{:+d}".format(s.score) }}</strong> <span class="muted">on a scale from −100 (all bearish) to +100 (all bullish)</span></p>
     {% else %}
     <p class="muted">{% if body.ai_model %}No score: no items were rated in this period.{% else %}No score: AI ratings are off for this report (see "Missing from this report" above).{% endif %}</p>
+    {% endif %}
+    {% set sb = sentiment_bar(s) %}
+    {% if sb and sb.marker is not none %}
+    <div class="scale" role="img" aria-label="Score {{ "{:+d}".format(s.score) }} on a scale from −100 to +100"><span class="scale-mark" style="left: {{ "%.1f" | format(sb.marker) }}%"></span></div>
+    <p class="scale-ends muted small"><span>−100</span><span>0</span><span>+100</span></p>
+    {% endif %}
+    {% if sb %}
+    <div class="mix" role="img" aria-label="{{ sb.counts.bullish }} bullish, {{ sb.counts.neutral }} neutral, {{ sb.counts.bearish }} bearish">
+      {%- for k in ("bullish", "neutral", "bearish") if sb[k] > 0 %}<span class="mix-part {{ k }}" style="width: {{ "%.1f" | format(sb[k]) }}%"></span>{% endfor -%}
+    </div>
     {% endif %}
     <p>{{ s.counts.bullish }} bullish · {{ s.counts.neutral }} neutral · {{ s.counts.bearish }} bearish
       <span class="muted small">(each story counts once, however many outlets carried it)</span></p>

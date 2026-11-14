@@ -15,7 +15,7 @@ from app.services import watchlists as wl
 from app.services.reports import running_run, start_run
 from app.tickers import InvalidTicker, normalize_ticker
 from app.timeutils import EASTERN, as_utc, today_eastern, utc_now
-from app.web.report_view import glance
+from app.web.report_view import glance, history_bars, sentiment_bar, target_bar, vs_class
 from app.web.routes import SessionDep, UserDep, _redirect, templates
 
 router = APIRouter()
@@ -243,6 +243,10 @@ def iso_eastern(value: str | None) -> datetime | None:
 
 templates.env.globals["citation_numbers"] = citation_numbers
 templates.env.globals["report_glance"] = glance
+templates.env.globals["target_bar"] = target_bar
+templates.env.globals["history_bars"] = history_bars
+templates.env.globals["sentiment_bar"] = sentiment_bar
+templates.env.filters["vs_class"] = vs_class
 templates.env.filters["from_iso"] = iso_eastern
 # How a followed fund's change in a stock is described (SPEC F4.8).
 templates.env.globals["fund_status"] = {
