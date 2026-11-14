@@ -84,6 +84,24 @@
     {% endif %}
   </section>
 
+  {% set vc = voices(body.stories) %}
+  {% if vc.entries %}
+  <section id="r{{ rid }}-voices">
+    <h3>Voices: X and YouTube</h3>
+    <p class="muted small">Opinions from the channels and accounts you trust, not confirmed facts. Weigh them against the news and filings above.</p>
+    <p class="voice-tally small">{{ vc.entries | length }} voice{{ "" if vc.entries | length == 1 else "s" }}: {{ vc.counts.bullish }} bullish · {{ vc.counts.neutral }} neutral · {{ vc.counts.bearish }} bearish{% if vc.rated < vc.entries | length %} <span class="muted">({{ vc.entries | length - vc.rated }} not rated)</span>{% endif %}</p>
+    <ul class="voices">{% for e in vc.entries %}
+      <li class="voice"><p class="voice-who"><span class="badge plain">{{ e.label }}</span> <strong>{{ e.who }}</strong>
+          {% if e.sentiment %}<span class="rating {{ e.sentiment }}">{{ e.sentiment }}</span>{% endif %}
+          {% if e.unconfirmed %}<span class="badge">unconfirmed</span>{% endif %}
+          {% if e.day %}<span class="muted small">· {{ e.day }}</span>{% endif %}</p>
+        <p>{{ e.text }} <a class="cite" href="#r{{ rid }}-s{{ e.number }}" title="Source {{ e.number }}">[{{ e.number }}]</a></p>
+        {% if e.point %}<p class="small muted">{% if e.point.time %}<a href="{{ e.point.url }}" rel="noopener noreferrer" target="_blank" class="timestamp" title="Watch from {{ e.point.time }}">{{ e.point.time }}</a> {% endif %}{{ e.point.text }}</p>{% endif %}
+      </li>{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
   <section id="r{{ rid }}-insider">
     {% set ins = body.insider %}
     <h3>Institutional &amp; insider activity</h3>

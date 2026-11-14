@@ -321,11 +321,7 @@ def claim_origin(refs: list[int], stories: list[dict[str, Any]]) -> dict[str, An
             outlet = item.get("outlet")
             if outlet and outlet not in outlets:
                 outlets.append(outlet)
-    day = ""
-    published = cited[0].get("published_at")
-    if published:
-        when = as_utc(datetime.fromisoformat(published)).astimezone(EASTERN)
-        day = f"{when:%b} {when.day}"
+    day = _eastern_day(cited[0].get("published_at"))
     if not outlets and not day:
         return None
     return {
@@ -483,3 +479,47 @@ def number_highlights(body: dict[str, Any]) -> list[dict[str, str]]:
         ("insider", _options_line(body.get("unusual_options") or {})),
     ]
     return [{"section": section, "text": text} for section, text in lines if text]
+
+
+# --- voices: what trusted X accounts and YouTube channels say ----------------------------
+
+VOICE_LABELS = {"video": "YouTube", "post": "X"}
+
+
+def _eastern_day(published: str | None) -> str:
+    """Stored ISO time -> its US Eastern day, 'Oct 30'; '' when missing."""
+    if not published:
+        return ""
+    when = as_utc(datetime.fromisoformat(published)).astimezone(EASTERN)
+    return f"{when:%b} {when.day}"
+
+
+def voices(stories: list[dict[str, Any]] | None) -> dict[str, Any]:
+    """The stories that are YouTube videos or X posts, for the "Voices" section: who said
+    it, the stored summary and rating, a video's first point, and the story's number in the
+    Sources list (so every entry links to its source). Also how the rated ones split into
+    bullish / neutral / bearish. Blogs, news and filings are not voices."""
+    entries = []
+    counts = {"bullish": 0, "neutral": 0, "bearish": 0}
+    for number, item in enumerate(stories or [], start=1):
+        label = VOICE_LABELS.get(item.get("kind") or "")
+        if not label:
+            continue
+        sources = item.get("items") or [{}]
+        points = item.get("points") or []
+        sentiment = item.get("sentiment")
+        if sentiment in counts:
+            counts[sentiment] += 1
+        entries.append(
+            {
+                "number": number,
+                "label": label,
+                "who": sources[0].get("outlet") or label,
+                "text": item.get("summary") or item.get("title") or "",
+                "sentiment": sentiment,
+                "unconfirmed": bool(item.get("is_rumor")),
+                "point": points[0] if points else None,
+                "day": _eastern_day(item.get("published_at")),
+            }
+        )
+    return {"entries": entries, "counts": counts, "rated": sum(counts.values())}
