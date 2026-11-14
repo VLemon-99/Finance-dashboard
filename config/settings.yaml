@@ -63,6 +63,9 @@ reports:
     youtube: 0.7
     x: 0.5
     reddit: 0.3
+  # Insider trades: a report shows this many (the largest by dollar value); the full list is
+  # one click away. 0 shows only the totals.
+  insider_highlights: 3
 
 ai:
   # Gemini model. "gemini-flash-latest" always points at Google's current Flash model.

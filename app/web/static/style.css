@@ -541,3 +541,9 @@ a.chip:hover { border-color: var(--accent); color: var(--accent); }
 .source-title .rating.bearish { background: var(--down-bg); border-color: transparent; }
 .sources .rating-reason { color: var(--muted); }
 @media (max-width: 720px) { .claim-origin { display: block; margin: 2px 0 0; white-space: normal; } }
+
+/* Report: ownership, condensed (largest insider trades; the rest folded away) */
+.insider-highlights { list-style: none; margin: 6px 0 8px; padding: 0; display: grid; gap: 6px; }
+.insider-highlights li { padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); line-height: 1.4; }
+.insider-highlights .up, .insider-highlights .down { font-weight: 650; }
+.plain-note { margin: 6px 0; padding-left: 10px; border-left: 3px solid var(--border); color: var(--muted); }

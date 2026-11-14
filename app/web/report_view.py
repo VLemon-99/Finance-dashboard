@@ -351,3 +351,36 @@ def source_kinds(stories: list[dict[str, Any]]) -> list[tuple[str, int]]:
         for kind, one, many in KIND_LABELS
         if counts.get(kind)
     ]
+
+
+# --- ownership, condensed (owner 2026-11-14: highlight the major events) -----------------
+
+FUND_MOVES = ("new", "added", "reduced", "sold")
+
+
+def insider_highlights(insider: dict[str, Any] | None, limit: int) -> dict[str, Any]:
+    """The largest insider trades by dollar value (trades without a value last), at most
+    `limit`, plus what the fold-out holds: how many trades in all, how many more than shown,
+    how many different insiders, and how many of the sales were under pre-arranged plans."""
+    trades = list((insider or {}).get("trades") or [])
+    ranked = sorted(trades, key=lambda t: (t.get("value") is None, -(t.get("value") or 0.0)))
+    top = ranked[: max(0, limit)]
+    sales = [t for t in trades if t.get("kind") == "sell"]
+    return {
+        "top": top,
+        "total": len(trades),
+        "more": len(trades) - len(top),
+        "people": len({t.get("name") for t in trades}),
+        "sales": len(sales),
+        "planned_sales": sum(1 for t in sales if t.get("plan_10b5_1")),
+    }
+
+
+def fund_changes(funds: dict[str, Any] | None) -> dict[str, list[dict[str, Any]]]:
+    """The followed funds' positions split into those that moved since their previous 13F
+    report (new, added, reduced, sold) and those that didn't."""
+    positions = (funds or {}).get("positions") or []
+    return {
+        "changed": [p for p in positions if p.get("status") in FUND_MOVES],
+        "unchanged": [p for p in positions if p.get("status") not in FUND_MOVES],
+    }

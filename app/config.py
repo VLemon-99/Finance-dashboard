@@ -145,6 +145,9 @@ class ReportsConfig(_Section):
         "x": 0.5,
         "reddit": 0.3,
     }
+    # How many insider trades (the largest by dollar value) a report shows before the full
+    # list is folded away (owner 2026-11-14).
+    insider_highlights: int = Field(default=3, ge=0, le=20)
 
 
 class AIConfig(_Section):

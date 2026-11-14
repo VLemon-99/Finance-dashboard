@@ -71,15 +71,27 @@
     {% endif %}
     {% endif %}
     {% if inst and inst.funds %}{% set f = inst.funds %}
+    {% set fc = fund_changes(f) %}
     <p>Funds you follow{% if f.period %} (13F reports for the quarter ending {{ f.period | iso_day }}){% endif %}:
-      {% if f.positions %}</p>
-    <ul class="compact-list">{% for p in f.positions %}
+      {% if fc.changed %}</p>
+    <ul class="compact-list">{% for p in fc.changed %}
       <li><strong>{{ p.fund }}</strong>
         <span class="{{ 'up' if p.status in ('new', 'added') else ('down' if p.status in ('reduced', 'sold') else 'flat') }}">{{ fund_status[p.status] }}{% if p.status in ('added', 'reduced') %} {{ p.change | vs }}{% endif %}</span>{% if p.status != 'sold' %}
         <span class="muted small">· {{ p.shares | compact }} shares{% if p.portfolio_pct is not none %}, {{ p.portfolio_pct | percent }} of its portfolio{% endif %}</span>{% endif %}
         {% if p.url %}<a class="small" href="{{ p.url }}" rel="noopener noreferrer" target="_blank">13F</a>{% endif %}</li>{% endfor %}
     </ul>
+      {% elif f.positions %}{{ f.positions | length }} hold{{ "s" if f.positions | length == 1 else "" }} it; none changed its position.</p>
       {% else %}none of the {{ f.checked }} hold it.</p>{% endif %}
+    {% if fc.unchanged %}
+    <details class="more"><summary>{{ fc.unchanged | length }} fund{{ "" if fc.unchanged | length == 1 else "s" }} with an unchanged position</summary>
+    <ul class="compact-list">{% for p in fc.unchanged %}
+      <li><strong>{{ p.fund }}</strong>
+        <span class="{{ 'up' if p.status in ('new', 'added') else ('down' if p.status in ('reduced', 'sold') else 'flat') }}">{{ fund_status[p.status] }}{% if p.status in ('added', 'reduced') %} {{ p.change | vs }}{% endif %}</span>{% if p.status != 'sold' %}
+        <span class="muted small">· {{ p.shares | compact }} shares{% if p.portfolio_pct is not none %}, {{ p.portfolio_pct | percent }} of its portfolio{% endif %}</span>{% endif %}
+        {% if p.url %}<a class="small" href="{{ p.url }}" rel="noopener noreferrer" target="_blank">13F</a>{% endif %}</li>{% endfor %}
+    </ul>
+    </details>
+    {% endif %}
     {% endif %}
     {% set sec_off = ins.available is defined and not ins.available %}
     {% if sec_off %}
@@ -93,9 +105,24 @@
       Net: <span class="{{ 'up' if ins.net_value > 0 else ('down' if ins.net_value < 0 else 'flat') }}">{{ "-" if ins.net_value < 0 else "" }}${{ (ins.net_value | abs) | money }}</span>.
       {% else %}no open-market buys or sales.{% endif %}
     </p>
-    {% if ins.missing_prices %}<p class="muted small">{{ ins.missing_prices }} trade(s) had no price and aren't in the dollar totals.</p>{% endif %}
-    {% if ins.filings_without_trades %}<p class="muted small">{{ ins.filings_without_trades }} other Form 4 filing(s) only reported grants, option exercises, tax withholding or gifts; not counted as buys or sales.</p>{% endif %}
     {% if ins.trades %}
+    {% set ih = insider_highlights(ins, request.app.state.config.reports.insider_highlights) %}
+    {% if ih.sales and ih.planned_sales == ih.sales %}
+    <p class="plain-note">{{ "Both sales were" if ih.sales == 2 else ("The sale was" if ih.sales == 1 else "All " ~ ih.sales ~ " sales were") }} made under pre-arranged plans (10b5-1), set up in advance, so they say little about the insider's view today.</p>
+    {% elif ih.planned_sales %}
+    <p class="plain-note">{{ ih.planned_sales }} of the {{ ih.sales }} sales {{ "was" if ih.planned_sales == 1 else "were" }} made under pre-arranged plans (10b5-1); the rest were the insider's own timing.</p>
+    {% endif %}
+    {% if ih.top %}
+    <ul class="insider-highlights">{% for t in ih.top %}
+      <li><span class="{{ 'up' if t.kind == 'buy' else 'down' }}">{{ "Bought" if t.kind == "buy" else "Sold" }}</span>
+        <strong>{% if t.value is not none %}${{ t.value | compact }}{% else %}value unknown{% endif %}</strong>
+        · {{ t.name }}{% if t.role %}, {{ t.role }}{% endif %}
+        <span class="muted">· {{ "{:,.0f}".format(t.shares) }} shares{% if t.price is not none %} at ${{ t.price | money }}{% endif %} · {{ t.date | iso_day }}{% if t.plan_10b5_1 %} · pre-arranged plan{% endif %}</span>
+        <a class="small" href="{{ t.source.url }}" rel="noopener noreferrer" target="_blank">Form 4</a></li>{% endfor %}
+    </ul>
+    {% endif %}
+    {% if ih.more and ih.top %}<p class="muted small">{{ ih.more }} smaller trade{{ " is" if ih.more == 1 else "s are" }} in the full list.</p>{% endif %}
+    <details class="more"><summary>All {{ ih.total }} insider trade{{ "" if ih.total == 1 else "s" }}</summary>
     <div class="table-wrap"><table class="stocks">
       <thead><tr><th>Date</th><th>Insider</th><th>Trade</th><th class="num">Shares</th><th class="num">Price</th><th class="num">Value</th><th>Source</th></tr></thead>
       <tbody>{% for t in ins.trades %}
@@ -110,6 +137,12 @@
         </tr>{% endfor %}
       </tbody>
     </table></div>
+    {% if ins.missing_prices %}<p class="muted small">{{ ins.missing_prices }} trade(s) had no price and aren't in the dollar totals.</p>{% endif %}
+    {% if ins.filings_without_trades %}<p class="muted small">{{ ins.filings_without_trades }} other Form 4 filing(s) only reported grants, option exercises, tax withholding or gifts; not counted as buys or sales.</p>{% endif %}
+    </details>
+    {% else %}
+    {% if ins.missing_prices %}<p class="muted small">{{ ins.missing_prices }} trade(s) had no price and aren't in the dollar totals.</p>{% endif %}
+    {% if ins.filings_without_trades %}<p class="muted small">{{ ins.filings_without_trades }} other Form 4 filing(s) only reported grants, option exercises, tax withholding or gifts; not counted as buys or sales.</p>{% endif %}
     {% endif %}
     <p>New 5%+ holder reports (13D/13G, last {{ ins.lookback_days }} days):
       {% if ins.holder_filings %}</p>
